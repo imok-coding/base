@@ -5,7 +5,8 @@ import Manga from './pages/Manga.jsx';
 import Anime from './pages/Anime.jsx';
 import TCG from './pages/TCG.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import { AuthProvider } from './context/AuthContext.jsx';
+import { AuthProvider } from './contexts/AuthContext.jsx';
+import SignIn from "./pages/SignIn";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/anime" element={<Anime />} />
         <Route path="/tcg" element={<TCG />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/signin" element={<SignIn />} />
       </Routes>
     </AuthProvider>
   );

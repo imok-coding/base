@@ -1,91 +1,113 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext.jsx';
-import './Navbar.css';
+import "./Navbar.css";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import AuthModal from "../AuthModal/AuthModal"; // NEW — modal for Google + Email login
+
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebaseConfig";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const { admin, user, login, logout } = useAuth();
-  const location = useLocation();
+  const [showAuth, setShowAuth] = useState(false); // NEW — controls modal visibility
 
-  const handleLoginClick = async () => {
-    const email = window.prompt('Admin email:');
-    const password = window.prompt('Password:');
-    if (!email || !password) return;
+  const { user, role } = useAuth();
+  const navigate = useNavigate();
+
+  // --- AUTH HANDLER: LOGOUT ---
+  async function handleLogoutClick() {
     try {
-      await login(email.trim(), password.trim());
+      await signOut(auth);
+
+      // Close menu on logout
+      setOpen(false);
+
+      // Redirect home
+      navigate("/");
     } catch (err) {
       console.error(err);
-      alert('Login failed: ' + (err.message || 'Unknown error'));
+      alert("Logout failed.");
     }
-  };
-
-  const handleLogoutClick = async () => {
-    try {
-      await logout();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const closeMenu = () => setOpen(false);
+  }
 
   return (
     <>
+      {/* Hamburger Button */}
       <button
-        className={`menu-toggle${open ? ' active' : ''}`}
+        className={`menu-toggle ${open ? "active" : ""}`}
         onClick={() => setOpen(!open)}
-        aria-label="Toggle navigation"
       >
         <span></span>
         <span></span>
         <span></span>
       </button>
 
-      <nav className={`menu-panel${open ? ' open' : ''}`}>
-        <div className="menu-items">
-          <Link to="/" className="menu-item" onClick={closeMenu} data-active={location.pathname === '/'}>
-            Home
-          </Link>
-          <Link to="/manga" className="menu-item" onClick={closeMenu} data-active={location.pathname === '/manga'}>
-            Manga
-          </Link>
-          <Link to="/anime" className="menu-item" onClick={closeMenu} data-active={location.pathname === '/anime'}>
-            Anime
-          </Link>
-          <Link to="/tcg" className="menu-item" onClick={closeMenu} data-active={location.pathname === '/tcg'}>
-            TCG
-          </Link>
-          {admin && (
-            <Link
-              to="/dashboard"
-              className="menu-item"
-              onClick={closeMenu}
-              data-active={location.pathname === '/dashboard'}
-            >
-              Dashboard
-            </Link>
-          )}
-        </div>
+      {/* Sliding Left Menu */}
+      <nav className={`menu-panel ${open ? "open" : ""}`}>
+        <Link to="/" className="menu-item" onClick={() => setOpen(false)}>
+          Home
+        </Link>
 
+        <Link to="/manga" className="menu-item" onClick={() => setOpen(false)}>
+          Manga
+        </Link>
+
+        <Link to="/anime" className="menu-item" onClick={() => setOpen(false)}>
+          Anime
+        </Link>
+
+        <Link to="/tcg" className="menu-item" onClick={() => setOpen(false)}>
+          TCG
+        </Link>
+
+        {/* ADMIN-ONLY DASHBOARD */}
+        {role === "admin" && (
+          <Link
+            to="/dashboard"
+            className="menu-item"
+            onClick={() => setOpen(false)}
+          >
+            Dashboard
+          </Link>
+        )}
+
+        {/* AUTH SECTION */}
         <div className="auth-section">
           <p className="auth-section-status">
-            {user ? `Signed in as ${user.email || user.uid}` : 'Not signed in'}
+            {user
+              ? `Signed in as ${user.email || user.uid}`
+              : "Not signed in"}
           </p>
+
           <div>
+            {/* SIGN IN BUTTON — Opens Modal */}
             {!user && (
-              <button className="auth-btn" onClick={handleLoginClick}>
+              <button
+                className="auth-btn"
+                onClick={() => {
+                  setOpen(false);
+                  setShowAuth(true);
+                }}
+              >
                 Sign in
               </button>
             )}
+
+            {/* SIGN OUT BUTTON */}
             {user && (
-              <button className="auth-btn secondary" onClick={handleLogoutClick}>
+              <button
+                className="auth-btn secondary"
+                onClick={handleLogoutClick}
+              >
                 Sign out
               </button>
             )}
           </div>
         </div>
       </nav>
+
+      {/* AUTH MODAL — Appears when clicking Sign In */}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </>
   );
 }

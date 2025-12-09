@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../api/firebase.js';
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function TCG() {
   const { admin } = useAuth();

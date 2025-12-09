@@ -1,4 +1,4 @@
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function Dashboard() {
   const { admin, loading } = useAuth();

@@ -1,0 +1,126 @@
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 2, 15, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+}
+
+.auth-modal {
+  width: 100%;
+  max-width: 380px;
+  padding: 24px 28px;
+  background: radial-gradient(circle at top left, #2b0f1d 0, #09040d 60%);
+  border: 1px solid rgba(255, 182, 193, 0.4);
+  border-radius: 18px;
+  box-shadow: 0 26px 70px rgba(0,0,0,0.9);
+  color: #fff;
+  text-align: center;
+  animation: authPop 0.25s ease;
+}
+
+@keyframes authPop {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.auth-title {
+  color: #ffb6c1;
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+}
+
+.google-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: #fff;
+  color: #333;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-divider {
+  margin: 8px 0;
+  color: #ffb6c1;
+  font-size: 0.8rem;
+}
+
+.auth-divider span {
+  opacity: 0.8;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(15, 2, 12, 0.9);
+  border: 1px solid rgba(255, 182, 193, 0.3);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.86rem;
+}
+
+.auth-input::placeholder {
+  color: #f8d1d8;
+  opacity: 0.7;
+}
+
+.auth-submit {
+  padding: 9px 12px;
+  margin-top: 4px;
+  background: rgba(255, 182, 193, 0.25);
+  border: 1px solid rgba(255, 182, 193, 0.45);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: 0.15s ease;
+}
+
+.auth-submit:hover {
+  background: rgba(255, 182, 193, 0.35);
+  transform: translateY(-2px);
+}
+
+.auth-switcher {
+  margin-top: 12px;
+  font-size: 0.8rem;
+}
+
+.auth-switcher button {
+  background: none;
+  border: none;
+  color: #ffb6c1;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.auth-close {
+  margin-top: 16px;
+  font-size: 0.8rem;
+  background: none;
+  color: #ffb6c1;
+  border: none;
+  cursor: pointer;
+}

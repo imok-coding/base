@@ -1,0 +1,75 @@
+.signin-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    radial-gradient(circle at top left, #40202f 0, transparent 45%),
+    radial-gradient(circle at bottom right, #120810 0, transparent 50%),
+    #1e0d14;
+
+  color: #fff;
+  padding: 20px;
+}
+
+.signin-card {
+  width: 100%;
+  max-width: 380px;
+  background: radial-gradient(circle at top left, #2b0f1d 0, #09040d 60%);
+  border-radius: 18px;
+  padding: 26px 30px;
+  border: 1px solid rgba(255, 182, 193, 0.4);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.9);
+  text-align: center;
+}
+
+.signin-title {
+  font-size: 1.6rem;
+  color: #ffb6c1;
+  margin-bottom: 6px;
+}
+
+.signin-sub {
+  font-size: 0.9rem;
+  color: #f8d1d8;
+  margin-bottom: 20px;
+}
+
+.google-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: #fff;
+  color: #333;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+
+  transition: transform 0.15s ease;
+}
+
+.google-btn:hover {
+  transform: translateY(-2px);
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.signin-cancel {
+  margin-top: 14px;
+  font-size: 0.8rem;
+  background: none;
+  border: none;
+  color: #ffb6c1;
+  cursor: pointer;
+  text-decoration: underline;
+}

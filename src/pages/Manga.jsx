@@ -1,117 +1,1006 @@
-import { useEffect, useState } from 'react';
-import { db } from '../api/firebase.js';
-import { collection, getDocs } from 'firebase/firestore';
+// src/pages/Manga.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import "../styles/manga.css";
+import { db } from "../firebaseConfig";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
+import { useAuth } from "../contexts/AuthContext";
 
-export default function Manga() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [term, setTerm] = useState('');
+// ---- Helpers to match your old index.html logic ----
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const col = collection(db, 'mangaLibrary'); // adjust to your existing collection name
-        const snap = await getDocs(col);
-        const rows = [];
-        snap.forEach((doc) => rows.push({ id: doc.id, ...doc.data() }));
-        setItems(rows);
-      } catch (err) {
-        console.error('Error loading manga:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+// Parse "Series Name, Vol. 1" → { name: "series name", vol: 1 }
+function parseTitleForSort(title) {
+  let t = (title || "").trim();
+  const m = t.match(
+    /^(.*?)(?:,?\s*(?:Vol\.|Volume)\s*(\d+)(?:\s*[-–]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i
+  );
+  const base = m ? m[1].trim().toLowerCase() : t.toLowerCase();
+  const volNum = m && m[2] ? parseInt(m[2], 10) : 0;
+  return {
+    name: base,
+    vol: Number.isFinite(volNum) ? volNum : 0,
+  };
+}
 
-  const filtered = items.filter((item) => {
-    if (!term) return true;
-    const t = term.toLowerCase();
-    return (
-      (item.title || '').toLowerCase().includes(t) ||
-      (item.series || '').toLowerCase().includes(t) ||
-      (item.isbn || '').toLowerCase().includes(t)
-    );
+// Generic numeric parser for money & pages
+function toNumber(val) {
+  if (typeof val === "number") return val;
+  if (val == null) return 0;
+  const cleaned = String(val).replace(/[^0-9.-]/g, "");
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function parseIntSafe(val) {
+  if (typeof val === "number") return val;
+  if (val == null || val === "") return 0;
+  const num = parseInt(val, 10);
+  return Number.isFinite(num) ? num : 0;
+}
+
+// ---- Stats computation (React version of your old dashboard) ----
+
+function computeMangaStats(library, wishlist) {
+  const totalLibrary = library.length;
+  const totalWishlist = wishlist.length;
+  const totalBooks = totalLibrary + totalWishlist;
+
+  const readBooks = library.filter((b) => b.read).length;
+  const unreadBooks = totalLibrary - readBooks;
+  const readPct = totalLibrary ? Math.round((readBooks / totalLibrary) * 100) : 0;
+
+  // Money
+  let paidTotal = 0;
+  let msrpTotal = 0;
+  let collectibleTotal = 0;
+  library.forEach((b) => {
+    paidTotal += toNumber(b.amountPaid);
+    msrpTotal += toNumber(b.msrp);
+    collectibleTotal += toNumber(b.collectiblePrice);
   });
 
+  // Pages
+  let pagesTotal = 0;
+  let pagesRead = 0;
+  library.forEach((b) => {
+    const pages = parseIntSafe(b.pageCount);
+    pagesTotal += pages;
+    if (b.read) pagesRead += pages;
+  });
+
+  // Ratings
+  const ratingBuckets = {
+    "10": 0,
+    "9": 0,
+    "8": 0,
+    "7": 0,
+    "6": 0,
+    "5": 0,
+    "4": 0,
+    "3": 0,
+    "2": 0,
+    "1": 0,
+  };
+  let ratingSum = 0;
+  let ratingCount = 0;
+
+  library.forEach((b) => {
+    const r = b.rating == null || b.rating === "" ? NaN : parseFloat(b.rating);
+    if (!Number.isFinite(r) || r <= 0) return;
+    const key = String(Math.round(r));
+    if (ratingBuckets[key] != null) {
+      ratingBuckets[key] += 1;
+    }
+    ratingSum += r;
+    ratingCount += 1;
+  });
+
+  const avgRating = ratingCount ? ratingSum / ratingCount : 0;
+
+  // Monthly reads (last 12 months)
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    months.push({
+      key,
+      label: d.toLocaleString(undefined, { month: "short" }),
+      count: 0,
+    });
+  }
+  const monthIndex = Object.fromEntries(months.map((m, idx) => [m.key, idx]));
+
+  library.forEach((b) => {
+    if (!b.dateRead) return;
+    const key = b.dateRead.slice(0, 7); // YYYY-MM
+    const idx = monthIndex[key];
+    if (idx != null) {
+      months[idx].count += 1;
+    }
+  });
+
+  // Top publishers
+  const publisherCounts = {};
+  library.forEach((b) => {
+    const p = (b.publisher || "").trim();
+    if (!p) return;
+    publisherCounts[p] = (publisherCounts[p] || 0) + 1;
+  });
+  const topPublishers = Object.entries(publisherCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+
+  return {
+    totalBooks,
+    totalLibrary,
+    totalWishlist,
+    readBooks,
+    unreadBooks,
+    readPct,
+    paidTotal,
+    msrpTotal,
+    collectibleTotal,
+    pagesTotal,
+    pagesRead,
+    avgRating,
+    ratingBuckets,
+    months,
+    topPublishers,
+  };
+}
+
+// ---- Dashboard component ----
+
+function MangaDashboard({ library, wishlist }) {
+  const stats = useMemo(() => computeMangaStats(library, wishlist), [library, wishlist]);
+
+  if (!stats.totalBooks) {
+    return (
+      <div className="manga-empty-state">
+        No manga loaded yet. Once your Firestore library &amp; wishlist are pulled in, this
+        dashboard will light up.
+      </div>
+    );
+  }
+
+  const maxRatingCount = Math.max(...Object.values(stats.ratingBuckets), 1);
+  const maxPublisherCount =
+    stats.topPublishers.length > 0
+      ? Math.max(...stats.topPublishers.map((p) => p.count), 1)
+      : 1;
+  const maxMonthCount =
+    stats.months.length > 0 ? Math.max(...stats.months.map((m) => m.count), 1) : 1;
+
   return (
-    <main className="page">
-      <header style={{ marginTop: '32px', marginBottom: '16px' }}>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: '2rem',
-            color: '#ffb6c1',
-            textShadow: '0 0 8px rgba(255,182,193,0.8)',
-          }}
-        >
-          Manga Library
-        </h1>
-        <p style={{ margin: '6px 0 0', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-          Simple view of your Firestore-backed manga collection.
-        </p>
+    <div className="manga-dashboard">
+      <div className="manga-dashboard-grid">
+        {/* Block 1: Totals + Read % pie */}
+        <div className="manga-stat-card">
+          <div className="manga-stat-header">
+            <div>
+              <div className="manga-stat-label">Collection</div>
+              <div className="manga-stat-value">{stats.totalBooks}</div>
+            </div>
+            <div className="manga-stat-sub">
+              Library: {stats.totalLibrary} · Wishlist: {stats.totalWishlist}
+            </div>
+          </div>
+          <div className="manga-pie-wrap">
+            <div
+              className="manga-pie"
+              style={{ "--pct": stats.readPct }}
+            >
+              <div className="manga-pie-label">{stats.readPct}% read</div>
+            </div>
+            <div className="manga-stat-sub">
+              <strong>{stats.readBooks}</strong> read ·{" "}
+              <strong>{stats.unreadBooks}</strong> unread in your library.
+              <br />
+              Perfect for tracking backlog vs progress.
+            </div>
+          </div>
+        </div>
+
+        {/* Block 2: Money + pages */}
+        <div className="manga-stat-card">
+          <div className="manga-stat-header">
+            <div>
+              <div className="manga-stat-label">Spending &amp; Pages</div>
+              <div className="manga-stat-value">
+                ${stats.paidTotal.toFixed(0)}
+              </div>
+            </div>
+            <div className="manga-stat-sub">
+              Pages owned: {stats.pagesTotal.toLocaleString()} · Read:{" "}
+              {stats.pagesRead.toLocaleString()}
+            </div>
+          </div>
+          <div className="manga-stat-sub">
+            MSRP (if set): ${stats.msrpTotal.toFixed(0)} · Collectible value: $
+            {stats.collectibleTotal.toFixed(0)}
+            <br />
+            Avg rating:{" "}
+            {stats.avgRating ? stats.avgRating.toFixed(2) : "N/A"}{" "}
+            / 10
+          </div>
+        </div>
+
+        {/* Block 3: Monthly reads chart */}
+        <div className="manga-stat-card">
+          <div className="manga-stat-header">
+            <div>
+              <div className="manga-stat-label">Reading Pace</div>
+              <div className="manga-stat-value">
+                {stats.months.reduce((sum, m) => sum + m.count, 0)}
+              </div>
+            </div>
+            <div className="manga-stat-sub">
+              Volumes finished in the last 12 months
+            </div>
+          </div>
+          <div className="manga-bar-chart">
+            {stats.months.map((m) => (
+              <div key={m.key} className="manga-bar">
+                <div
+                  className="manga-bar-fill"
+                  style={{
+                    height: `${(m.count / maxMonthCount) * 100 || 0}%`,
+                  }}
+                />
+                <div className="manga-bar-label">{m.label}</div>
+                {m.count > 0 && (
+                  <div className="manga-bar-value">{m.count}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Second row: rating distribution + top publishers */}
+      <div
+        className="manga-dashboard-grid"
+        style={{ marginTop: "14px", gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1.7fr)" }}
+      >
+        <div className="manga-stat-card">
+          <div className="manga-stat-header">
+            <div>
+              <div className="manga-stat-label">Ratings</div>
+              <div className="manga-stat-value">
+                {Object.values(stats.ratingBuckets).reduce((s, v) => s + v, 0)}
+              </div>
+            </div>
+            <div className="manga-stat-sub">How you’ve scored your volumes</div>
+          </div>
+          <div className="manga-bar-chart">
+            {Object.entries(stats.ratingBuckets)
+              .sort((a, b) => Number(b[0]) - Number(a[0]))
+              .map(([score, count]) => (
+                <div key={score} className="manga-bar">
+                  <div
+                    className="manga-bar-fill"
+                    style={{ height: `${(count / maxRatingCount) * 100 || 0}%` }}
+                  />
+                  <div className="manga-bar-label">{score}</div>
+                  {count > 0 && (
+                    <div className="manga-bar-value">{count}</div>
+                  )}
+                </div>
+              ))}
+          </div>
+        </div>
+
+        <div className="manga-stat-card">
+          <div className="manga-stat-header">
+            <div>
+              <div className="manga-stat-label">Top Publishers</div>
+              <div className="manga-stat-value">
+                {stats.topPublishers.reduce((s, p) => s + p.count, 0)}
+              </div>
+            </div>
+            <div className="manga-stat-sub">Most common publishers in your library</div>
+          </div>
+          {stats.topPublishers.length === 0 ? (
+            <div className="manga-stat-sub">
+              No publisher data yet – add some volumes first.
+            </div>
+          ) : (
+            <div className="manga-bar-chart">
+              {stats.topPublishers.map((p) => (
+                <div key={p.name} className="manga-bar">
+                  <div
+                    className="manga-bar-fill"
+                    style={{
+                      height: `${(p.count / maxPublisherCount) * 100 || 0}%`,
+                    }}
+                  />
+                  <div className="manga-bar-label">
+                    {p.name.length > 8 ? `${p.name.slice(0, 8)}…` : p.name}
+                  </div>
+                  <div className="manga-bar-value">{p.count}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Main page ----
+
+export default function Manga() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
+  const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist' | 'dashboard'
+
+  const [library, setLibrary] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [searchLibrary, setSearchLibrary] = useState("");
+  const [searchWishlist, setSearchWishlist] = useState("");
+
+  const [multiMode, setMultiMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+
+  const [modalBook, setModalBook] = useState(null);
+
+  // ----- Firestore loading -----
+
+  async function loadLibrary() {
+    const snap = await getDocs(collection(db, "library"));
+    const items = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      items.push({
+        id: docSnap.id,
+        title: data.title || "",
+        authors: data.authors || "Unknown",
+        publisher: data.publisher || "Unknown",
+        demographic: data.demographic || "",
+        genre: data.genre || "",
+        subGenre: data.subGenre || "",
+        date: data.date || "Unknown",
+        cover: data.cover || "",
+        isbn: data.isbn || "",
+        pageCount:
+          data.pageCount !== undefined && data.pageCount !== null
+            ? data.pageCount
+            : "",
+        rating:
+          data.rating !== undefined && data.rating !== null ? data.rating : "",
+        amountPaid:
+          data.amountPaid !== undefined && data.amountPaid !== null
+            ? data.amountPaid
+            : "",
+        dateRead: data.dateRead || "",
+        datePurchased: data.datePurchased || "",
+        msrp:
+          data.msrp !== undefined && data.msrp !== null ? data.msrp : "",
+        specialType: data.specialType || "",
+        specialVolumes:
+          data.specialVolumes !== undefined && data.specialVolumes !== null
+            ? data.specialVolumes
+            : "",
+        collectiblePrice:
+          data.collectiblePrice !== undefined &&
+          data.collectiblePrice !== null
+            ? data.collectiblePrice
+            : "",
+        read: !!data.read,
+        amazonURL: data.amazonURL || "",
+        kind: "library",
+      });
+    });
+
+    // Match your old sorting: series name + volume number
+    items.sort((a, b) => {
+      const aP = parseTitleForSort(a.title);
+      const bP = parseTitleForSort(b.title);
+      const cmp = aP.name.localeCompare(bP.name);
+      return cmp !== 0 ? cmp : aP.vol - bP.vol;
+    });
+
+    setLibrary(items);
+  }
+
+  async function loadWishlist() {
+    const snap = await getDocs(collection(db, "wishlist"));
+    const items = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      items.push({
+        id: docSnap.id,
+        title: data.title || "",
+        authors: data.authors || "Unknown",
+        publisher: data.publisher || "Unknown",
+        date: data.date || "Unknown",
+        cover: data.cover || "",
+        isbn: data.isbn || "",
+        pageCount:
+          data.pageCount !== undefined && data.pageCount !== null
+            ? data.pageCount
+            : "",
+        rating:
+          data.rating !== undefined && data.rating !== null ? data.rating : "",
+        amountPaid:
+          data.amountPaid !== undefined && data.amountPaid !== null
+            ? data.amountPaid
+            : "",
+        specialType: data.specialType || "",
+        specialVolumes:
+          data.specialVolumes !== undefined && data.specialVolumes !== null
+            ? data.specialVolumes
+            : "",
+        collectiblePrice:
+          data.collectiblePrice !== undefined &&
+          data.collectiblePrice !== null
+            ? data.collectiblePrice
+            : "",
+        amazonURL: data.amazonURL || "",
+        kind: "wishlist",
+      });
+    });
+
+    items.sort((a, b) => {
+      const aP = parseTitleForSort(a.title);
+      const bP = parseTitleForSort(b.title);
+      const cmp = aP.name.localeCompare(bP.name);
+      return cmp !== 0 ? cmp : aP.vol - bP.vol;
+    });
+
+    setWishlist(items);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAll() {
+      setLoading(true);
+      setError("");
+      try {
+        await Promise.all([loadLibrary(), loadWishlist()]);
+        if (!cancelled) setLoading(false);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setError("Failed to load manga data from Firestore.");
+          setLoading(false);
+        }
+      }
+    }
+
+    loadAll();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ----- Filtered lists -----
+
+  const filteredLibrary = useMemo(() => {
+    const q = searchLibrary.trim().toLowerCase();
+    if (!q) return library;
+    return library.filter((b) => {
+      const searchText = [
+        b.title,
+        b.authors,
+        b.publisher,
+        b.isbn,
+        b.date,
+        String(b.pageCount ?? ""),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return searchText.includes(q);
+    });
+  }, [library, searchLibrary]);
+
+  const filteredWishlist = useMemo(() => {
+    const q = searchWishlist.trim().toLowerCase();
+    if (!q) return wishlist;
+    return wishlist.filter((b) => {
+      const searchText = [
+        b.title,
+        b.authors,
+        b.publisher,
+        b.isbn,
+        b.date,
+        String(b.pageCount ?? ""),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return searchText.includes(q);
+    });
+  }, [wishlist, searchWishlist]);
+
+  // ----- Multi-select -----
+
+  function toggleMultiMode() {
+    if (!isAdmin) return;
+    setMultiMode((prev) => {
+      if (prev) {
+        // Exiting multi-mode clears selection
+        return false;
+      }
+      return true;
+    });
+    setSelectedIds(new Set());
+  }
+
+  function toggleCardSelection(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function applyMultiAction(action) {
+    if (!isAdmin) {
+      alert("Multi-select actions require admin access.");
+      return;
+    }
+    const ids = Array.from(selectedIds);
+    if (!ids.length) {
+      alert("Select at least one item first.");
+      return;
+    }
+
+    const isLibraryTab = activeTab === "library";
+
+    try {
+      if (action === "move") {
+        if (isLibraryTab) {
+          if (!window.confirm(`Move ${ids.length} item(s) to Wishlist?`)) return;
+          for (const id of ids) {
+            const item = library.find((x) => x.id === id);
+            if (!item) continue;
+            const payload = {
+              title: item.title,
+              authors: item.authors,
+              publisher: item.publisher,
+              date: item.date,
+              isbn: item.isbn,
+              pageCount: item.pageCount || "",
+              cover: item.cover,
+              amazonURL: item.amazonURL || "",
+              specialType: item.specialType || "",
+              specialVolumes: item.specialVolumes || "",
+              collectiblePrice: item.collectiblePrice || "",
+              rating: item.rating || "",
+            };
+            await addDoc(collection(db, "wishlist"), payload);
+            await deleteDoc(doc(db, "library", id));
+          }
+        } else {
+          if (!window.confirm(`Move ${ids.length} item(s) to Library?`)) return;
+          for (const id of ids) {
+            const item = wishlist.find((x) => x.id === id);
+            if (!item) continue;
+            const payload = {
+              title: item.title,
+              authors: item.authors,
+              publisher: item.publisher,
+              date: item.date,
+              isbn: item.isbn,
+              pageCount: item.pageCount || "",
+              cover: item.cover,
+              amountPaid: "",
+              read: false,
+              rating: "",
+              specialType: item.specialType || "",
+              specialVolumes: item.specialVolumes || "",
+              collectiblePrice: item.collectiblePrice || "",
+            };
+            await addDoc(collection(db, "library"), payload);
+            await deleteDoc(doc(db, "wishlist", id));
+          }
+        }
+      } else if (action === "markRead" && isLibraryTab) {
+        for (const id of ids) {
+          await updateDoc(doc(db, "library", id), {
+            read: true,
+            dateRead: new Date().toISOString().slice(0, 10),
+          });
+        }
+      } else if (action === "markUnread" && isLibraryTab) {
+        for (const id of ids) {
+          await updateDoc(doc(db, "library", id), {
+            read: false,
+            dateRead: "",
+            rating: "",
+          });
+        }
+      } else if (action === "delete") {
+        const colName = isLibraryTab ? "library" : "wishlist";
+        if (
+          !window.confirm(
+            `Delete ${ids.length} item(s) from ${isLibraryTab ? "Library" : "Wishlist"}?`
+          )
+        )
+          return;
+        for (const id of ids) {
+          await deleteDoc(doc(db, colName, id));
+        }
+      }
+
+      // Reload after any action
+      await Promise.all([loadLibrary(), loadWishlist()]);
+      setSelectedIds(new Set());
+      setMultiMode(false);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to apply multi-select action.");
+    }
+  }
+
+  // ----- Modal -----
+
+  function openModal(book) {
+    setModalBook(book);
+  }
+
+  function closeModal() {
+    setModalBook(null);
+  }
+
+  // ----- Rendering helpers -----
+
+  function renderCard(book) {
+    const selected = selectedIds.has(book.id);
+    const isLibraryCard = book.kind === "library";
+
+    const handleClick = () => {
+      if (multiMode && isAdmin) {
+        toggleCardSelection(book.id);
+      } else {
+        openModal(book);
+      }
+    };
+
+    return (
+      <div
+        key={book.id}
+        className={
+          "manga-card" +
+          (book.read && isLibraryCard ? " read" : "") +
+          (selected ? " multiselect-selected" : "")
+        }
+        onClick={handleClick}
+      >
+        <div className="manga-card-cover-wrap">
+          <img
+            src={
+              book.cover ||
+              "https://imgur.com/chUgq4W.png"
+            }
+            alt="Cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div className="manga-card-body">
+          <div className="manga-card-title">{book.title || "Untitled"}</div>
+          <div className="manga-card-meta">
+            {book.authors && book.authors !== "Unknown" && (
+              <>
+                {book.authors}
+                <br />
+              </>
+            )}
+            {book.publisher && book.publisher !== "Unknown" && (
+              <>
+                {book.publisher}
+                <br />
+              </>
+            )}
+            {book.date && book.date !== "Unknown" && book.date}
+          </div>
+          {book.isbn && (
+            <div className="manga-card-isbn">ISBN: {book.isbn}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const currentList = activeTab === "library" ? filteredLibrary : filteredWishlist;
+
+  return (
+    <div className="manga-page">
+      <header className="manga-header">
+        <div>
+          <div className="manga-header-title">
+            Tyler&apos;s Manga Library
+            <span className="manga-badge">Firestore synced</span>
+          </div>
+          <div className="manga-header-sub">
+            Library &amp; Wishlist are managed via Firestore. This React port reuses the
+            same collections as your original index.html.
+          </div>
+        </div>
       </header>
 
-      <section style={{ marginTop: '12px' }}>
-        <input
-          type="text"
-          placeholder="Search by title, series, or ISBN…"
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          style={{
-            width: '100%',
-            maxWidth: '420px',
-            padding: '8px 12px',
-            borderRadius: '999px',
-            border: '1px solid #bb7f8f',
-            background: '#2b0f1d',
-            color: '#fff',
-            boxShadow: '0 0 6px rgba(255,182,193,0.3) inset',
-          }}
-        />
-      </section>
-
-      {loading ? (
-        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>Loading manga from Firestore…</p>
-      ) : filtered.length === 0 ? (
-        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>No manga found matching your search.</p>
-      ) : (
-        <section
-          className="grid"
-          style={{
-            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-            marginTop: '20px',
+      {/* Tabs */}
+      <div className="manga-tabs">
+        <button
+          className={
+            "manga-tab-btn" + (activeTab === "library" ? " active" : "")
+          }
+          onClick={() => {
+            setActiveTab("library");
+            setMultiMode(false);
+            setSelectedIds(new Set());
           }}
         >
-          {filtered.map((m) => (
-            <article
-              key={m.id}
-              style={{
-                background: '#2b0f1d',
-                borderRadius: '12px',
-                border: '1px solid rgba(255,182,193,0.25)',
-                boxShadow: '0 2px 8px rgba(255,182,193,0.2)',
-                padding: '10px',
-                fontSize: '0.82rem',
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 700,
-                  color: '#ffc0cb',
-                  marginBottom: '4px',
-                }}
+          Library
+        </button>
+        <button
+          className={
+            "manga-tab-btn" + (activeTab === "wishlist" ? " active" : "")
+          }
+          onClick={() => {
+            setActiveTab("wishlist");
+            setMultiMode(false);
+            setSelectedIds(new Set());
+          }}
+        >
+          Wishlist
+        </button>
+        <button
+          className={
+            "manga-tab-btn" + (activeTab === "dashboard" ? " active" : "")
+          }
+          onClick={() => {
+            setActiveTab("dashboard");
+            setMultiMode(false);
+            setSelectedIds(new Set());
+          }}
+        >
+          Manga Dashboard
+        </button>
+      </div>
+
+      {/* Toolbar */}
+      {activeTab !== "dashboard" && (
+        <>
+          <div className="manga-toolbar">
+            <div className="manga-toolbar-left">
+              <input
+                type="text"
+                className="manga-search-input"
+                placeholder={
+                  activeTab === "library"
+                    ? "Search library by title, author, ISBN…"
+                    : "Search wishlist…"
+                }
+                value={
+                  activeTab === "library" ? searchLibrary : searchWishlist
+                }
+                onChange={(e) =>
+                  activeTab === "library"
+                    ? setSearchLibrary(e.target.value)
+                    : setSearchWishlist(e.target.value)
+                }
+              />
+              <div className="manga-counter">
+                {activeTab === "library" ? (
+                  <>
+                    Library: {filteredLibrary.length} / {library.length}
+                  </>
+                ) : (
+                  <>
+                    Wishlist: {filteredWishlist.length} / {wishlist.length}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="manga-toolbar-right">
+              {isAdmin && (
+                <button
+                  className={
+                    "manga-btn secondary" + (multiMode ? " active" : "")
+                  }
+                  onClick={toggleMultiMode}
+                >
+                  {multiMode ? "Exit Multi-select" : "Multi-select"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Multi-select toolbar */}
+          {isAdmin && multiMode && (
+            <div className="manga-multiselect-bar">
+              <span>
+                Selected: <strong>{selectedIds.size}</strong>
+              </span>
+              <button
+                className="manga-btn secondary"
+                onClick={() => applyMultiAction("move")}
               >
-                {m.title || 'Untitled'}
-              </div>
-              <div style={{ color: 'var(--text-soft)', marginBottom: '4px' }}>{m.series || ''}</div>
-              <div style={{ color: '#eea4b7', fontSize: '0.75rem' }}>
-                {m.isbn ? `ISBN: ${m.isbn}` : ''}
-              </div>
-            </article>
-          ))}
-        </section>
+                Move to {activeTab === "library" ? "Wishlist" : "Library"}
+              </button>
+              {activeTab === "library" && (
+                <>
+                  <button
+                    className="manga-btn"
+                    onClick={() => applyMultiAction("markRead")}
+                  >
+                    Mark Read
+                  </button>
+                  <button
+                    className="manga-btn secondary"
+                    onClick={() => applyMultiAction("markUnread")}
+                  >
+                    Mark Unread
+                  </button>
+                </>
+              )}
+              <button
+                className="manga-btn danger"
+                onClick={() => applyMultiAction("delete")}
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </>
       )}
-    </main>
+
+      {/* Main content */}
+      {loading ? (
+        <div className="manga-empty-state">Loading manga from Firestore…</div>
+      ) : error ? (
+        <div className="manga-empty-state">{error}</div>
+      ) : activeTab === "dashboard" ? (
+        <MangaDashboard library={library} wishlist={wishlist} />
+      ) : currentList.length === 0 ? (
+        <div className="manga-empty-state">
+          No manga found. Try changing your search.
+        </div>
+      ) : (
+        <div className="manga-grid">
+          {currentList.map((b) => renderCard(b))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {modalBook && (
+        <div
+          className="manga-modal-backdrop visible"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <div className="manga-modal">
+            <div className="manga-modal-cover-wrap">
+              <img
+                src={
+                  modalBook.cover ||
+                  "https://imgur.com/chUgq4W.png"
+                }
+                alt="Cover"
+              />
+            </div>
+            <div className="manga-modal-body">
+              <div className="manga-modal-header">
+                <div className="manga-modal-title">
+                  {modalBook.title || "Untitled"}
+                </div>
+                <button
+                  className="manga-modal-close"
+                  onClick={closeModal}
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="manga-modal-meta">
+                {modalBook.authors && modalBook.authors !== "Unknown" && (
+                  <>
+                    <strong>Author(s):</strong> {modalBook.authors}
+                    <br />
+                  </>
+                )}
+                {modalBook.publisher && modalBook.publisher !== "Unknown" && (
+                  <>
+                    <strong>Publisher:</strong> {modalBook.publisher}
+                    <br />
+                  </>
+                )}
+                {modalBook.date && (
+                  <>
+                    <strong>Release:</strong> {modalBook.date}
+                    <br />
+                  </>
+                )}
+                {modalBook.isbn && (
+                  <>
+                    <strong>ISBN:</strong> {modalBook.isbn}
+                    <br />
+                  </>
+                )}
+              </div>
+              <div className="manga-modal-details">
+                {modalBook.pageCount && (
+                  <>
+                    <strong>Pages:</strong> {modalBook.pageCount}
+                    <br />
+                  </>
+                )}
+                {modalBook.rating && (
+                  <>
+                    <strong>Rating:</strong> {modalBook.rating}/10
+                    <br />
+                  </>
+                )}
+                {modalBook.amountPaid && (
+                  <>
+                    <strong>Amount Paid:</strong> ${modalBook.amountPaid}
+                    <br />
+                  </>
+                )}
+                {modalBook.msrp && (
+                  <>
+                    <strong>MSRP:</strong> ${modalBook.msrp}
+                    <br />
+                  </>
+                )}
+                {modalBook.collectiblePrice && (
+                  <>
+                    <strong>Collectible:</strong> $
+                    {modalBook.collectiblePrice}
+                    <br />
+                  </>
+                )}
+                {modalBook.read && modalBook.dateRead && (
+                  <>
+                    <strong>Date Read:</strong> {modalBook.dateRead}
+                    <br />
+                  </>
+                )}
+                {modalBook.amazonURL && (
+                  <div style={{ marginTop: "6px" }}>
+                    <a
+                      href={modalBook.amazonURL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View on Amazon
+                    </a>
+                  </div>
+                )}
+              </div>
+              <div className="manga-modal-footer">
+                <div>
+                  {modalBook.kind === "library" && modalBook.read
+                    ? "Marked as read in your library."
+                    : modalBook.kind === "library"
+                    ? "In your library (unread)."
+                    : "Wishlist item – not in library yet."}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

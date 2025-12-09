@@ -1,134 +1,180 @@
+/* ------------------------------
+   NAVBAR LAYOUT (HAMBURGER + PANEL)
+--------------------------------- */
+
+/* Hamburger button (top-left) */
 .menu-toggle {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  width: 32px;
-  height: 26px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  border-radius: 10px;
-  padding: 0;
+  top: 20px;
+  left: 20px;
+  z-index: 10001;
+  width: 42px;
+  height: 42px;
+  background: rgba(20, 5, 15, 0.8);
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
   cursor: pointer;
-  z-index: 11000;
-  outline: none;
-  box-shadow: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.menu-toggle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(255, 182, 193, 0.5);
 }
 
 .menu-toggle span {
-  display: block;
-  width: 100%;
-  height: 4px;
-  border-radius: 4px;
+  position: absolute;
+  width: 20px;
+  height: 2px;
   background: #ffb6c1;
-  transition: transform 0.2s, opacity 0.2s;
+  border-radius: 2px;
+  transition: 0.25s ease;
 }
 
+.menu-toggle span:nth-child(1) {
+  transform: translateY(-6px);
+}
+.menu-toggle span:nth-child(3) {
+  transform: translateY(6px);
+}
+
+/* Transform into "X" when active */
 .menu-toggle.active span:nth-child(1) {
-  transform: translateY(10px) rotate(45deg);
+  transform: rotate(45deg);
 }
 .menu-toggle.active span:nth-child(2) {
   opacity: 0;
 }
 .menu-toggle.active span:nth-child(3) {
-  transform: translateY(-10px) rotate(-45deg);
+  transform: rotate(-45deg);
 }
 
-@media (max-width: 600px) {
-  .menu-toggle {
-    left: auto;
-    right: 16px;
-  }
-}
-
+/* ------------------------------
+   SLIDING SIDE MENU PANEL
+--------------------------------- */
 .menu-panel {
   position: fixed;
   top: 0;
   left: 0;
-  height: 100%;
-  width: 220px;
-  background: #2b0f1d;
-  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.6);
-  padding: 60px 0 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  width: 255px;
+  height: 100vh;
+  z-index: 10000;
+
+  background: radial-gradient(circle at top left, #2b0f1d 0, #09040d 65%);
+  border-right: 1px solid rgba(255,182,193,0.25);
+  box-shadow: 8px 0 25px rgba(0, 0, 0, 0.85);
+
+  padding: 70px 18px 24px;
+
   transform: translateX(-100%);
-  transition: transform 0.25s ease;
-  z-index: 10999;
+  transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+              box-shadow 0.3s ease;
 }
 
 .menu-panel.open {
   transform: translateX(0);
 }
 
-.menu-items {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 8px;
-}
+/* ------------------------------
+   MENU ITEMS (LINK BUTTONS)
+--------------------------------- */
 
 .menu-item {
-  width: 100%;
-  background: transparent;
-  border: none;
+  display: block;
+  font-size: 0.92rem;
   color: #ffb6c1;
-  padding: 10px 20px;
-  text-align: left;
-  font-size: 15px;
-  cursor: pointer;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+
+  border-radius: 10px;
+  text-decoration: none;
+
+  transition: background 0.18s ease, transform 0.15s ease;
 }
 
 .menu-item:hover {
-  background: rgba(255, 182, 193, 0.18);
+  background: rgba(255, 182, 193, 0.14);
+  transform: translateX(3px);
 }
 
-.menu-item[data-active="true"] {
-  background: rgba(255, 182, 193, 0.25);
-  font-weight: 600;
+/* Ensure items don't stretch */
+.menu-item:last-child {
+  margin-bottom: 18px;
 }
+
+/* ------------------------------
+   AUTH SECTION (SIGN IN/OUT)
+--------------------------------- */
 
 .auth-section {
-  padding: 10px 16px 16px;
-  border-top: 1px solid rgba(255, 182, 193, 0.25);
-  font-size: 12px;
-  color: #f8d1d8;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,182,193,0.22);
 }
+
+.auth-section-status {
+  font-size: 0.75rem;
+  color: #f8d1d8;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+/* ------------------------------
+   AUTH BUTTONS
+--------------------------------- */
 
 .auth-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: none;
+  width: 100%;
+  padding: 7px 14px;
+
+  border-radius: 999px;
+  border: 1px solid rgba(255, 182, 193, 0.6);
+
+  background: rgba(43, 15, 29, 0.85);
+  color: #ffffff;
+
   cursor: pointer;
-  font-size: 12px;
-  margin-right: 6px;
-  background: #ffb6c1;
-  color: #2b0f1d;
+  font-size: 0.78rem;
+  font-weight: 500;
+
+  text-align: center;
+  transition: 0.15s ease;
 }
+
+.auth-btn:hover {
+  background: rgba(255, 182, 193, 0.25);
+  transform: translateY(-1px);
+}
+
 .auth-btn.secondary {
-  background: #2b0f1d;
+  background: rgba(18, 8, 14, 0.85);
   color: #ffb6c1;
-  border: 1px solid #ffb6c1;
+  border-color: rgba(255,182,193,0.35);
 }
 
-@media (max-width: 600px) {
-  .menu-panel {
-    left: auto;
-    right: 0;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.6);
-    transform: translateX(100%);
-    width: 80%;
-    max-width: 320px;
-  }
+.auth-btn.secondary:hover {
+  background: rgba(255,182,193,0.12);
+}
 
-  .menu-panel.open {
-    transform: translateX(0);
-  }
+/* ------------------------------
+   COMPACT LAYOUT FIXES
+--------------------------------- */
+
+/* Make spacing tight and clean */
+.menu-panel * {
+  line-height: 1.2;
+}
+
+/* Prevent items from being spaced too far apart */
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
