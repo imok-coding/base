@@ -1,7 +1,11 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../api/firebase.js';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { createContext, useContext, useEffect, useState } from "react";
+import { auth, db } from "../firebaseConfig";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 const AuthContext = createContext(null);
 
@@ -11,26 +15,36 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        // Example admin check:
-        // Firestore doc: roles/<uid> with { admin: true }
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+
+      if (firebaseUser) {
         try {
-          const ref = doc(db, 'roles', u.uid);
-          const snap = await getDoc(ref);
-          if (snap.exists() && snap.data().admin === true) {
+          // 1) Preferred: admins/<uid> exists
+          const adminRef = doc(db, "admins", firebaseUser.uid);
+          const adminSnap = await getDoc(adminRef);
+
+          if (adminSnap.exists()) {
             setAdmin(true);
           } else {
-            setAdmin(false);
+            // 2) Backwards-compat: roles/<uid> with { admin: true }
+            const roleRef = doc(db, "roles", firebaseUser.uid);
+            const roleSnap = await getDoc(roleRef);
+
+            if (roleSnap.exists() && roleSnap.data().admin === true) {
+              setAdmin(true);
+            } else {
+              setAdmin(false);
+            }
           }
         } catch (err) {
-          console.error('Error checking admin role:', err);
+          console.error("Error checking admin role:", err);
           setAdmin(false);
         }
       } else {
         setAdmin(false);
       }
+
       setLoading(false);
     });
 

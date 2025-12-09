@@ -2,16 +2,16 @@ import "./Navbar.css";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import AuthModal from "../AuthModal/AuthModal"; // NEW — modal for Google + Email login
+import AuthModal from "../AuthModal/AuthModal";
 
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [showAuth, setShowAuth] = useState(false); // NEW — controls modal visibility
+  const [showAuth, setShowAuth] = useState(false);
 
-  const { user, role } = useAuth();
+  const { user, admin } = useAuth();
   const navigate = useNavigate();
 
   // --- AUTH HANDLER: LOGOUT ---
@@ -19,10 +19,7 @@ export default function Navbar() {
     try {
       await signOut(auth);
 
-      // Close menu on logout
       setOpen(false);
-
-      // Redirect home
       navigate("/");
     } catch (err) {
       console.error(err);
@@ -61,7 +58,7 @@ export default function Navbar() {
         </Link>
 
         {/* ADMIN-ONLY DASHBOARD */}
-        {role === "admin" && (
+        {admin && (
           <Link
             to="/dashboard"
             className="menu-item"
@@ -80,7 +77,7 @@ export default function Navbar() {
           </p>
 
           <div>
-            {/* SIGN IN BUTTON — Opens Modal */}
+            {/* SIGN IN BUTTON — opens modal */}
             {!user && (
               <button
                 className="auth-btn"
@@ -106,7 +103,7 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* AUTH MODAL — Appears when clicking Sign In */}
+      {/* Auth modal with Google + email/password */}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </>
   );

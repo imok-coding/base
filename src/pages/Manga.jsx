@@ -339,8 +339,8 @@ function MangaDashboard({ library, wishlist }) {
 // ---- Main page ----
 
 export default function Manga() {
-  const { role } = useAuth();
-  const isAdmin = role === "admin";
+  const { admin } = useAuth();
+  const isAdmin = admin;
 
   const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist' | 'dashboard'
 
