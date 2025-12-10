@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { fetchAnimeList } from '../api/malApi.js';
 
 export default function Anime() {
+  const formatStatus = (value) => {
+    if (!value) return 'Unknown';
+    return value
+      .toString()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (m) => m.toUpperCase());
+  };
+
   const [items, setItems] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [term, setTerm] = useState('');
@@ -13,8 +21,11 @@ export default function Anime() {
     async function load() {
       try {
         const data = await fetchAnimeList();
-        setItems(data);
-        setFiltered(data);
+        const sorted = [...data].sort((a, b) =>
+          (a.title || "").localeCompare(b.title || "")
+        );
+        setItems(sorted);
+        setFiltered(sorted);
       } catch (err) {
         console.error(err);
         setError('Failed to load data from MAL.');
@@ -60,17 +71,17 @@ export default function Anime() {
           display: 'flex',
           flexWrap: 'wrap',
           gap: '10px',
-          marginTop: '12px',
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Search anime by title…"
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          style={{
-            flex: '1 1 220px',
-            minWidth: '220px',
+      marginTop: '12px',
+    }}
+  >
+    <input
+      type="text"
+      placeholder="Search anime by title..."
+      value={term}
+      onChange={(e) => setTerm(e.target.value)}
+      style={{
+        flex: '1 1 220px',
+        minWidth: '220px',
             padding: '8px 12px',
             borderRadius: '999px',
             border: '1px solid var(--border-soft)',
@@ -102,7 +113,7 @@ export default function Anime() {
       </section>
 
       {loading && (
-        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>Loading anime list from MAL…</p>
+        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>Loading anime list from MAL...</p>
       )}
       {error && (
         <p style={{ marginTop: '20px', color: '#ff8a80' }}>{error}</p>
@@ -116,9 +127,15 @@ export default function Anime() {
             marginTop: '20px',
           }}
         >
+          {filtered.length === 0 && (
+            <p style={{ marginTop: '12px', color: 'var(--text-soft)' }}>
+              No results match your filters yet.
+            </p>
+          )}
+
           {filtered.map((a) => (
             <article
-              key={a.id}
+              key={a.id || a.title}
               style={{
                 background: '#2b0f1d',
                 borderRadius: '16px',
@@ -135,8 +152,13 @@ export default function Anime() {
                 {a.episodes ? `${a.episodes} eps` : 'Episodes: ?'}
               </div>
               <div style={{ color: 'var(--text-soft)', fontSize: '0.78rem', marginTop: '4px' }}>
-                Status: {a.status}
+                Status: {formatStatus(a.status)}
               </div>
+              {a.score != null && (
+                <div style={{ color: '#ffd166', fontSize: '0.78rem', marginTop: '2px' }}>
+                  Score: {a.score || 'N/A'}
+                </div>
+              )}
             </article>
           ))}
         </section>

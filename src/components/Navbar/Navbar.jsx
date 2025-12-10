@@ -77,7 +77,7 @@ export default function Navbar() {
           </p>
 
           <div>
-            {/* SIGN IN BUTTON — opens modal */}
+            {/* SIGN IN BUTTON -- opens modal */}
             {!user && (
               <button
                 className="auth-btn"

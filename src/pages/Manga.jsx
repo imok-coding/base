@@ -14,11 +14,11 @@ import { useAuth } from "../contexts/AuthContext";
 
 // ---- Helpers to match your old index.html logic ----
 
-// Parse "Series Name, Vol. 1" → { name: "series name", vol: 1 }
+// Parse "Series Name, Vol. 1" -> { name: "series name", vol: 1 }
 function parseTitleForSort(title) {
   let t = (title || "").trim();
   const m = t.match(
-    /^(.*?)(?:,?\s*(?:Vol\.|Volume)\s*(\d+)(?:\s*[-–]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i
+    /^(.*?)(?:,?\s*(?:Vol\.|Volume)\s*(\d+)(?:\s*[--]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i
   );
   const base = m ? m[1].trim().toLowerCase() : t.toLowerCase();
   const volNum = m && m[2] ? parseInt(m[2], 10) : 0;
@@ -190,7 +190,7 @@ function MangaDashboard({ library, wishlist }) {
               <div className="manga-stat-value">{stats.totalBooks}</div>
             </div>
             <div className="manga-stat-sub">
-              Library: {stats.totalLibrary} · Wishlist: {stats.totalWishlist}
+              Library: {stats.totalLibrary}  |  Wishlist: {stats.totalWishlist}
             </div>
           </div>
           <div className="manga-pie-wrap">
@@ -201,7 +201,7 @@ function MangaDashboard({ library, wishlist }) {
               <div className="manga-pie-label">{stats.readPct}% read</div>
             </div>
             <div className="manga-stat-sub">
-              <strong>{stats.readBooks}</strong> read ·{" "}
+              <strong>{stats.readBooks}</strong> read  | {" "}
               <strong>{stats.unreadBooks}</strong> unread in your library.
               <br />
               Perfect for tracking backlog vs progress.
@@ -219,12 +219,12 @@ function MangaDashboard({ library, wishlist }) {
               </div>
             </div>
             <div className="manga-stat-sub">
-              Pages owned: {stats.pagesTotal.toLocaleString()} · Read:{" "}
+              Pages owned: {stats.pagesTotal.toLocaleString()}  |  Read:{" "}
               {stats.pagesRead.toLocaleString()}
             </div>
           </div>
           <div className="manga-stat-sub">
-            MSRP (if set): ${stats.msrpTotal.toFixed(0)} · Collectible value: $
+            MSRP (if set): ${stats.msrpTotal.toFixed(0)}  |  Collectible value: $
             {stats.collectibleTotal.toFixed(0)}
             <br />
             Avg rating:{" "}
@@ -278,7 +278,7 @@ function MangaDashboard({ library, wishlist }) {
                 {Object.values(stats.ratingBuckets).reduce((s, v) => s + v, 0)}
               </div>
             </div>
-            <div className="manga-stat-sub">How you’ve scored your volumes</div>
+            <div className="manga-stat-sub">How you've scored your volumes</div>
           </div>
           <div className="manga-bar-chart">
             {Object.entries(stats.ratingBuckets)
@@ -310,7 +310,7 @@ function MangaDashboard({ library, wishlist }) {
           </div>
           {stats.topPublishers.length === 0 ? (
             <div className="manga-stat-sub">
-              No publisher data yet – add some volumes first.
+              No publisher data yet - add some volumes first.
             </div>
           ) : (
             <div className="manga-bar-chart">
@@ -323,7 +323,7 @@ function MangaDashboard({ library, wishlist }) {
                     }}
                   />
                   <div className="manga-bar-label">
-                    {p.name.length > 8 ? `${p.name.slice(0, 8)}…` : p.name}
+                    {p.name.length > 8 ? `${p.name.slice(0, 8)}...` : p.name}
                   </div>
                   <div className="manga-bar-value">{p.count}</div>
                 </div>
@@ -346,6 +346,7 @@ export default function Manga() {
 
   const [library, setLibrary] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [titleSuggestions, setTitleSuggestions] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -357,6 +358,42 @@ export default function Manga() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   const [modalBook, setModalBook] = useState(null);
+  const [adminForm, setAdminForm] = useState({
+    open: false,
+    mode: "add",
+    list: "library",
+    data: {
+      title: "",
+      authors: "",
+      publisher: "",
+      demographic: "",
+      genre: "",
+      subGenre: "",
+      date: "",
+      cover: "",
+      isbn: "",
+      pageCount: "",
+      rating: "",
+      amountPaid: "",
+      dateRead: "",
+      datePurchased: "",
+      msrp: "",
+      specialType: "",
+      specialVolumes: "",
+      collectiblePrice: "",
+      amazonURL: "",
+      read: false,
+    },
+    editingId: null,
+    multiAdd: false,
+    startVol: "",
+    endVol: "",
+  });
+  const [bulkEdit, setBulkEdit] = useState({
+    open: false,
+    index: 0,
+    items: [], // [{id, kind, data}]
+  });
 
   // ----- Firestore loading -----
 
@@ -415,6 +452,11 @@ export default function Manga() {
     });
 
     setLibrary(items);
+    setTitleSuggestions((prev) => {
+      const all = new Set(prev);
+      items.forEach((i) => all.add(i.title || ""));
+      return Array.from(all).filter(Boolean).sort();
+    });
   }
 
   async function loadWishlist() {
@@ -463,6 +505,11 @@ export default function Manga() {
     });
 
     setWishlist(items);
+    setTitleSuggestions((prev) => {
+      const all = new Set(prev);
+      items.forEach((i) => all.add(i.title || ""));
+      return Array.from(all).filter(Boolean).sort();
+    });
   }
 
   useEffect(() => {
@@ -661,6 +708,270 @@ export default function Manga() {
 
   // ----- Rendering helpers -----
 
+  const resetAdminForm = () =>
+    setAdminForm((prev) => ({
+      ...prev,
+      open: false,
+      mode: "add",
+      editingId: null,
+      data: {
+        title: "",
+        authors: "",
+        publisher: "",
+        demographic: "",
+        genre: "",
+        subGenre: "",
+        date: "",
+        cover: "",
+        isbn: "",
+        pageCount: "",
+        rating: "",
+        amountPaid: "",
+        dateRead: "",
+        datePurchased: "",
+        msrp: "",
+        specialType: "",
+        specialVolumes: "",
+        collectiblePrice: "",
+        amazonURL: "",
+        read: false,
+      },
+      multiAdd: false,
+      startVol: "",
+      endVol: "",
+    }));
+
+  const openAdminAdd = (list) => {
+    setAdminForm((prev) => ({
+      ...prev,
+      open: true,
+      mode: "add",
+      list,
+      editingId: null,
+      data: { ...prev.data, title: "", list },
+    }));
+  };
+
+  const openAdminEdit = (book) => {
+    setAdminForm({
+      open: true,
+      mode: "edit",
+      list: book.kind === "wishlist" ? "wishlist" : "library",
+      editingId: book.id,
+      data: {
+        title: book.title || "",
+        authors: book.authors || "",
+        publisher: book.publisher || "",
+        demographic: book.demographic || "",
+        genre: book.genre || "",
+        subGenre: book.subGenre || "",
+        date: book.date || "",
+        cover: book.cover || "",
+        isbn: book.isbn || "",
+        pageCount: book.pageCount || "",
+        rating: book.rating || "",
+        amountPaid: book.amountPaid || "",
+        dateRead: book.dateRead || "",
+        datePurchased: book.datePurchased || "",
+        msrp: book.msrp || "",
+        specialType: book.specialType || "",
+        specialVolumes: book.specialVolumes || "",
+        collectiblePrice: book.collectiblePrice || "",
+        amazonURL: book.amazonURL || "",
+        read: !!book.read,
+      },
+    });
+  };
+
+  const handleAdminChange = (field, value, type = "text") => {
+    setAdminForm((prev) => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [field]: type === "checkbox" ? !!value : value,
+      },
+    }));
+  };
+
+  async function saveAdminForm() {
+    if (!isAdmin) return;
+    const { mode, list, data, editingId, multiAdd, startVol, endVol } = adminForm;
+    if (!data.title.trim()) {
+      alert("Title is required.");
+      return;
+    }
+    const buildPayload = (overrideTitle) => ({
+      title: overrideTitle || data.title.trim(),
+      authors: data.authors.trim(),
+      publisher: data.publisher.trim(),
+      demographic: data.demographic.trim(),
+      genre: data.genre.trim(),
+      subGenre: data.subGenre.trim(),
+      date: data.date.trim(),
+      cover: data.cover.trim(),
+      isbn: data.isbn.trim(),
+      pageCount: data.pageCount === "" ? "" : Number(data.pageCount),
+      rating: data.rating === "" ? "" : Number(data.rating),
+      amountPaid: data.amountPaid === "" ? "" : Number(data.amountPaid),
+      dateRead: data.dateRead.trim(),
+      datePurchased: data.datePurchased.trim(),
+      msrp: data.msrp === "" ? "" : Number(data.msrp),
+      specialType: data.specialType.trim(),
+      specialVolumes: data.specialVolumes === "" ? "" : Number(data.specialVolumes),
+      collectiblePrice:
+        data.collectiblePrice === "" ? "" : Number(data.collectiblePrice),
+      amazonURL: data.amazonURL.trim(),
+      read: !!data.read,
+      kind: list,
+    });
+    try {
+      if (mode === "add" && multiAdd) {
+        const start = Number(startVol || 0);
+        const end = Number(endVol || 0);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) {
+          alert("Provide valid start/end volumes (start > 0, end >= start).");
+          return;
+        }
+        const writes = [];
+        for (let v = start; v <= end; v++) {
+          const title = `${data.title.trim()} Vol. ${v}`;
+          writes.push(addDoc(collection(db, list), buildPayload(title)));
+        }
+        await Promise.all(writes);
+      } else if (mode === "add") {
+        await addDoc(collection(db, list), buildPayload());
+      } else if (mode === "edit" && editingId) {
+        await updateDoc(doc(db, list, editingId), buildPayload());
+      }
+      await Promise.all([loadLibrary(), loadWishlist()]);
+      resetAdminForm();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save entry.");
+    }
+  }
+
+  async function deleteSingle(bookId, kind) {
+    if (!isAdmin) return;
+    if (!window.confirm("Delete this entry?")) return;
+    try {
+      await deleteDoc(doc(db, kind, bookId));
+      await Promise.all([loadLibrary(), loadWishlist()]);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete entry.");
+    }
+  }
+
+  const resetBulkEdit = () =>
+    setBulkEdit({
+      open: false,
+      index: 0,
+      items: [],
+    });
+
+  const openBulkEdit = () => {
+    if (!selectedIds.size) {
+      alert("Select at least one entry first.");
+      return;
+    }
+    const all = [...library, ...wishlist];
+    const selected = all.filter((b) => selectedIds.has(b.id));
+    if (!selected.length) {
+      alert("No items selected.");
+      return;
+    }
+    const items = selected.map((b) => ({
+      id: b.id,
+      kind: b.kind || (activeTab === "wishlist" ? "wishlist" : "library"),
+      data: {
+        title: b.title || "",
+        authors: b.authors || "",
+        publisher: b.publisher || "",
+        demographic: b.demographic || "",
+        genre: b.genre || "",
+        subGenre: b.subGenre || "",
+        date: b.date || "",
+        cover: b.cover || "",
+        isbn: b.isbn || "",
+        pageCount: b.pageCount || "",
+        rating: b.rating || "",
+        amountPaid: b.amountPaid || "",
+        dateRead: b.dateRead || "",
+        datePurchased: b.datePurchased || "",
+        msrp: b.msrp || "",
+        specialType: b.specialType || "",
+        specialVolumes: b.specialVolumes || "",
+        collectiblePrice: b.collectiblePrice || "",
+        amazonURL: b.amazonURL || "",
+        read: !!b.read,
+      },
+    }));
+    setBulkEdit({ open: true, index: 0, items });
+  };
+
+  const handleBulkChange = (field, value, type = "text") => {
+    setBulkEdit((prev) => {
+      const items = [...prev.items];
+      const current = { ...items[prev.index] };
+      current.data = {
+        ...current.data,
+        [field]: type === "checkbox" ? !!value : value,
+      };
+      items[prev.index] = current;
+      return { ...prev, items };
+    });
+  };
+
+  const bulkNext = () => {
+    setBulkEdit((prev) => ({
+      ...prev,
+      index: Math.min(prev.index + 1, prev.items.length - 1),
+    }));
+  };
+
+  const bulkPrev = () => {
+    setBulkEdit((prev) => ({
+      ...prev,
+      index: Math.max(prev.index - 1, 0),
+    }));
+  };
+
+  async function applyBulkSave() {
+    if (!isAdmin) return;
+    const updates = bulkEdit.items;
+    if (!updates.length) {
+      resetBulkEdit();
+      return;
+    }
+    try {
+      const promises = updates.map((item) => {
+        const payload = {
+          ...item.data,
+          pageCount: item.data.pageCount === "" ? "" : Number(item.data.pageCount),
+          rating: item.data.rating === "" ? "" : Number(item.data.rating),
+          amountPaid: item.data.amountPaid === "" ? "" : Number(item.data.amountPaid),
+          msrp: item.data.msrp === "" ? "" : Number(item.data.msrp),
+          collectiblePrice:
+            item.data.collectiblePrice === "" ? "" : Number(item.data.collectiblePrice),
+          specialVolumes:
+            item.data.specialVolumes === "" ? "" : Number(item.data.specialVolumes),
+          read: !!item.data.read,
+        };
+        const target = item.kind === "wishlist" ? "wishlist" : "library";
+        return updateDoc(doc(db, target, item.id), payload);
+      });
+      await Promise.all(promises);
+      await Promise.all([loadLibrary(), loadWishlist()]);
+      setSelectedIds(new Set());
+      setMultiMode(false);
+      resetBulkEdit();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save bulk edits.");
+    }
+  }
+
   function renderCard(book) {
     const selected = selectedIds.has(book.id);
     const isLibraryCard = book.kind === "library";
@@ -714,6 +1025,30 @@ export default function Manga() {
           {book.isbn && (
             <div className="manga-card-isbn">ISBN: {book.isbn}</div>
           )}
+          {isAdmin && (
+            <div className="manga-card-actions">
+              <button
+                type="button"
+                className="manga-btn mini"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAdminEdit(book);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="manga-btn mini danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteSingle(book.id, book.kind === "wishlist" ? "wishlist" : "library");
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -734,6 +1069,16 @@ export default function Manga() {
             same collections as your original index.html.
           </div>
         </div>
+        {isAdmin && (
+          <div className="manga-admin-actions">
+            <button
+              className="manga-btn"
+              onClick={() => openAdminAdd(activeTab === "wishlist" ? "wishlist" : "library")}
+            >
+              Add {activeTab === "wishlist" ? "Wishlist" : "Library"} Item
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Tabs */}
@@ -786,8 +1131,8 @@ export default function Manga() {
                 className="manga-search-input"
                 placeholder={
                   activeTab === "library"
-                    ? "Search library by title, author, ISBN…"
-                    : "Search wishlist…"
+                    ? "Search library by title, author, ISBN..."
+                    : "Search wishlist..."
                 }
                 value={
                   activeTab === "library" ? searchLibrary : searchWishlist
@@ -831,6 +1176,9 @@ export default function Manga() {
               <span>
                 Selected: <strong>{selectedIds.size}</strong>
               </span>
+              <button className="manga-btn" onClick={openBulkEdit}>
+                Bulk Edit
+              </button>
               <button
                 className="manga-btn secondary"
                 onClick={() => applyMultiAction("move")}
@@ -866,7 +1214,7 @@ export default function Manga() {
 
       {/* Main content */}
       {loading ? (
-        <div className="manga-empty-state">Loading manga from Firestore…</div>
+        <div className="manga-empty-state">Loading manga from Firestore...</div>
       ) : error ? (
         <div className="manga-empty-state">{error}</div>
       ) : activeTab === "dashboard" ? (
@@ -994,9 +1342,495 @@ export default function Manga() {
                     ? "Marked as read in your library."
                     : modalBook.kind === "library"
                     ? "In your library (unread)."
-                    : "Wishlist item – not in library yet."}
+                    : "Wishlist item - not in library yet."}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin form modal */}
+      {isAdmin && adminForm.open && (
+        <div
+          className="manga-modal-backdrop visible"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) resetAdminForm();
+          }}
+        >
+          <div className="manga-modal admin">
+            <div className="manga-modal-body">
+              <div className="manga-modal-header">
+                <div className="manga-modal-title">
+                  {adminForm.mode === "add" ? "Add Entry" : "Edit Entry"}
+                </div>
+                <button
+                  className="manga-modal-close"
+                  onClick={resetAdminForm}
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="admin-form-grid">
+                <label>
+                  Title
+                  <input
+                    type="text"
+                    value={adminForm.data.title}
+                    list="adminTitleSuggestions"
+                    onChange={(e) => handleAdminChange("title", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Authors
+                  <input
+                    type="text"
+                    value={adminForm.data.authors}
+                    onChange={(e) => handleAdminChange("authors", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Publisher
+                  <input
+                    type="text"
+                    value={adminForm.data.publisher}
+                    onChange={(e) => handleAdminChange("publisher", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Demographic
+                  <input
+                    type="text"
+                    value={adminForm.data.demographic}
+                    onChange={(e) => handleAdminChange("demographic", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Genre
+                  <input
+                    type="text"
+                    value={adminForm.data.genre}
+                    onChange={(e) => handleAdminChange("genre", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Sub Genre
+                  <input
+                    type="text"
+                    value={adminForm.data.subGenre}
+                    onChange={(e) => handleAdminChange("subGenre", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Release Date
+                  <input
+                    type="date"
+                    value={adminForm.data.date}
+                    onChange={(e) => handleAdminChange("date", e.target.value)}
+                  />
+                </label>
+                <label>
+                  ISBN
+                  <input
+                    type="text"
+                    value={adminForm.data.isbn}
+                    onChange={(e) => handleAdminChange("isbn", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Cover URL
+                  <input
+                    type="text"
+                    value={adminForm.data.cover}
+                    onChange={(e) => handleAdminChange("cover", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Page Count
+                  <input
+                    type="number"
+                    value={adminForm.data.pageCount}
+                    onChange={(e) => handleAdminChange("pageCount", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Rating
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="10"
+                    value={adminForm.data.rating}
+                    onChange={(e) => handleAdminChange("rating", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Amount Paid
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={adminForm.data.amountPaid}
+                    onChange={(e) => handleAdminChange("amountPaid", e.target.value)}
+                  />
+                </label>
+                <label>
+                  MSRP
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={adminForm.data.msrp}
+                    onChange={(e) => handleAdminChange("msrp", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Collectible Price
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={adminForm.data.collectiblePrice}
+                    onChange={(e) => handleAdminChange("collectiblePrice", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Date Purchased
+                  <input
+                    type="date"
+                    value={adminForm.data.datePurchased}
+                    onChange={(e) => handleAdminChange("datePurchased", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Date Read
+                  <input
+                    type="date"
+                    value={adminForm.data.dateRead}
+                    onChange={(e) => handleAdminChange("dateRead", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Special Type
+                  <input
+                    type="text"
+                    value={adminForm.data.specialType}
+                    onChange={(e) => handleAdminChange("specialType", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Special Volumes
+                  <input
+                    type="number"
+                    value={adminForm.data.specialVolumes}
+                    onChange={(e) => handleAdminChange("specialVolumes", e.target.value)}
+                  />
+                </label>
+                <label>
+                  Amazon URL
+                  <input
+                    type="text"
+                    value={adminForm.data.amazonURL}
+                    onChange={(e) => handleAdminChange("amazonURL", e.target.value)}
+                  />
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={adminForm.data.read}
+                    onChange={(e) => handleAdminChange("read", e.target.checked, "checkbox")}
+                  />
+                  <span>Marked as read</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={adminForm.multiAdd}
+                    onChange={(e) =>
+                      setAdminForm((prev) => ({ ...prev, multiAdd: e.target.checked }))
+                    }
+                  />
+                  <span>Multi-create volumes</span>
+                </label>
+                {adminForm.multiAdd && (
+                  <>
+                    <label>
+                      Start Volume
+                      <input
+                        type="number"
+                        min="1"
+                        value={adminForm.startVol}
+                        onChange={(e) =>
+                          setAdminForm((prev) => ({ ...prev, startVol: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      End Volume
+                      <input
+                        type="number"
+                        min="1"
+                        value={adminForm.endVol}
+                        onChange={(e) =>
+                          setAdminForm((prev) => ({ ...prev, endVol: e.target.value }))
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+
+              <div className="manga-modal-footer" style={{ justifyContent: "flex-end", gap: "10px" }}>
+                <button className="manga-btn secondary" onClick={resetAdminForm} type="button">
+                  Cancel
+                </button>
+                <button className="manga-btn" onClick={saveAdminForm} type="button">
+                  {adminForm.mode === "add" ? "Add" : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk edit modal */}
+      {isAdmin && bulkEdit.open && (
+        <div
+          className="manga-modal-backdrop visible"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) resetBulkEdit();
+          }}
+        >
+          <div className="manga-modal admin">
+            <div className="manga-modal-body">
+              <div className="manga-modal-header">
+                <div className="manga-modal-title">
+                  Bulk Edit ({bulkEdit.index + 1} / {bulkEdit.items.length})
+                </div>
+                <button
+                  className="manga-modal-close"
+                  onClick={resetBulkEdit}
+                  type="button"
+                >
+                  Close
+                </button>
+              </div>
+
+              {bulkEdit.items.length > 0 && (
+                <>
+                  <div className="manga-modal-subtitle">
+                    Editing: {bulkEdit.items[bulkEdit.index].data.title || "Untitled"}
+                  </div>
+                  <div className="admin-form-grid">
+                    <label>
+                      Title
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.title}
+                        onChange={(e) => handleBulkChange("title", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Authors
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.authors}
+                        onChange={(e) => handleBulkChange("authors", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Publisher
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.publisher}
+                        onChange={(e) => handleBulkChange("publisher", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Demographic
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.demographic}
+                        onChange={(e) => handleBulkChange("demographic", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Genre
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.genre}
+                        onChange={(e) => handleBulkChange("genre", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Sub Genre
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.subGenre}
+                        onChange={(e) => handleBulkChange("subGenre", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Release Date
+                      <input
+                        type="date"
+                        value={bulkEdit.items[bulkEdit.index].data.date}
+                        onChange={(e) => handleBulkChange("date", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      ISBN
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.isbn}
+                        onChange={(e) => handleBulkChange("isbn", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Cover URL
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.cover}
+                        onChange={(e) => handleBulkChange("cover", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Page Count
+                      <input
+                        type="number"
+                        value={bulkEdit.items[bulkEdit.index].data.pageCount}
+                        onChange={(e) => handleBulkChange("pageCount", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Rating
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="10"
+                        value={bulkEdit.items[bulkEdit.index].data.rating}
+                        onChange={(e) => handleBulkChange("rating", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Amount Paid
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={bulkEdit.items[bulkEdit.index].data.amountPaid}
+                        onChange={(e) => handleBulkChange("amountPaid", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      MSRP
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={bulkEdit.items[bulkEdit.index].data.msrp}
+                        onChange={(e) => handleBulkChange("msrp", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Collectible Price
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={bulkEdit.items[bulkEdit.index].data.collectiblePrice}
+                        onChange={(e) =>
+                          handleBulkChange("collectiblePrice", e.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Date Purchased
+                      <input
+                        type="date"
+                        value={bulkEdit.items[bulkEdit.index].data.datePurchased}
+                        onChange={(e) =>
+                          handleBulkChange("datePurchased", e.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Date Read
+                      <input
+                        type="date"
+                        value={bulkEdit.items[bulkEdit.index].data.dateRead}
+                        onChange={(e) => handleBulkChange("dateRead", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Special Type
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.specialType}
+                        onChange={(e) => handleBulkChange("specialType", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Special Volumes
+                      <input
+                        type="number"
+                        value={bulkEdit.items[bulkEdit.index].data.specialVolumes}
+                        onChange={(e) =>
+                          handleBulkChange("specialVolumes", e.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Amazon URL
+                      <input
+                        type="text"
+                        value={bulkEdit.items[bulkEdit.index].data.amazonURL}
+                        onChange={(e) => handleBulkChange("amazonURL", e.target.value)}
+                      />
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={bulkEdit.items[bulkEdit.index].data.read}
+                        onChange={(e) =>
+                          handleBulkChange("read", e.target.checked, "checkbox")
+                        }
+                      />
+                      <span>Marked as read</span>
+                    </label>
+                  </div>
+
+                  <div
+                    className="manga-modal-footer"
+                    style={{ justifyContent: "space-between", gap: "10px" }}
+                  >
+                    <div>
+                      <button
+                        className="manga-btn secondary"
+                        onClick={bulkPrev}
+                        type="button"
+                        disabled={bulkEdit.index === 0}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        className="manga-btn secondary"
+                        onClick={bulkNext}
+                        type="button"
+                        disabled={bulkEdit.index === bulkEdit.items.length - 1}
+                        style={{ marginLeft: "6px" }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button className="manga-btn secondary" onClick={resetBulkEdit} type="button">
+                        Cancel
+                      </button>
+                      <button className="manga-btn" onClick={applyBulkSave} type="button">
+                        Save Edits
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1004,3 +1838,8 @@ export default function Manga() {
     </div>
   );
 }
+                    <datalist id="adminTitleSuggestions">
+                      {titleSuggestions.map((t) => (
+                        <option value={t} key={t} />
+                      ))}
+                    </datalist>

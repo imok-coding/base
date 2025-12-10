@@ -1,9 +1,16 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
+
+const YEARLY_WEBHOOK =
+  "https://discord.com/api/webhooks/1448287168845054004/cGWGPoH5LaTFlBZ1vxtgMjOfV9au6qyQ_9ZRnOWN9-AX0MNfwxKNWVcZYQHz0ESA7_4k";
+const RELEASE_WEBHOOK =
+  "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
+const ACTIVITY_WEBHOOK =
+  "https://discord.com/api/webhooks/1448329790942613667/wsC8psNZ-Ax2D1O9Gl4sJi6ay7df2cr7IrIdxMPwGZTBnkSUIY2NDpeVd98qW_4plz82";
 
 /* ---------- Helpers ---------- */
 
@@ -13,6 +20,18 @@ function parseDate(value) {
   if (value && typeof value.toDate === "function") return value.toDate();
   const str = String(value).trim();
   if (!str) return null;
+  // Handle common string formats explicitly to avoid timezone/locale drift
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return new Date(Number(y), Number(m) - 1, Number(d));
+  }
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slashMatch) {
+    let [, m, d, y] = slashMatch;
+    const year = y.length === 2 ? Number(`20${y}`) : Number(y);
+    return new Date(year, Number(m) - 1, Number(d));
+  }
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -102,33 +121,66 @@ function buildTopFromSeries(seriesMap, field, limit = 5) {
     .map(([name, count]) => ({ name, count }));
 }
 
-// Reading trend: volumes read per month (last 12 months)
-function buildReadingTrend(library) {
-  const now = new Date();
-  const months = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleString("default", { month: "short" });
-    months.push({
-      key: `${d.getFullYear()}-${d.getMonth()}`,
-      label,
-      year: d.getFullYear(),
-      month: d.getMonth(),
+// Reads per month for a specific year
+function buildMonthlyReads(library, year) {
+  const months = Array.from({ length: 12 }, (_, idx) => {
+    const d = new Date(year, idx, 1);
+    return {
+      key: `${year}-${idx}`,
+      label: d.toLocaleString("default", { month: "short" }),
+      year,
+      month: idx,
       value: 0,
-    });
+    };
+  });
+
+  for (const item of library) {
+    const dateRead = parseDate(item.dateRead || item.DateRead);
+    if (!dateRead || dateRead.getFullYear() !== year) continue;
+    months[dateRead.getMonth()].value += 1;
   }
+
+  return months;
+}
+
+function formatDateKey(date) {
+  const yr = date.getFullYear();
+  const mo = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${yr}-${mo}-${day}`;
+}
+
+async function postWebhook(url, content) {
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+  } catch (err) {
+    console.error("Webhook post failed", err);
+  }
+}
+
+function buildWeekdayBreakdown(library) {
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const counts = Array(7).fill(0);
 
   for (const item of library) {
     const dateRead = parseDate(item.dateRead || item.DateRead);
     if (!dateRead) continue;
-    const key = `${dateRead.getFullYear()}-${dateRead.getMonth()}`;
-    const idx = months.findIndex((m) => m.key === key);
-    if (idx !== -1) {
-      months[idx].value += 1;
-    }
+    counts[dateRead.getDay()] += 1;
   }
 
-  return months;
+  const hasReads = counts.some((v) => v > 0);
+  if (!hasReads) return [];
+
+  const max = counts.reduce((m, v) => Math.max(m, v), 0) || 1;
+  return labels.map((label, idx) => ({
+    label,
+    value: counts[idx],
+    pct: counts[idx] / max,
+  }));
 }
 
 // Top series by volume count for bar chart
@@ -187,16 +239,65 @@ function computeAvgPurchaseToRead(library) {
 function computeCollectionValue(library) {
   let msrpTotal = 0;
   let paidTotal = 0;
+  let collectibleTotal = 0;
   for (const item of library) {
     const msrp = Number(item.msrp || item.MSRP || 0) || 0;
     const paid =
       Number(item.amountPaid || item.AmountPaid || item.pricePaid || 0) ||
       msrp ||
       0;
+    const collectible =
+      Number(item.collectiblePrice || item.CollectiblePrice || 0) || 0;
     msrpTotal += msrp;
     paidTotal += paid;
+    collectibleTotal += collectible;
   }
-  return { msrpTotal, paidTotal };
+  return { msrpTotal, paidTotal, collectibleTotal };
+}
+
+function aggregateBySeries(library) {
+  const map = new Map();
+  for (const item of library) {
+    const key = getSeriesKey(item) || item.id;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        title:
+          item.series ||
+          item.Series ||
+          item.title ||
+          item.Title ||
+          "Untitled",
+        msrp: 0,
+        paid: 0,
+        collectible: 0,
+        books: 0,
+        pages: 0,
+        readPages: 0,
+        ratings: [],
+      });
+    }
+    const row = map.get(key);
+    row.books += 1;
+    const msrp = Number(item.msrp || item.MSRP || 0) || 0;
+    const paid =
+      Number(item.amountPaid || item.AmountPaid || item.pricePaid || 0) || 0;
+    const collectible =
+      Number(item.collectiblePrice || item.CollectiblePrice || 0) || 0;
+    const pages =
+      Number(item.pages || item.Pages || item.pageCount || 0) || 0;
+    const isRead = !!item.read || item.status === "Read" || item.Read === true;
+    row.msrp += msrp;
+    row.paid += paid;
+    row.collectible += collectible;
+    row.pages += pages;
+    if (isRead) row.readPages += pages;
+    const ratingNum = Number(item.rating || item.Rating);
+    if (!isNaN(ratingNum) && ratingNum > 0) {
+      row.ratings.push(ratingNum);
+    }
+  }
+  return [...map.values()];
 }
 
 function computePages(library) {
@@ -233,13 +334,15 @@ function LineChart({ data }) {
   }
 
   const max = data.reduce((m, p) => Math.max(m, p.value), 0) || 1;
-  const width = 100;
-  const height = 100;
-  const stepX = width / Math.max(data.length - 1, 1);
+  const chartWidth = 480;
+  const chartHeight = 230;
+  const paddingY = 30;
+  const usableHeight = chartHeight - paddingY * 2;
+  const stepX = chartWidth / Math.max(data.length - 1, 1);
 
   const points = data.map((p, idx) => {
     const x = idx * stepX;
-    const y = height - (p.value / max) * 80 - 10;
+    const y = chartHeight - paddingY - (p.value / max) * usableHeight;
     return { ...p, x, y };
   });
 
@@ -249,20 +352,35 @@ function LineChart({ data }) {
 
   return (
     <div className="line-chart">
-      <svg viewBox="0 0 100 100">
+      <svg
+        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
-          const y = 90 - t * 80;
+          const y = chartHeight - paddingY - t * usableHeight;
           return (
             <line
-              key={i}
+              key={`h-${i}`}
               className="line-grid"
               x1="0"
-              x2="100"
+              x2={chartWidth}
               y1={y}
               y2={y}
             />
           );
         })}
+        {points.map((p, i) => (
+          <line
+            key={`v-${i}`}
+            className="line-grid"
+            x1={p.x}
+            x2={p.x}
+            y1={paddingY / 2}
+            y2={chartHeight - paddingY / 2}
+          />
+        ))}
 
         <path className="line-path" d={pathD} />
 
@@ -272,7 +390,7 @@ function LineChart({ data }) {
             <text className="line-value" x={p.x} y={p.y - 3}>
               {p.value}
             </text>
-            <text className="line-label" x={p.x} y="96">
+            <text className="line-label" x={p.x} y={chartHeight - 4}>
               {p.label}
             </text>
           </g>
@@ -297,8 +415,31 @@ function BarChart({ data }) {
           />
           <div className="bar-value">{bar.value}</div>
           <div className="bar-label">
-            {bar.label.length > 12 ? bar.label.slice(0, 11) + "…" : bar.label}
+            {bar.label.length > 12 ? bar.label.slice(0, 11) + "..." : bar.label}
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WeekdayBreakdown({ data }) {
+  if (!data || !data.length) {
+    return <div className="weekday-breakdown empty">No reads recorded yet.</div>;
+  }
+
+  return (
+    <div className="weekday-bars">
+      {data.map((row) => (
+        <div className="weekday-col" key={row.label}>
+          <div className="weekday-count">{row.value}</div>
+          <div className="weekday-bar-vert">
+            <div
+              className="weekday-bar-vert-fill"
+              style={{ height: `${Math.max(row.pct * 100, row.value ? 6 : 0)}%` }}
+            />
+          </div>
+          <div className="weekday-label">{row.label}</div>
         </div>
       ))}
     </div>
@@ -344,11 +485,12 @@ function buildCalendarGrid(monthDate, releases) {
 /* ---------- Main component ---------- */
 
 export default function Dashboard() {
-  const { user, admin } = useAuth();
+  const { user, admin, loading: authLoading } = useAuth();
   const [library, setLibrary] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [countdownText, setCountdownText] = useState("-");
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
@@ -357,23 +499,28 @@ export default function Dashboard() {
     open: false,
     type: null,
   });
+  const currentYear = new Date().getFullYear();
+  const yearlyPostedRef = useRef(null);
+  const releasePostedRef = useRef(null);
+  const activityPostedRef = useRef("");
 
-  // Auth gate
-  if (!user || !admin) {
-    return (
-      <div className="page dashboard-page">
-        <div className="dashboard-locked">
-          <h1>Dashboard</h1>
-          <p>This area is restricted to admin accounts.</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    yearlyPostedRef.current = localStorage.getItem("dashboard-yearly-posted");
+    releasePostedRef.current = localStorage.getItem("dashboard-release-posted");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      if (!user || !admin) {
+        setLibrary([]);
+        setWishlist([]);
+        setErr(null);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         const [libSnap, wishSnap] = await Promise.all([
@@ -396,21 +543,28 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user, admin]);
 
   const stats = useMemo(() => {
-    if (!library.length && !wishlist.length) return null;
-
     const totalLibrary = library.length;
     const readCount = library.filter(
       (i) => !!i.read || i.status === "Read" || i.Read === true
     ).length;
     const unreadCount = totalLibrary - readCount;
+    const readPct = totalLibrary
+      ? Math.round((readCount / totalLibrary) * 100)
+      : 0;
 
     const wishlistCount = wishlist.length;
 
     const seriesMap = buildSeriesMap(library);
-    const readingTrend = buildReadingTrend(library);
+    const monthlyReads = buildMonthlyReads(library, currentYear);
+    const prevYearReads = buildMonthlyReads(library, currentYear - 1);
+    const currentYearReadsTotal = monthlyReads.reduce(
+      (sum, m) => sum + m.value,
+      0
+    );
+    const weekdayBreakdown = buildWeekdayBreakdown(library);
     const topSeriesBars = buildTopSeriesBars(seriesMap);
     const releases = buildWishlistReleases(wishlist);
     const nextRelease = getNextRelease(releases);
@@ -423,14 +577,39 @@ export default function Dashboard() {
     const topPublishers = buildTopFromSeries(seriesMap, "publisher", 5);
     const topGenres = buildTopFromSeries(seriesMap, "genre", 5);
     const topDemographics = buildTopFromSeries(seriesMap, "demographic", 5);
+    const seriesAggregates = aggregateBySeries(library);
+    const activity = [...library]
+      .map((item) => {
+        const date =
+          parseDate(item.dateRead || item.DateRead) ||
+          parseDate(item.datePurchased || item.DatePurchased);
+        if (!date) return null;
+        return {
+          title:
+            item.title ||
+            item.Title ||
+            item.series ||
+            item.Series ||
+            "Untitled",
+          type: item.dateRead || item.DateRead ? "Read" : "Purchased",
+          date,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.date - a.date)
+      .slice(0, 12);
 
     return {
       totalLibrary,
       readCount,
       unreadCount,
+      readPct,
       wishlistCount,
       seriesMap,
-      readingTrend,
+      monthlyReads,
+      prevYearReads,
+      currentYearReadsTotal,
+      weekdayBreakdown,
       topSeriesBars,
       releases,
       nextRelease,
@@ -441,27 +620,21 @@ export default function Dashboard() {
       topPublishers,
       topGenres,
       topDemographics,
+      seriesAggregates,
+      activity,
     };
-  }, [library, wishlist]);
-
-  if (loading || !stats) {
-    return (
-      <div className="page dashboard-page">
-        <div className="dashboard-loading">
-          <h1>Dashboard</h1>
-          {err ? <p className="error">{err}</p> : <p>Loading stats…</p>}
-        </div>
-      </div>
-    );
-  }
-
+  }, [library, wishlist, currentYear]);
   const {
     totalLibrary,
     readCount,
     unreadCount,
+    readPct,
     wishlistCount,
     seriesMap,
-    readingTrend,
+    monthlyReads,
+    prevYearReads,
+    currentYearReadsTotal,
+    weekdayBreakdown,
     topSeriesBars,
     releases,
     nextRelease,
@@ -472,23 +645,152 @@ export default function Dashboard() {
     topPublishers,
     topGenres,
     topDemographics,
+    seriesAggregates,
+    activity,
   } = stats;
 
-  const now = new Date();
   const nextDate = nextRelease ? nextRelease.date : null;
+  const hasError = Boolean(err);
 
-  let countdownText = "—";
-  if (nextDate) {
-    const diffMs = nextDate - now;
-    const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (days < 0) {
-      countdownText = `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
-    } else if (days === 0) {
-      countdownText = "Today";
-    } else {
-      countdownText = `In ${days} day${days === 1 ? "" : "s"}`;
+  useEffect(() => {
+    if (!prevYearReads || !prevYearReads.length) return;
+    const prevYear = currentYear - 1;
+    const prevTotal = prevYearReads.reduce((sum, m) => sum + m.value, 0);
+    if (!prevTotal) return;
+    const lastPosted = yearlyPostedRef.current
+      ? parseInt(yearlyPostedRef.current, 10)
+      : null;
+    if (lastPosted === prevYear) return;
+
+    const breakdown = prevYearReads
+      .map((m) => `${m.label}: ${m.value}`)
+      .join(", ");
+    const content = `Yearly reads summary for ${prevYear}: ${prevTotal} total. Breakdown: ${breakdown}`;
+
+    postWebhook(YEARLY_WEBHOOK, content).then(() => {
+      yearlyPostedRef.current = String(prevYear);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("dashboard-yearly-posted", String(prevYear));
+      }
+    });
+  }, [prevYearReads, currentYear]);
+
+  useEffect(() => {
+    if (!nextRelease || !releases.length) return;
+    const releaseKey = formatDateKey(nextRelease.date);
+    const todayKey = formatDateKey(new Date());
+    if (releaseKey > todayKey) return;
+    if (releasePostedRef.current === releaseKey) return;
+
+    const todays = releases.filter(
+      (r) => formatDateKey(r.date) === releaseKey
+    );
+    if (!todays.length) return;
+
+    const content = `Wishlist releases for ${releaseKey}:\n${todays
+      .map((r) => `- ${r.title}`)
+      .join("\n")}`;
+
+    postWebhook(RELEASE_WEBHOOK, content).then(() => {
+      releasePostedRef.current = releaseKey;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("dashboard-release-posted", releaseKey);
+      }
+    });
+  }, [nextRelease, releases]);
+
+  useEffect(() => {
+    if (!activity || !activity.length) return;
+    const latest = activity[0];
+    if (!latest || !latest.date) return;
+    const key = `${latest.type}-${latest.title}-${latest.date.toISOString?.() || latest.date}`;
+    if (activityPostedRef.current === key) return;
+    const content = `Activity: ${latest.type} — ${latest.title} (${latest.date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })})`;
+    postWebhook(ACTIVITY_WEBHOOK, content).then(() => {
+      activityPostedRef.current = key;
+    });
+  }, [activity]);
+
+  useEffect(() => {
+    if (!nextDate) {
+      setCountdownText("-");
+      return;
     }
+    const update = () => {
+      const diffMs = nextDate - new Date();
+      if (diffMs <= 0) {
+        setCountdownText("Released");
+        return;
+      }
+      const totalSec = Math.floor(diffMs / 1000);
+      const days = Math.floor(totalSec / 86400);
+      const hours = Math.floor((totalSec % 86400) / 3600)
+        .toString()
+        .padStart(2, "0");
+      const mins = Math.floor((totalSec % 3600) / 60)
+        .toString()
+        .padStart(2, "0");
+      const secs = Math.floor(totalSec % 60)
+        .toString()
+        .padStart(2, "0");
+      setCountdownText(`${days}d ${hours}:${mins}:${secs}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [nextDate]);
+
+  if (authLoading) {
+    return (
+      <div className="page dashboard-page">
+        <div className="dashboard-loading">
+          <h1>Dashboard</h1>
+          <p>Checking permissions...</p>
+        </div>
+      </div>
+    );
   }
+
+  if (!user || !admin) {
+    return (
+      <div className="page dashboard-page">
+        <div className="dashboard-locked">
+          <h1>Dashboard</h1>
+          <p>This area is restricted to admin accounts.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="page dashboard-page">
+        <div className="dashboard-loading">
+          <h1>Dashboard</h1>
+          {err ? <p className="error">{err}</p> : <p>Loading stats...</p>}
+        </div>
+      </div>
+    );
+  }
+
+  const totalItems = totalLibrary + wishlistCount;
+  const libSharePct = totalItems
+    ? Math.round((totalLibrary / totalItems) * 100)
+    : 0;
+  const wishlistSharePct = totalItems ? 100 - libSharePct : 0;
+  const topRated = [...seriesMap.values()]
+    .filter((s) => s.ratingCount > 0)
+    .map((s) => ({
+      title: s.title,
+      avg: s.ratingSum / s.ratingCount,
+      count: s.ratingCount,
+    }))
+    .sort((a, b) => b.avg - a.avg || b.count - a.count)
+    .slice(0, 3);
 
   function openCalendar() {
     if (nextDate) {
@@ -636,7 +938,11 @@ export default function Dashboard() {
       const { msrpTotal, paidTotal } = collectionValue;
       const diff = msrpTotal - paidTotal;
       const pct =
-        msrpTotal > 0 ? ((paidTotal / msrpTotal) * 100).toFixed(1) : "—";
+        msrpTotal > 0 ? ((paidTotal / msrpTotal) * 100).toFixed(1) : "-";
+      const rows = [...seriesAggregates]
+        .filter((row) => row.msrp || row.paid || row.collectible)
+        .sort((a, b) => b.msrp + b.collectible - (a.msrp + a.collectible));
+
       return (
         <>
           <h3>Collection Value Breakdown</h3>
@@ -656,15 +962,50 @@ export default function Dashboard() {
               </tr>
               <tr>
                 <th>Paid vs MSRP</th>
-                <td>{pct === "—" ? "—" : `${pct}%`}</td>
+                <td>{pct === "-" ? "-" : `${pct}%`}</td>
               </tr>
             </tbody>
           </table>
+
+          {rows.length > 0 && (
+            <>
+              <h4 style={{ marginTop: "14px" }}>Collection Pricing</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>MSRP</th>
+                    <th>Paid</th>
+                    <th>Collectible</th>
+                    <th>Books</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={row.title + i}>
+                      <td>{row.title}</td>
+                      <td>${row.msrp.toFixed(2)}</td>
+                      <td>${row.paid.toFixed(2)}</td>
+                      <td>{row.collectible ? `$${row.collectible.toFixed(2)}` : "--"}</td>
+                      <td>{row.books}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </>
       );
     }
 
     if (t === "pages") {
+      const rows = [...seriesAggregates]
+        .filter((row) => row.pages > 0)
+        .map((row) => ({
+          ...row,
+          pct: row.pages ? Math.round((row.readPages / row.pages) * 100) : 0,
+        }))
+        .sort((a, b) => b.pages - a.pages);
       return (
         <>
           <h3>Pages Read vs Total</h3>
@@ -683,16 +1024,53 @@ export default function Dashboard() {
                 <td>
                   {pages.total
                     ? `${((pages.read / pages.total) * 100).toFixed(1)}%`
-                    : "—"}
+                    : "-"}
                 </td>
               </tr>
             </tbody>
           </table>
+
+          {rows.length > 0 && (
+            <>
+              <h4 style={{ marginTop: "14px" }}>Pages by Series</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Read Pages</th>
+                    <th>Total Pages</th>
+                    <th>% Read</th>
+                    <th>Books</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={row.title + i}>
+                      <td>{row.title}</td>
+                      <td>{row.readPages.toLocaleString()}</td>
+                      <td>{row.pages.toLocaleString()}</td>
+                      <td>{row.pct}%</td>
+                      <td>{row.books}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </>
       );
     }
 
     if (t === "ratings") {
+      const ratedSeries = [...seriesAggregates]
+        .map((s) => {
+          if (!s.ratings.length) return null;
+          const avg = s.ratings.reduce((a, b) => a + b, 0) / s.ratings.length;
+          return { title: s.title, avg, count: s.ratings.length };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.avg - a.avg || b.count - a.count);
+
       return (
         <>
           <h3>Ratings Overview</h3>
@@ -703,6 +1081,30 @@ export default function Dashboard() {
               Average series rating across rated series is{" "}
               <strong>{avgRating.toFixed(2)}</strong>.
             </p>
+          )}
+
+          {ratedSeries.length > 0 && (
+            <>
+              <h4 style={{ marginTop: "14px" }}>Series Averages</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Avg</th>
+                    <th>Ratings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ratedSeries.map((row, i) => (
+                    <tr key={row.title + i}>
+                      <td>{row.title}</td>
+                      <td>{row.avg.toFixed(2)}</td>
+                      <td>{row.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </>
       );
@@ -760,98 +1162,107 @@ export default function Dashboard() {
 
       <section id="dashboardSection" className="page-section active">
         <div className="dashboard-grid">
-          {/* Row 1: mini stat cards */}
-          <div className="stat-card mini">
-            <h3>Total Library</h3>
-            <div className="stat-value">{totalLibrary}</div>
-            <div className="stat-sub">
-              Volumes in your Firestore library.
+          <div className="stat-stack">
+            <div className="stat-card mini">
+              <h3>Total Library Books</h3>
+              <div className="stat-value">{totalLibrary}</div>
+              <div className="stat-sub">Volumes in your library.</div>
+            </div>
+            <div className="stat-card mini">
+              <h3>Wishlist Items</h3>
+              <div className="stat-value">{wishlistCount}</div>
+              <div className="stat-sub">Tracked upcoming wants.</div>
             </div>
           </div>
 
-          <div className="stat-card mini">
-            <h3>Read</h3>
+          <div className="stat-card">
+            <h3>Read / Unread</h3>
+            <div
+              className="pie"
+              style={{ "--pct": `${readPct * 3.6}deg` }}
+            >
+              <div className="pie-label">{readPct}%</div>
+            </div>
             <div className="stat-value">
-              {readCount} / {totalLibrary}
-            </div>
-            <div className="stat-sub">
-              {totalLibrary
-                ? `${((readCount / totalLibrary) * 100).toFixed(1)}% complete`
-                : "—"}
+              {readCount} read / {unreadCount} unread
             </div>
           </div>
 
-          <div className="stat-card mini">
-            <h3>Unread</h3>
-            <div className="stat-value">{unreadCount}</div>
-            <div className="stat-sub">Volumes waiting to be read.</div>
-          </div>
-
-          <div
-            className="stat-card mini clickable"
-            onClick={() => {
-              openCalendar();
-              openDetail("releases");
-            }}
-          >
-            <h3>Next Wishlist Release</h3>
-            <div className="stat-value next-release">
-              {nextRelease ? nextRelease.title : "No upcoming releases"}
+          <div className="stat-card clickable" onClick={() => openDetail("ratings")}>
+            <h3>Ratings</h3>
+            <div className="stat-value">
+              {avgRating == null ? "-" : avgRating.toFixed(2)}
             </div>
-            <div className="stat-sub">
-              {nextDate
-                ? nextDate.toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "—"}
-              <br />
-              <span id="statNextCountdown">{countdownText}</span>
-            </div>
-          </div>
-
-          {/* Row 2: big line chart */}
-          <div className="stat-card wide">
-            <h3>Reading Trend (Last 12 Months)</h3>
-            <LineChart data={readingTrend} />
-          </div>
-
-          {/* Row 3: big bar chart */}
-          <div className="stat-card wide">
-            <h3>Top Series by Volume Count</h3>
-            <BarChart data={topSeriesBars} />
-          </div>
-
-          {/* Row 4: three tall cards */}
-          <div
-            className="stat-card tall clickable"
-            onClick={() => openDetail("genres")}
-          >
-            <h3>Top Genres (by Series)</h3>
-            <div className="stat-list">
-              {topGenres.length ? (
-                topGenres.map((g, i) => (
-                  <div className="stat-list-row" key={g.name}>
+            <div className="stat-sub">Average across rated series.</div>
+            <div className="stat-list compact">
+              {topRated.length ? (
+                topRated.map((r, i) => (
+                  <div className="stat-list-row" key={r.title + i}>
                     <span className="stat-rank">{i + 1}</span>
-                    <span className="stat-name">{g.name}</span>
-                    <span className="stat-count">{g.count}</span>
+                    <span className="stat-name">{r.title}</span>
+                    <span className="stat-count">{r.avg.toFixed(2)}</span>
                   </div>
                 ))
               ) : (
-                <div className="stat-sub">No genre data yet.</div>
+                <div className="stat-sub">No ratings yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="stat-card clickable" onClick={() => openDetail("pages")}>
+            <h3>Page Count Read / Total</h3>
+            <div className="stat-value">
+              {pages.read.toLocaleString()} / {pages.total.toLocaleString()}
+            </div>
+            <div className="stat-sub">
+              {pages.total
+                ? `${((pages.read / pages.total) * 100).toFixed(1)}% read`
+                : "-"}
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <h3>Library vs Wishlist</h3>
+            <div
+              className="pie"
+              style={{ "--pct": `${libSharePct * 3.6}deg` }}
+            >
+              <div className="pie-label">{libSharePct}%</div>
+            </div>
+            <div className="stat-value">
+              {totalLibrary} / {wishlistCount}
+            </div>
+            <div className="stat-sub">Library vs wishlist share</div>
+          </div>
+
+          <div
+            className="stat-card clickable"
+            onClick={() => openDetail("demographics")}
+          >
+            <h3>Top Demographics</h3>
+            <div className="stat-list">
+              {topDemographics.length ? (
+                topDemographics.slice(0, 3).map((d, i) => (
+                  <div className="stat-list-row" key={d.name}>
+                    <span className="stat-rank">{i + 1}</span>
+                    <span className="stat-name">{d.name}</span>
+                    <span className="stat-count">{d.count}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="stat-sub">No demographic data yet.</div>
               )}
             </div>
           </div>
 
           <div
-            className="stat-card tall clickable"
+            className="stat-card clickable"
             onClick={() => openDetail("publishers")}
           >
-            <h3>Top Publishers (by Series)</h3>
+            <h3>Top Publishers</h3>
             <div className="stat-list">
               {topPublishers.length ? (
-                topPublishers.map((p, i) => (
+                topPublishers.slice(0, 3).map((p, i) => (
                   <div className="stat-list-row" key={p.name}>
                     <span className="stat-rank">{i + 1}</span>
                     <span className="stat-name">{p.name}</span>
@@ -865,79 +1276,129 @@ export default function Dashboard() {
           </div>
 
           <div
-            className="stat-card tall clickable"
-            onClick={() => openDetail("demographics")}
+            className="stat-card clickable"
+            onClick={() => openDetail("genres")}
           >
-            <h3>Top Demographics (by Series)</h3>
+            <h3>Top Genres</h3>
             <div className="stat-list">
-              {topDemographics.length ? (
-                topDemographics.map((d, i) => (
-                  <div className="stat-list-row" key={d.name}>
+              {topGenres.length ? (
+                topGenres.slice(0, 3).map((g, i) => (
+                  <div className="stat-list-row" key={g.name}>
                     <span className="stat-rank">{i + 1}</span>
-                    <span className="stat-name">{d.name}</span>
-                    <span className="stat-count">{d.count}</span>
+                    <span className="stat-name">{g.name}</span>
+                    <span className="stat-count">{g.count}</span>
                   </div>
                 ))
               ) : (
-                <div className="stat-sub">No demographic data yet.</div>
+                <div className="stat-sub">No genre data yet.</div>
               )}
             </div>
           </div>
 
-          {/* Row 5: time, value, pages, ratings */}
-
           <div
             className="stat-card clickable"
-            onClick={() => openDetail("timeToRead")}
+            onClick={() => {
+              openCalendar();
+            }}
           >
-            <h3>Avg Time to Read</h3>
-            <div className="stat-value">
-              {avgDays == null ? "—" : `${avgDays.toFixed(1)} days`}
+            <h3>Next Wishlist Release</h3>
+            <div className="stat-value next-release">
+              {nextRelease ? nextRelease.title : "No upcoming releases"}
             </div>
             <div className="stat-sub">
-              Based on purchase + read dates.
+              {nextDate
+                ? nextDate.toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "-"}
+              <br />
+              <span id="statNextCountdown">{countdownText}</span>
             </div>
           </div>
 
           <div
             className="stat-card clickable"
             onClick={() => openDetail("collectionValue")}
+            style={{ textAlign: "center" }}
           >
-            <h3>Collection Value</h3>
+            <h3>Collection Pricing</h3>
             <div className="stat-value stat-msrp">
               ${collectionValue.msrpTotal.toFixed(2)}
             </div>
-            <div className="stat-sub">
-              Paid: ${collectionValue.paidTotal.toFixed(2)}
+            <div className="stat-value stat-paid">
+              ${collectionValue.paidTotal.toFixed(2)}
+              {collectionValue.msrpTotal > 0 && (
+                <span className="stat-paid-pct">
+                  ({((1 - collectionValue.paidTotal / collectionValue.msrpTotal) * 100).toFixed(1)}% off)
+                </span>
+              )}
             </div>
+            <div className="stat-value stat-collectible">
+              ${collectionValue.collectibleTotal.toFixed(2)}
+            </div>
+            <div className="stat-sub">
+              MSRP • Paid • Collectible overrides
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <h3>Current Year Reads</h3>
+            <div className="stat-value">{currentYearReadsTotal}</div>
+            <div className="stat-sub">Reads in {currentYear}</div>
           </div>
 
           <div
             className="stat-card clickable"
-            onClick={() => openDetail("pages")}
+            onClick={() => openDetail("timeToRead")}
           >
-            <h3>Pages Read / Total</h3>
+            <h3>Avg Days From Purchase to Read</h3>
             <div className="stat-value">
-              {pages.read.toLocaleString()} /{" "}
-              {pages.total.toLocaleString()}
+              {avgDays == null ? "-" : `${avgDays.toFixed(1)} days`}
             </div>
-            <div className="stat-sub">
-              {pages.total
-                ? `${((pages.read / pages.total) * 100).toFixed(1)}%`
-                : "—"}
+            <div className="stat-sub">When both dates exist</div>
+          </div>
+
+          <div className="stat-duo">
+            <div className="stat-card tall">
+              <h3>Reads Per Month ({currentYear})</h3>
+              <LineChart data={monthlyReads} />
+            </div>
+            <div className="stat-card tall">
+              <h3>Reads by Day of Week (Lifetime)</h3>
+              <WeekdayBreakdown data={weekdayBreakdown} />
+              <div className="stat-sub">
+                Based on all entries with a read date.
+              </div>
             </div>
           </div>
 
-          <div
-            className="stat-card clickable"
-            onClick={() => openDetail("ratings")}
-          >
-            <h3>Average Rating</h3>
-            <div className="stat-value">
-              {avgRating == null ? "—" : avgRating.toFixed(2)}
-            </div>
-            <div className="stat-sub">
-              Averaged across rated series.
+          <div className="stat-card wide">
+            <h3>Activity Log</h3>
+            {hasError && (
+              <div className="error" style={{ textAlign: "center" }}>
+                {err}
+              </div>
+            )}
+            <div className="activity-log">
+              {activity.length ? (
+                activity.map((item, idx) => (
+                  <div className="activity-row" key={item.title + idx}>
+                    <span className="activity-type">{item.type}</span>
+                    <span className="activity-title">{item.title}</span>
+                    <span className="activity-date">
+                      {item.date.toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="stat-sub">No recent activity yet.</div>
+              )}
             </div>
           </div>
         </div>
@@ -973,7 +1434,7 @@ export default function Dashboard() {
                     )
                   }
                 >
-                  ‹
+                  {"<"}
                 </button>
                 <button
                   className="calendar-nav-btn"
@@ -987,7 +1448,7 @@ export default function Dashboard() {
                     )
                   }
                 >
-                  ›
+                  {">"}
                 </button>
               </div>
             </div>
@@ -1040,7 +1501,7 @@ export default function Dashboard() {
               id="calendarClose"
               onClick={() => setCalendarOpen(false)}
             >
-              ✕
+              x
             </button>
           </div>
         </div>
@@ -1054,7 +1515,7 @@ export default function Dashboard() {
             onClick={(e) => e.stopPropagation()}
           >
             <button id="statDetailClose" onClick={closeDetail}>
-              ✕
+              x
             </button>
             <h2 id="statDetailTitle">
               {detailModal.type === "publishers" && "Top Publishers"}

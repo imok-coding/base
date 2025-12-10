@@ -160,8 +160,9 @@
 
 .manga-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 14px;
+  justify-items: center;
 }
 
 .manga-card {
@@ -176,6 +177,7 @@
     background 0.15s ease;
   display: flex;
   flex-direction: column;
+  text-align: center;
 }
 
 .manga-card.read::before {
@@ -219,6 +221,10 @@
 
 .manga-card-body {
   padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
 }
 
 .manga-card-title {
@@ -432,6 +438,13 @@
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.9fr);
 }
 
+.manga-modal.admin {
+  max-width: 1000px;
+  width: 95%;
+  max-height: 94vh;
+  display: block;
+}
+
 @media (max-width: 800px) {
   .manga-modal {
     grid-template-columns: 1fr;
@@ -499,4 +512,46 @@
   gap: 6px;
   font-size: 0.8rem;
   color: var(--manga-text-mute);
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px 14px;
+  margin-top: 8px;
+}
+
+.admin-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #f8d1d8;
+  font-size: 13px;
+}
+
+.admin-form-grid input,
+.admin-form-grid select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  background: rgba(43, 15, 29, 0.7);
+  color: #ffffff;
+}
+
+.checkbox-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.manga-card-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.manga-btn.mini {
+  padding: 4px 8px;
+  font-size: 12px;
 }

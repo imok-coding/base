@@ -30,7 +30,7 @@ export default function Home() {
             color: 'var(--text-soft)',
           }}
         >
-          📚 Manga · 📺 Anime · 🃏 TCG
+          Manga | Anime | TCG
         </div>
       </header>
 
@@ -52,7 +52,7 @@ export default function Home() {
             This site is where I track everything: volumes on my shelves, finished shows, and growing TCG binders.
           </p>
           <p style={{ marginTop: '10px', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-            You&apos;ll find detailed stats, reading history, and collection values across the different pages — it&apos;s
+            You&apos;ll find detailed stats, reading history, and collection values across the different pages - it&apos;s
             basically my personal library dashboard.
           </p>
           <div
@@ -65,7 +65,7 @@ export default function Home() {
           >
             <span className="pill">Manga library power user</span>
             <span className="pill">MAL-synced anime list</span>
-            <span className="pill">Pokémon &amp; One Piece TCG</span>
+            <span className="pill">Pokemon &amp; One Piece TCG</span>
             <span className="pill">Automation &amp; data nerd</span>
           </div>
         </article>
@@ -85,7 +85,7 @@ export default function Home() {
             }}
           >
             <a href="/base/manga" className="section-card">
-              <h3>📚 Manga Library</h3>
+              <h3>Manga Library</h3>
               <p>Full manga collection &amp; wishlist, with covers, stats, and release tracking.</p>
               <div className="section-chip-row">
                 <span className="section-chip accent">Firestore-powered</span>
@@ -95,7 +95,7 @@ export default function Home() {
             </a>
 
             <a href="/base/anime" className="section-card">
-              <h3>📺 Anime Library</h3>
+              <h3>Anime Library</h3>
               <p>Read-only mirror of my MAL list, with filters, stats, and pretty cards.</p>
               <div className="section-chip-row">
                 <span className="section-chip accent">MAL synced</span>
@@ -105,8 +105,8 @@ export default function Home() {
             </a>
 
             <a href="/base/tcg" className="section-card">
-              <h3>🃏 TCG Collection</h3>
-              <p>Pokémon &amp; One Piece TCG cards tracked with quantities, prices, and value.</p>
+              <h3>TCG Collection</h3>
+              <p>Pokemon &amp; One Piece TCG cards tracked with quantities, prices, and value.</p>
               <div className="section-chip-row">
                 <span className="section-chip accent">Tracked in Firestore</span>
                 <span className="section-chip">Value vs paid</span>

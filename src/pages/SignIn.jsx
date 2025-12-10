@@ -42,7 +42,7 @@ export default function SignIn() {
         </button>
 
         <button className="signin-cancel" onClick={() => navigate("/")}>
-          ← Back to Home
+          {"<"} Back to Home
         </button>
       </div>
     </div>

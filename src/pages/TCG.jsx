@@ -139,7 +139,7 @@ export default function TCG() {
           TCG Collection
         </h1>
         <p style={{ margin: '6px 0 0', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-          Pokémon &amp; One Piece TCG cards with quantities, prices, and collection value.
+          Pokemon &amp; One Piece TCG cards with quantities, prices, and collection value.
         </p>
       </header>
 
@@ -177,7 +177,7 @@ export default function TCG() {
           </div>
         </div>
         <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Pokémon cards</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Pokemon cards</div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{stats.pokemon}</div>
         </div>
         <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
@@ -197,7 +197,7 @@ export default function TCG() {
       >
         <input
           type="text"
-          placeholder="Search by name, set, or number…"
+          placeholder="Search by name, set, or number..."
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           style={{
@@ -223,7 +223,7 @@ export default function TCG() {
           }}
         >
           <option value="all">All games</option>
-          <option value="pokemon">Pokémon only</option>
+          <option value="pokemon">Pokemon only</option>
           <option value="onepiece">One Piece only</option>
         </select>
       </section>
@@ -263,7 +263,7 @@ export default function TCG() {
                   color: '#fff',
                 }}
               >
-                <option value="pokemon">Pokémon</option>
+                <option value="pokemon">Pokemon</option>
                 <option value="onepiece">One Piece</option>
               </select>
             </label>
@@ -437,7 +437,7 @@ export default function TCG() {
 
       {/* Cards grid */}
       {loading ? (
-        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>Loading TCG collection…</p>
+        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>Loading TCG collection...</p>
       ) : filtered.length === 0 ? (
         <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>No cards found.</p>
       ) : (
@@ -475,7 +475,7 @@ export default function TCG() {
                     color: 'var(--text-soft)',
                   }}
                 >
-                  <span>#{c.number || '–'}</span>
+                  <span>#{c.number || '-'}</span>
                   <span>{c.rarity || ''}</span>
                 </div>
                 <div
@@ -518,7 +518,7 @@ export default function TCG() {
                       fontSize: '0.7rem',
                     }}
                   >
-                    {c.game === 'pokemon' ? 'Pokémon' : 'One Piece'}
+                    {c.game === 'pokemon' ? 'Pokemon' : 'One Piece'}
                   </span>
                   {admin && (
                     <button
