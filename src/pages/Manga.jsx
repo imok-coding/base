@@ -347,6 +347,7 @@ export default function Manga() {
   const [library, setLibrary] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
+  const [titleMatches, setTitleMatches] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -741,6 +742,25 @@ export default function Manga() {
       endVol: "",
     }));
 
+  const seriesVolumeMap = useMemo(() => {
+    const map = new Map();
+    [...library, ...wishlist].forEach((item) => {
+      const parsed = parseTitleForSort(item.title || "");
+      if (!parsed.name) return;
+      if (!map.has(parsed.name)) {
+        const display =
+          (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
+          item.title ||
+          parsed.name;
+        map.set(parsed.name, { display, maxVol: parsed.vol });
+      } else {
+        const cur = map.get(parsed.name);
+        cur.maxVol = Math.max(cur.maxVol, parsed.vol);
+      }
+    });
+    return map;
+  }, [library, wishlist]);
+
   const openAdminAdd = (list) => {
     setAdminForm((prev) => ({
       ...prev,
@@ -791,6 +811,22 @@ export default function Manga() {
         [field]: type === "checkbox" ? !!value : value,
       },
     }));
+
+    if (field === "title") {
+      const input = String(value || "").trim().toLowerCase();
+      if (!input) {
+        setTitleMatches([]);
+      } else {
+        const matches = [];
+        seriesVolumeMap.forEach((val, key) => {
+          if (val.display.toLowerCase().includes(input)) {
+            const nextVol = val.maxVol > 0 ? val.maxVol + 1 : 1;
+            matches.push(`${val.display}, Vol. ${nextVol}`);
+          }
+        });
+        setTitleMatches(matches.slice(0, 6));
+      }
+    }
   };
 
   async function saveAdminForm() {
@@ -1373,213 +1409,281 @@ export default function Manga() {
                 </button>
               </div>
 
-              <div className="admin-form-grid">
-                <label>
-                  Title
-                  <input
-                    type="text"
-                    value={adminForm.data.title}
-                    list="adminTitleSuggestions"
-                    onChange={(e) => handleAdminChange("title", e.target.value)}
+              <div className="admin-form-layout">
+                <div className="admin-cover-frame">
+                  <img
+                    src={adminForm.data.cover || "https://imgur.com/chUgq4W.png"}
+                    alt="Cover preview"
                   />
-                </label>
-                <label>
-                  Authors
-                  <input
-                    type="text"
-                    value={adminForm.data.authors}
-                    onChange={(e) => handleAdminChange("authors", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Publisher
-                  <input
-                    type="text"
-                    value={adminForm.data.publisher}
-                    onChange={(e) => handleAdminChange("publisher", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Demographic
-                  <input
-                    type="text"
-                    value={adminForm.data.demographic}
-                    onChange={(e) => handleAdminChange("demographic", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Genre
-                  <input
-                    type="text"
-                    value={adminForm.data.genre}
-                    onChange={(e) => handleAdminChange("genre", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Sub Genre
-                  <input
-                    type="text"
-                    value={adminForm.data.subGenre}
-                    onChange={(e) => handleAdminChange("subGenre", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Release Date
-                  <input
-                    type="date"
-                    value={adminForm.data.date}
-                    onChange={(e) => handleAdminChange("date", e.target.value)}
-                  />
-                </label>
-                <label>
-                  ISBN
-                  <input
-                    type="text"
-                    value={adminForm.data.isbn}
-                    onChange={(e) => handleAdminChange("isbn", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Cover URL
-                  <input
-                    type="text"
-                    value={adminForm.data.cover}
-                    onChange={(e) => handleAdminChange("cover", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Page Count
-                  <input
-                    type="number"
-                    value={adminForm.data.pageCount}
-                    onChange={(e) => handleAdminChange("pageCount", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Rating
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="10"
-                    value={adminForm.data.rating}
-                    onChange={(e) => handleAdminChange("rating", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Amount Paid
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={adminForm.data.amountPaid}
-                    onChange={(e) => handleAdminChange("amountPaid", e.target.value)}
-                  />
-                </label>
-                <label>
-                  MSRP
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={adminForm.data.msrp}
-                    onChange={(e) => handleAdminChange("msrp", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Collectible Price
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={adminForm.data.collectiblePrice}
-                    onChange={(e) => handleAdminChange("collectiblePrice", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Date Purchased
-                  <input
-                    type="date"
-                    value={adminForm.data.datePurchased}
-                    onChange={(e) => handleAdminChange("datePurchased", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Date Read
-                  <input
-                    type="date"
-                    value={adminForm.data.dateRead}
-                    onChange={(e) => handleAdminChange("dateRead", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Special Type
-                  <input
-                    type="text"
-                    value={adminForm.data.specialType}
-                    onChange={(e) => handleAdminChange("specialType", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Special Volumes
-                  <input
-                    type="number"
-                    value={adminForm.data.specialVolumes}
-                    onChange={(e) => handleAdminChange("specialVolumes", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Amazon URL
-                  <input
-                    type="text"
-                    value={adminForm.data.amazonURL}
-                    onChange={(e) => handleAdminChange("amazonURL", e.target.value)}
-                  />
-                </label>
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={adminForm.data.read}
-                    onChange={(e) => handleAdminChange("read", e.target.checked, "checkbox")}
-                  />
-                  <span>Marked as read</span>
-                </label>
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={adminForm.multiAdd}
-                    onChange={(e) =>
-                      setAdminForm((prev) => ({ ...prev, multiAdd: e.target.checked }))
-                    }
-                  />
-                  <span>Multi-create volumes</span>
-                </label>
-                {adminForm.multiAdd && (
-                  <>
+                </div>
+
+                <div className="admin-form-fields">
+                  <div className="admin-row">
                     <label>
-                      Start Volume
+                      Title
+                      <input
+                        type="text"
+                        value={adminForm.data.title}
+                        onChange={(e) => handleAdminChange("title", e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  {titleMatches.length > 0 && (
+                    <div className="title-suggestions">
+                      {titleMatches.map((s, i) => (
+                        <button
+                          key={s + i}
+                          type="button"
+                          className="manga-btn mini"
+                          onClick={() => handleAdminChange("title", s)}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="admin-row">
+                    <label>
+                      Authors
+                      <input
+                        type="text"
+                        value={adminForm.data.authors}
+                        onChange={(e) => handleAdminChange("authors", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row">
+                    <label>
+                      Publisher
+                      <input
+                        type="text"
+                        value={adminForm.data.publisher}
+                        onChange={(e) => handleAdminChange("publisher", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row three">
+                    <label>
+                      Release Date
+                      <input
+                        type="date"
+                        value={adminForm.data.date}
+                        onChange={(e) => handleAdminChange("date", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Date Purchased
+                      <input
+                        type="date"
+                        value={adminForm.data.datePurchased}
+                        onChange={(e) => handleAdminChange("datePurchased", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Date Read
+                      <input
+                        type="date"
+                        value={adminForm.data.dateRead}
+                        onChange={(e) => handleAdminChange("dateRead", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row two">
+                    <label>
+                      Page Count
                       <input
                         type="number"
-                        min="1"
-                        value={adminForm.startVol}
+                        placeholder="e.g. 192"
+                        value={adminForm.data.pageCount}
+                        onChange={(e) => handleAdminChange("pageCount", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      ISBN (library only)
+                      <input
+                        type="text"
+                        value={adminForm.data.isbn}
+                        onChange={(e) => handleAdminChange("isbn", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row">
+                    <label>
+                      Cover URL
+                      <input
+                        type="text"
+                        placeholder="Paste image URL here"
+                        value={adminForm.data.cover}
+                        onChange={(e) => handleAdminChange("cover", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row two">
+                    <label>
+                      Amount Paid
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={adminForm.data.amountPaid}
+                        onChange={(e) => handleAdminChange("amountPaid", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      MSRP
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={adminForm.data.msrp}
+                        onChange={(e) => handleAdminChange("msrp", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row two">
+                    <label>
+                      Collectible Price
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={adminForm.data.collectiblePrice}
                         onChange={(e) =>
-                          setAdminForm((prev) => ({ ...prev, startVol: e.target.value }))
+                          handleAdminChange("collectiblePrice", e.target.value)
                         }
                       />
                     </label>
                     <label>
-                      End Volume
+                      Special Volumes
                       <input
                         type="number"
-                        min="1"
-                        value={adminForm.endVol}
-                        onChange={(e) =>
-                          setAdminForm((prev) => ({ ...prev, endVol: e.target.value }))
-                        }
+                        min="0"
+                        value={adminForm.data.specialVolumes}
+                        onChange={(e) => handleAdminChange("specialVolumes", e.target.value)}
                       />
                     </label>
-                  </>
-                )}
+                  </div>
+
+                  <div className="admin-row two">
+                    <label>
+                      Special Type
+                      <input
+                        type="text"
+                        value={adminForm.data.specialType}
+                        onChange={(e) => handleAdminChange("specialType", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Amazon URL
+                      <input
+                        type="text"
+                        value={adminForm.data.amazonURL}
+                        onChange={(e) => handleAdminChange("amazonURL", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row two">
+                    <label>
+                      Demographic
+                      <input
+                        type="text"
+                        value={adminForm.data.demographic}
+                        onChange={(e) => handleAdminChange("demographic", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Genre
+                      <input
+                        type="text"
+                        value={adminForm.data.genre}
+                        onChange={(e) => handleAdminChange("genre", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row two">
+                    <label>
+                      Sub Genre
+                      <input
+                        type="text"
+                        value={adminForm.data.subGenre}
+                        onChange={(e) => handleAdminChange("subGenre", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Rating (1-10)
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="10"
+                        value={adminForm.data.rating}
+                        onChange={(e) => handleAdminChange("rating", e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="admin-row two">
+                    <label className="checkbox-inline">
+                      <input
+                        type="checkbox"
+                        checked={adminForm.data.read}
+                        onChange={(e) =>
+                          handleAdminChange("read", e.target.checked, "checkbox")
+                        }
+                      />
+                      <span>Mark as read</span>
+                    </label>
+                    <label className="checkbox-inline">
+                      <input
+                        type="checkbox"
+                        checked={adminForm.multiAdd}
+                        onChange={(e) =>
+                          setAdminForm((prev) => ({ ...prev, multiAdd: e.target.checked }))
+                        }
+                      />
+                      <span>Multi-create volumes</span>
+                    </label>
+                  </div>
+
+                  {adminForm.multiAdd && (
+                    <div className="admin-row two">
+                      <label>
+                        Start Volume
+                        <input
+                          type="number"
+                          min="1"
+                          value={adminForm.startVol}
+                          onChange={(e) =>
+                            setAdminForm((prev) => ({ ...prev, startVol: e.target.value }))
+                          }
+                        />
+                      </label>
+                      <label>
+                        End Volume
+                        <input
+                          type="number"
+                          min="1"
+                          value={adminForm.endVol}
+                          onChange={(e) =>
+                            setAdminForm((prev) => ({ ...prev, endVol: e.target.value }))
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="manga-modal-footer" style={{ justifyContent: "flex-end", gap: "10px" }}>
+              <div
+                className="manga-modal-footer"
+                style={{ justifyContent: "flex-end", gap: "10px" }}
+              >
                 <button className="manga-btn secondary" onClick={resetAdminForm} type="button">
                   Cancel
                 </button>
@@ -1835,11 +1939,11 @@ export default function Manga() {
           </div>
         </div>
       )}
+      <datalist id="adminTitleSuggestions">
+        {titleSuggestions.map((t) => (
+          <option value={t} key={t} />
+        ))}
+      </datalist>
     </div>
   );
 }
-                    <datalist id="adminTitleSuggestions">
-                      {titleSuggestions.map((t) => (
-                        <option value={t} key={t} />
-                      ))}
-                    </datalist>
