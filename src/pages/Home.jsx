@@ -113,16 +113,6 @@ export default function Home() {
                 <span className="section-chip">Per-game breakdown</span>
               </div>
             </a>
-
-            <a href="/base/dashboard" className="section-card">
-              <h3>🔐 Admin Dashboard</h3>
-              <p>Private admin space for stats, logs, and bulk tools across collections.</p>
-              <div className="section-chip-row">
-                <span className="section-chip accent">Admins only</span>
-                <span className="section-chip">Global stats</span>
-                <span className="section-chip">Bulk editing</span>
-              </div>
-            </a>
           </div>
         </article>
       </section>

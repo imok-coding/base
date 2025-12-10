@@ -1,0 +1,243 @@
+/* ===========================
+   DASHBOARD GLOBAL
+=========================== */
+
+.dashboard-page {
+  padding: 20px;
+  color: #fce4ec;
+}
+
+.page-header {
+  margin-bottom: 25px;
+}
+.page-header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 6px;
+  color: #ffb6c1;
+}
+.page-header p {
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+/* Loading / Error */
+.dashboard-loading,
+.dashboard-error {
+  text-align: center;
+  padding: 40px 0;
+  font-size: 1.1rem;
+  color: #ffc2d1;
+}
+
+/* ===========================
+   GRID LAYOUT
+=========================== */
+
+.dashboard-section {
+  margin-top: 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+/* ===========================
+   STAT CARDS
+=========================== */
+
+.stat-card {
+  background: radial-gradient(circle at top left, #2b0f1d 0%, #120810 70%);
+  border: 1px solid rgba(255, 182, 193, 0.25);
+  padding: 15px 18px;
+  border-radius: 16px;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.55);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.stat-card.mini {
+  padding: 12px 15px;
+}
+
+.stat-card.clickable:hover {
+  cursor: pointer;
+  transform: translateY(-3px);
+  box-shadow: 0 22px 35px rgba(255, 182, 193, 0.3);
+}
+
+.stat-card h3 {
+  font-size: 1.15rem;
+  margin-bottom: 10px;
+  color: #ffb6c1;
+}
+
+.stat-value {
+  font-size: 1.55rem;
+  font-weight: bold;
+  color: #ffe4ed;
+  margin-bottom: 6px;
+}
+.stat-sub {
+  font-size: 0.85rem;
+  color: #f8cdd8;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+/* ===========================
+   PIE CHARTS
+   (Pure CSS, matches original index.html behavior)
+=========================== */
+
+.pie {
+  --size: 90px;
+  --pct: 0;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  margin: 10px auto;
+  position: relative;
+  background: conic-gradient(
+    rgba(255, 182, 193, 0.75) calc(var(--pct) * 1%),
+    rgba(255, 255, 255, 0.05) 0
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 10px rgba(255, 182, 193, 0.25);
+}
+
+.pie-label {
+  position: absolute;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #ffe4ed;
+  text-shadow: 0 0 5px rgba(255, 182, 193, 0.4);
+}
+
+/* ===========================
+   TOP LISTS (Demographic, Publisher, Genre)
+=========================== */
+
+.stat-list {
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.stat-list-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stat-list-label {
+  font-size: 0.85rem;
+  color: #ffc7d6;
+}
+
+.stat-list-count {
+  font-size: 0.85rem;
+  color: #ffdbe5;
+}
+
+/* Bar chart */
+.bar-chart {
+  grid-column: 1 / 3;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 182, 193, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.bar {
+  height: 100%;
+  background: rgba(255, 182, 193, 0.7);
+  border-radius: 8px;
+  transition: width 0.35s ease;
+}
+
+/* ===========================
+   COUNTDOWN CARD
+=========================== */
+
+#statNextCountdown {
+  font-size: 1.1rem;
+  color: #ffe4ef;
+  font-weight: bold;
+  margin-top: 4px;
+  display: block;
+}
+
+#statNextReleaseDate {
+  color: #ffd1df;
+}
+
+/* ===========================
+   VALUE CARD
+=========================== */
+
+#statCollectionMsrp,
+#statCollectionPaid,
+#statCollectionCollectible {
+  display: inline-block;
+  margin-top: 3px;
+}
+
+#statCollectionPaidPct {
+  margin-top: 6px;
+  color: #ffb6c1;
+}
+
+/* ===========================
+   PAGES STATS
+=========================== */
+
+#statPagesRead,
+#statPagesTotal {
+  font-weight: bold;
+}
+
+/* ===========================
+   RATINGS LIST
+=========================== */
+
+#statTopRated ul {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 8px;
+}
+
+#statTopRated li {
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: #ffe0e9;
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+
+@media (max-width: 760px) {
+  .stat-card {
+    padding: 12px 14px;
+  }
+
+  .pie {
+    --size: 75px;
+  }
+
+  .stat-value {
+    font-size: 1.35rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+}
