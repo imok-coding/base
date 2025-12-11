@@ -13,6 +13,30 @@
   gap: 12px;
   margin-bottom: 10px;
 }
+
+.stat-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 182, 193, 0.5);
+  background: radial-gradient(circle at top left, rgba(255, 182, 193, 0.22), rgba(24, 5, 18, 0.95));
+  color: #ffe6ed;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.stat-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 182, 193, 0.9);
+  background: radial-gradient(circle at top left, rgba(255, 182, 193, 0.32), rgba(43, 15, 29, 0.98));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.75);
+}
+
 .stat-link.danger {
   color: #ff9aa2;
 }
