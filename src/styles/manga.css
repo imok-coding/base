@@ -561,11 +561,11 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 22px;
-  letter-spacing: 2px;
+  font-size: 24px;
+  letter-spacing: 0;
   user-select: none;
   pointer-events: none;
-  width: 140px;
+  width: 120px;
   color: rgba(255, 182, 193, 0.25);
 }
 
@@ -582,8 +582,8 @@
 .star-clicks {
   position: relative;
   display: flex;
-  width: 140px;
-  height: 28px;
+  width: 120px;
+  height: 26px;
 }
 
 .star-clicks button {
@@ -597,7 +597,8 @@
 
 .star-clicks button:hover,
 .star-clicks button:focus-visible {
-  outline: 1px solid rgba(255, 182, 193, 0.6);
+  outline: none;
+  background: rgba(255, 124, 207, 0.12);
 }
 
 .star-value {

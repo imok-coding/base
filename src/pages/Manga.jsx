@@ -343,7 +343,7 @@ export default function Manga() {
   const { admin } = useAuth();
   const isAdmin = admin;
 
-  const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist' | 'dashboard'
+  const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist'
 
   const [library, setLibrary] = useState([]);
   const [wishlist, setWishlist] = useState([]);
@@ -1218,18 +1218,6 @@ export default function Manga() {
         >
           Wishlist
         </button>
-        <button
-          className={
-            "manga-tab-btn" + (activeTab === "dashboard" ? " active" : "")
-          }
-          onClick={() => {
-            setActiveTab("dashboard");
-            setMultiMode(false);
-            setSelectedIds(new Set());
-          }}
-        >
-          Manga Dashboard
-        </button>
       </div>
 
       {/* Toolbar */}
@@ -1328,8 +1316,6 @@ export default function Manga() {
         <div className="manga-empty-state">Loading manga from Firestore...</div>
       ) : error ? (
         <div className="manga-empty-state">{error}</div>
-      ) : activeTab === "dashboard" ? (
-        <MangaDashboard library={library} wishlist={wishlist} />
       ) : currentList.length === 0 ? (
         <div className="manga-empty-state">
           No manga found. Try changing your search.
