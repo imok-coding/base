@@ -128,19 +128,19 @@ export default function Home() {
         >
           {lang === "jp" ? (
             <>
-              <span role="img" aria-label="manga">\ud83d\udcd2</span> \u30de\u30f3\u30ac
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>\u2022</span>
-              <span role="img" aria-label="anime">\ud83c\udfac</span> \u30a2\u30cb\u30e1
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>\u2022</span>
-              <span role="img" aria-label="tcg">\ud83c\udccf</span> TCG
+              <span role="img" aria-label="manga">📚</span> マンガ
+              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
+              <span role="img" aria-label="anime">🎬</span> アニメ
+              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
+              <span role="img" aria-label="tcg">🃏</span> TCG
             </>
           ) : (
             <>
-              <span role="img" aria-label="manga">\ud83d\udcd2</span> Manga
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>\u2022</span>
-              <span role="img" aria-label="anime">\ud83c\udfac</span> Anime
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>\u2022</span>
-              <span role="img" aria-label="tcg">\ud83c\udccf</span> TCG
+              <span role="img" aria-label="manga">📚</span> Manga
+              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
+              <span role="img" aria-label="anime">🎬</span> Anime
+              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
+              <span role="img" aria-label="tcg">🃏</span> TCG
             </>
           )}
         </div>

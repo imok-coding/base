@@ -352,6 +352,7 @@ export default function Manga() {
   const [wishlist, setWishlist] = useState([]);
   const [titleSuggestions, setTitleSuggestions] = useState([]);
   const [titleMatches, setTitleMatches] = useState([]);
+  const [showHidden, setShowHidden] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -394,6 +395,8 @@ export default function Manga() {
     startVol: "",
     endVol: "",
   });
+  const [volumeEntries, setVolumeEntries] = useState([]);
+  const [volumeIndex, setVolumeIndex] = useState(0);
   const [bulkEdit, setBulkEdit] = useState({
     open: false,
     index: 0,
@@ -444,6 +447,7 @@ export default function Manga() {
             : "",
         read: !!data.read,
         amazonURL: data.amazonURL || "",
+        hidden: !!data.hidden,
         kind: "library",
       });
     });
@@ -498,6 +502,7 @@ export default function Manga() {
             ? data.collectiblePrice
             : "",
         amazonURL: data.amazonURL || "",
+        hidden: !!data.hidden,
         kind: "wishlist",
       });
     });
@@ -560,6 +565,11 @@ export default function Manga() {
       return searchText.includes(q);
     });
   }, [library, searchLibrary]);
+
+  const visibleLibrary = useMemo(() => {
+    if (isAdmin && showHidden) return filteredLibrary;
+    return filteredLibrary.filter((b) => !b.hidden);
+  }, [filteredLibrary, isAdmin, showHidden]);
 
   const filteredWishlist = useMemo(() => {
     const q = searchWishlist.trim().toLowerCase();
@@ -713,7 +723,7 @@ export default function Manga() {
 
   // ----- Rendering helpers -----
 
-  const resetAdminForm = () =>
+  const resetAdminForm = () => {
     setAdminForm((prev) => ({
       ...prev,
       open: false,
@@ -740,26 +750,39 @@ export default function Manga() {
         collectiblePrice: "",
         amazonURL: "",
         read: false,
+        hidden: false,
       },
       multiAdd: false,
       startVol: "",
       endVol: "",
     }));
+    setVolumeEntries([]);
+    setVolumeIndex(0);
+  };
 
-  const seriesVolumeMap = useMemo(() => {
+  const seriesInfoMap = useMemo(() => {
     const map = new Map();
     [...library, ...wishlist].forEach((item) => {
       const parsed = parseTitleForSort(item.title || "");
       if (!parsed.name) return;
+      const display =
+        (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
+        item.title ||
+        parsed.name;
       if (!map.has(parsed.name)) {
-        const display =
-          (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
-          item.title ||
-          parsed.name;
-        map.set(parsed.name, { display, maxVol: parsed.vol });
+        map.set(parsed.name, {
+          display,
+          maxVol: parsed.vol,
+          authors: item.authors || "",
+          publisher: item.publisher || "",
+          demographic: item.demographic || "",
+        });
       } else {
         const cur = map.get(parsed.name);
         cur.maxVol = Math.max(cur.maxVol, parsed.vol);
+        if (!cur.authors && item.authors) cur.authors = item.authors;
+        if (!cur.publisher && item.publisher) cur.publisher = item.publisher;
+        if (!cur.demographic && item.demographic) cur.demographic = item.demographic;
       }
     });
     return map;
@@ -774,10 +797,37 @@ export default function Manga() {
       editingId: null,
       data: { ...prev.data, title: "", list },
     }));
+    setVolumeEntries([{
+      kind: "new",
+      id: null,
+      data: {
+        title: "",
+        authors: "",
+        publisher: "",
+        demographic: "",
+        genre: "",
+        subGenre: "",
+        date: "",
+        cover: "",
+        isbn: "",
+        pageCount: "",
+        rating: "",
+        amountPaid: "",
+        dateRead: "",
+        datePurchased: "",
+        msrp: "",
+        specialType: "",
+        specialVolumes: "",
+        collectiblePrice: "",
+        amazonURL: "",
+        read: false,
+      },
+    }]);
+    setVolumeIndex(0);
   };
 
   const openAdminEdit = (book) => {
-    setAdminForm({
+    const data = {
       open: true,
       mode: "edit",
       list: book.kind === "wishlist" ? "wishlist" : "library",
@@ -803,18 +853,49 @@ export default function Manga() {
         collectiblePrice: book.collectiblePrice || "",
         amazonURL: book.amazonURL || "",
         read: !!book.read,
+        hidden: !!book.hidden,
       },
-    });
+    };
+    setAdminForm(data);
+    setVolumeEntries([{
+      kind: "edit",
+      id: book.id,
+      data: { ...data.data },
+    }]);
+    setVolumeIndex(0);
   };
 
   const handleAdminChange = (field, value, type = "text") => {
-    setAdminForm((prev) => ({
-      ...prev,
-      data: {
+    setAdminForm((prev) => {
+      const nextData = {
         ...prev.data,
         [field]: type === "checkbox" ? !!value : value,
-      },
-    }));
+      };
+
+      if (field === "title") {
+        const parsed = parseTitleForSort(value || "");
+        if (parsed.name && seriesInfoMap.has(parsed.name)) {
+          const meta = seriesInfoMap.get(parsed.name);
+          nextData.authors = meta.authors || nextData.authors;
+          nextData.publisher = meta.publisher || nextData.publisher;
+          nextData.demographic = meta.demographic || nextData.demographic;
+        }
+      }
+
+      return { ...prev, data: nextData };
+    });
+
+    setVolumeEntries((prev) => {
+      if (!prev.length) return prev;
+      const items = [...prev];
+      const current = { ...items[volumeIndex] };
+      current.data = {
+        ...current.data,
+        [field]: type === "checkbox" ? !!value : value,
+      };
+      items[volumeIndex] = current;
+      return items;
+    });
 
     if (field === "title") {
       const input = String(value || "").trim().toLowerCase();
@@ -822,7 +903,7 @@ export default function Manga() {
         setTitleMatches([]);
       } else {
         const matches = [];
-        seriesVolumeMap.forEach((val, key) => {
+        seriesInfoMap.forEach((val) => {
           if (val.display.toLowerCase().includes(input)) {
             const nextVol = val.maxVol > 0 ? val.maxVol + 1 : 1;
             matches.push(`${val.display}, Vol. ${nextVol}`);
@@ -833,58 +914,124 @@ export default function Manga() {
     }
   };
 
-  async function saveAdminForm() {
-    if (!isAdmin) return;
-    const { mode, list, data, editingId, multiAdd, startVol, endVol } = adminForm;
-    const targetList = list || "library";
-    if (!data.title.trim()) {
-      alert("Title is required.");
+  const goVolumeEntry = (nextIdx) => {
+    if (!volumeEntries[nextIdx]) return;
+    setVolumeIndex(nextIdx);
+    setAdminForm((prev) => {
+      const entry = volumeEntries[nextIdx];
+      return { ...prev, data: { ...entry.data } };
+    });
+  };
+
+  const addNewVolumeEntry = () => {
+    const currentTitle = adminForm.data.title || "";
+    const parsed = parseTitleForSort(currentTitle);
+    if (!parsed.name) {
+      alert("Provide a title with a volume number first (e.g., Series, Vol. 1).");
       return;
     }
-    const buildPayload = (overrideTitle) => ({
-      title: overrideTitle || data.title.trim(),
-      authors: data.authors.trim(),
-      publisher: data.publisher.trim(),
-      demographic: data.demographic.trim(),
-      genre: data.genre.trim(),
-      subGenre: data.subGenre.trim(),
-      date: data.date.trim(),
-      cover: data.cover.trim(),
-      isbn: data.isbn.trim(),
-      pageCount: data.pageCount === "" ? "" : Number(data.pageCount),
+    const baseDisplay =
+      currentTitle.replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() || currentTitle;
+
+    let maxVol = parsed.vol || 0;
+    const seriesMeta = seriesInfoMap.get(parsed.name);
+    if (seriesMeta && seriesMeta.maxVol > maxVol) maxVol = seriesMeta.maxVol;
+    volumeEntries.forEach((v) => {
+      const p = parseTitleForSort(v.data.title || "");
+      if (p.name === parsed.name) {
+        maxVol = Math.max(maxVol, p.vol || 0);
+      }
+    });
+    const nextVol = (maxVol || 0) + 1;
+    const newTitle = `${baseDisplay}, Vol. ${nextVol}`;
+
+    const newData = {
+      title: newTitle,
+      authors: adminForm.data.authors,
+      publisher: adminForm.data.publisher,
+      demographic: adminForm.data.demographic,
+      genre: adminForm.data.genre,
+      subGenre: adminForm.data.subGenre,
+      msrp: adminForm.data.msrp,
+      hidden: adminForm.data.hidden,
+      cover: "",
+      isbn: "",
+      pageCount: "",
+      rating: "",
+      amountPaid: "",
+      date: "",
+      dateRead: "",
+      datePurchased: "",
+      specialType: "",
+      specialVolumes: "",
+      collectiblePrice: "",
+      amazonURL: "",
+      read: false,
+    };
+
+    setVolumeEntries((prev) => {
+      const next = [...prev, { kind: "new", id: null, data: newData }];
+      setVolumeIndex(next.length - 1);
+      return next;
+    });
+    setAdminForm((prev) => ({ ...prev, mode: "add", data: newData }));
+  };
+
+  async function saveAdminForm() {
+    if (!isAdmin) return;
+    const { list } = adminForm;
+    const targetList = list || "library";
+    const entries =
+      volumeEntries.length > 0
+        ? volumeEntries
+        : [{
+            kind: adminForm.mode,
+            id: adminForm.editingId,
+            data: adminForm.data,
+          }];
+
+    const buildPayload = (d) => ({
+      title: (d.title || "").trim(),
+      authors: (d.authors || "").trim(),
+      publisher: (d.publisher || "").trim(),
+      demographic: (d.demographic || "").trim(),
+      genre: (d.genre || "").trim(),
+      subGenre: (d.subGenre || "").trim(),
+      date: (d.date || "").trim(),
+      cover: (d.cover || "").trim(),
+      isbn: (d.isbn || "").trim(),
+      pageCount: d.pageCount === "" ? "" : Number(d.pageCount),
       rating:
-        data.rating === "" ? "" : Math.max(0.5, Math.min(5, Number(data.rating))),
-      amountPaid: data.amountPaid === "" ? "" : Number(data.amountPaid),
-      dateRead: data.dateRead.trim(),
-      datePurchased: data.datePurchased.trim(),
-      msrp: data.msrp === "" ? "" : Number(data.msrp),
-      specialType: data.specialType.trim(),
-      specialVolumes: data.specialVolumes === "" ? "" : Number(data.specialVolumes),
+        d.rating === "" ? "" : Math.max(0.5, Math.min(5, Number(d.rating))),
+      amountPaid: d.amountPaid === "" ? "" : Number(d.amountPaid),
+      dateRead: (d.dateRead || "").trim(),
+      datePurchased: (d.datePurchased || "").trim(),
+      msrp: d.msrp === "" ? "" : Number(d.msrp),
+      specialType: (d.specialType || "").trim(),
+      specialVolumes: d.specialVolumes === "" ? "" : Number(d.specialVolumes),
       collectiblePrice:
-        data.collectiblePrice === "" ? "" : Number(data.collectiblePrice),
-      amazonURL: data.amazonURL.trim(),
-      read: !!data.read,
+        d.collectiblePrice === "" ? "" : Number(d.collectiblePrice),
+      amazonURL: (d.amazonURL || "").trim(),
+      read: !!d.read,
+      hidden: !!d.hidden,
       kind: list,
     });
+
     try {
-      if (mode === "add" && multiAdd) {
-        const start = Number(startVol || 0);
-        const end = Number(endVol || 0);
-        if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) {
-          alert("Provide valid start/end volumes (start > 0, end >= start).");
+      const writes = [];
+      for (const entry of entries) {
+        const payload = buildPayload(entry.data);
+        if (!payload.title) {
+          alert("Title is required for every entry.");
           return;
         }
-        const writes = [];
-        for (let v = start; v <= end; v++) {
-          const title = `${data.title.trim()} Vol. ${v}`;
-          writes.push(addDoc(collection(db, targetList), buildPayload(title)));
+        if (entry.kind === "edit" && entry.id) {
+          writes.push(updateDoc(doc(db, targetList, entry.id), payload));
+        } else {
+          writes.push(addDoc(collection(db, targetList), payload));
         }
-        await Promise.all(writes);
-      } else if (mode === "add") {
-        await addDoc(collection(db, targetList), buildPayload());
-      } else if (mode === "edit" && editingId) {
-        await updateDoc(doc(db, targetList, editingId), buildPayload());
       }
+      await Promise.all(writes);
       await Promise.all([loadLibrary(), loadWishlist()]);
       resetAdminForm();
     } catch (err) {
@@ -978,6 +1125,7 @@ export default function Manga() {
         collectiblePrice: b.collectiblePrice || "",
         amazonURL: b.amazonURL || "",
         read: !!b.read,
+        hidden: !!b.hidden,
       },
     }));
     setBulkEdit({ open: true, index: 0, items });
@@ -1187,7 +1335,7 @@ export default function Manga() {
     );
   };
 
-  const currentList = activeTab === "library" ? filteredLibrary : filteredWishlist;
+  const currentList = activeTab === "library" ? visibleLibrary : filteredWishlist;
 
   const exportCSV = (rows, filename) => {
     if (!rows.length) return;
@@ -1365,6 +1513,15 @@ export default function Manga() {
             </div>
 
             <div className="manga-toolbar-right">
+              {isAdmin && activeTab === "library" && (
+                <button
+                  className="manga-btn secondary"
+                  type="button"
+                  onClick={() => setShowHidden((v) => !v)}
+                >
+                  {showHidden ? "Hide Hidden" : "Show Hidden"}
+                </button>
+              )}
               {isAdmin && (
                 <button
                   className={
@@ -1688,6 +1845,49 @@ export default function Manga() {
                     </div>
                   )}
 
+                  <div className="admin-row two" style={{ alignItems: "flex-end", marginTop: "-8px" }}>
+                    <div>
+                      <div className="manga-modal-subtitle" style={{ marginBottom: "6px" }}>
+                        Entry {volumeIndex + 1} / {Math.max(1, volumeEntries.length || 1)}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          className="manga-btn secondary"
+                          type="button"
+                          onClick={() => volumeIndex > 0 && goVolumeEntry(volumeIndex - 1)}
+                          disabled={volumeIndex === 0}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          className="manga-btn secondary"
+                          type="button"
+                          onClick={() =>
+                            volumeEntries.length && volumeIndex < volumeEntries.length - 1
+                              ? goVolumeEntry(volumeIndex + 1)
+                              : null
+                          }
+                          disabled={!volumeEntries.length || volumeIndex === volumeEntries.length - 1}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <button
+                        className="manga-btn"
+                        type="button"
+                        onClick={addNewVolumeEntry}
+                        disabled={!parseTitleForSort(adminForm.data.title || "").vol}
+                      >
+                        Add New Volume
+                      </button>
+                      <div className="manga-stat-sub" style={{ marginTop: "4px" }}>
+                        Auto-fills the next volume number for this series.
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="admin-row">
                     <label>
                       Authors
@@ -1835,11 +2035,16 @@ export default function Manga() {
                   <div className="admin-row two">
                     <label>
                       Demographic
-                      <input
-                        type="text"
+                      <select
                         value={adminForm.data.demographic}
                         onChange={(e) => handleAdminChange("demographic", e.target.value)}
-                      />
+                      >
+                        <option value="">Select</option>
+                        <option value="Shounen">Shounen</option>
+                        <option value="Seinen">Seinen</option>
+                        <option value="Shoujo">Shoujo</option>
+                        <option value="Josei">Josei</option>
+                      </select>
                     </label>
                     <label>
                       Genre
@@ -1883,41 +2088,14 @@ export default function Manga() {
                     <label className="checkbox-inline">
                       <input
                         type="checkbox"
-                        checked={adminForm.multiAdd}
+                        checked={!!adminForm.data.hidden}
                         onChange={(e) =>
-                          setAdminForm((prev) => ({ ...prev, multiAdd: e.target.checked }))
+                          handleAdminChange("hidden", e.target.checked, "checkbox")
                         }
                       />
-                      <span>Multi-create volumes</span>
+                      <span>Hide from public</span>
                     </label>
                   </div>
-
-                  {adminForm.multiAdd && (
-                    <div className="admin-row two">
-                      <label>
-                        Start Volume
-                        <input
-                          type="number"
-                          min="1"
-                          value={adminForm.startVol}
-                          onChange={(e) =>
-                            setAdminForm((prev) => ({ ...prev, startVol: e.target.value }))
-                          }
-                        />
-                      </label>
-                      <label>
-                        End Volume
-                        <input
-                          type="number"
-                          min="1"
-                          value={adminForm.endVol}
-                          onChange={(e) =>
-                            setAdminForm((prev) => ({ ...prev, endVol: e.target.value }))
-                          }
-                        />
-                      </label>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1992,11 +2170,16 @@ export default function Manga() {
                     </label>
                     <label>
                       Demographic
-                      <input
-                        type="text"
+                      <select
                         value={bulkEdit.items[bulkEdit.index].data.demographic}
                         onChange={(e) => handleBulkChange("demographic", e.target.value)}
-                      />
+                      >
+                        <option value="">Select</option>
+                        <option value="Shounen">Shounen</option>
+                        <option value="Seinen">Seinen</option>
+                        <option value="Shoujo">Shoujo</option>
+                        <option value="Josei">Josei</option>
+                      </select>
                     </label>
                     <label>
                       Genre
@@ -2135,6 +2318,16 @@ export default function Manga() {
                         }
                       />
                       <span>Marked as read</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={!!bulkEdit.items[bulkEdit.index].data.hidden}
+                        onChange={(e) =>
+                          handleBulkChange("hidden", e.target.checked, "checkbox")
+                        }
+                      />
+                      <span>Hidden from public</span>
                     </label>
                   </div>
 
