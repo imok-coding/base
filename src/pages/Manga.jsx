@@ -1167,6 +1167,58 @@ export default function Manga() {
 
   const currentList = activeTab === "library" ? filteredLibrary : filteredWishlist;
 
+  const exportCSV = (rows, filename) => {
+    if (!rows.length) return;
+    const headers = Array.from(
+      rows.reduce((set, row) => {
+        Object.keys(row).forEach((k) => set.add(k));
+        return set;
+      }, new Set())
+    );
+    const escape = (v) => {
+      const s = v == null ? "" : String(v);
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const csv = [headers.join(",")].concat(
+      rows.map((r) => headers.map((h) => escape(r[h])).join(","))
+    );
+    const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportJSON = (rows, filename) => {
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportImagesList = (rows, filename) => {
+    const urls = Array.from(
+      new Set(
+        rows
+          .map((r) => r.cover)
+          .filter(Boolean)
+      )
+    );
+    const blob = new Blob([urls.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="manga-page">
       <header className="manga-header">
@@ -1187,6 +1239,42 @@ export default function Manga() {
               onClick={() => openAdminAdd(activeTab === "wishlist" ? "wishlist" : "library")}
             >
               Add {activeTab === "wishlist" ? "Wishlist" : "Library"} Item
+            </button>
+            <button
+              className="manga-btn secondary"
+              type="button"
+              onClick={() =>
+                exportJSON(
+                  activeTab === "library" ? library : wishlist,
+                  activeTab === "library" ? "manga-library.json" : "manga-wishlist.json"
+                )
+              }
+            >
+              Export JSON
+            </button>
+            <button
+              className="manga-btn secondary"
+              type="button"
+              onClick={() =>
+                exportCSV(
+                  activeTab === "library" ? library : wishlist,
+                  activeTab === "library" ? "manga-library.csv" : "manga-wishlist.csv"
+                )
+              }
+            >
+              Export CSV
+            </button>
+            <button
+              className="manga-btn secondary"
+              type="button"
+              onClick={() =>
+                exportImagesList(
+                  activeTab === "library" ? library : wishlist,
+                  activeTab === "library" ? "manga-library-images.txt" : "manga-wishlist-images.txt"
+                )
+              }
+            >
+              Download Images
             </button>
           </div>
         )}

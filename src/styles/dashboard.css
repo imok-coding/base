@@ -13,6 +13,9 @@
   gap: 12px;
   margin-bottom: 10px;
 }
+.stat-link.danger {
+  color: #ff9aa2;
+}
 
 .dashboard-header h1 {
   margin: 0;
@@ -25,6 +28,80 @@
   margin: 2px 0 0;
   font-size: 0.85rem;
   color: #f8d1d8;
+}
+
+.dashboard-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 2, 10, 0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 12px;
+}
+
+.dashboard-modal-backdrop.visible {
+  display: flex;
+}
+
+.dashboard-modal {
+  background: linear-gradient(135deg, rgba(39, 13, 25, 0.98), rgba(12, 6, 16, 0.98));
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.95);
+  color: #fff;
+  width: min(520px, 95vw);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashboard-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #ffb6c1;
+  font-size: 0.9rem;
+}
+
+.dashboard-input input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  background: rgba(43, 15, 29, 0.75);
+  color: #ffffff;
+}
+
+.dashboard-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dashboard-close {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 182, 193, 0.5);
+  background: rgba(15, 2, 12, 0.98);
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  cursor: pointer;
 }
 
 .dashboard-locked,

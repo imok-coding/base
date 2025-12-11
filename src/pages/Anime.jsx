@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchAnimeList } from "../api/malApi.js";
 import "../styles/anime.css";
+import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function Anime() {
+  const { admin } = useAuth();
   const formatStatus = (value) => {
     if (!value) return "Unknown";
     return value
@@ -73,6 +75,11 @@ export default function Anime() {
 
   const stats = useMemo(() => {
     const total = items.length;
+    const totalEpisodes = items.reduce(
+      (sum, a) => sum + (Number.isFinite(a.episodes) ? Number(a.episodes) : 0),
+      0
+    );
+    const totalHours = totalEpisodes * 0.4; // ~24 minutes per episode
     const byStatus = {
       watching: 0,
       completed: 0,
@@ -89,7 +96,12 @@ export default function Anime() {
     const avgScore =
       items.reduce((s, a) => (Number.isFinite(a.score) ? s + a.score : s), 0) /
       Math.max(1, items.filter((a) => Number.isFinite(a.score)).length || 1);
-    return { total, byStatus, avgScore: Number.isFinite(avgScore) ? avgScore : 0 };
+    return {
+      total,
+      byStatus,
+      avgScore: Number.isFinite(avgScore) ? avgScore : 0,
+      totalHours,
+    };
   }, [items]);
 
   const renderCard = (a) => {
@@ -132,6 +144,24 @@ export default function Anime() {
             <h1 className="anime-title">Tyler&apos;s Anime Library</h1>
             <p className="anime-sub">MAL-synced overview of your shows</p>
           </div>
+          {admin && (
+            <button
+              className="stat-link"
+              type="button"
+              onClick={() => {
+                const urls = Array.from(new Set(items.map((i) => i.image).filter(Boolean)));
+                const blob = new Blob([urls.join("\n")], { type: "text/plain" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "anime-images.txt";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Download Images
+            </button>
+          )}
         </header>
 
         <div className="anime-stats">
@@ -155,6 +185,12 @@ export default function Anime() {
             <div className="anime-stat-label">Avg. Score</div>
             <div className="anime-stat-value">
               {stats.avgScore ? stats.avgScore.toFixed(1) : "—"}
+            </div>
+          </div>
+          <div className="anime-stat-card">
+            <div className="anime-stat-label">Hours Watched (est.)</div>
+            <div className="anime-stat-value">
+              {stats.totalHours ? stats.totalHours.toFixed(1) : "0.0"}
             </div>
           </div>
         </div>

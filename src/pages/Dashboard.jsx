@@ -1,15 +1,15 @@
 // src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
 
-const YEARLY_WEBHOOK =
+const DEFAULT_YEARLY_WEBHOOK =
   "https://discord.com/api/webhooks/1448287168845054004/cGWGPoH5LaTFlBZ1vxtgMjOfV9au6qyQ_9ZRnOWN9-AX0MNfwxKNWVcZYQHz0ESA7_4k";
-const RELEASE_WEBHOOK =
+const DEFAULT_RELEASE_WEBHOOK =
   "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
-const ACTIVITY_WEBHOOK =
+const DEFAULT_ACTIVITY_WEBHOOK =
   "https://discord.com/api/webhooks/1448329790942613667/wsC8psNZ-Ax2D1O9Gl4sJi6ay7df2cr7IrIdxMPwGZTBnkSUIY2NDpeVd98qW_4plz82";
 
 /* ---------- Helpers ---------- */
@@ -491,6 +491,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [countdownText, setCountdownText] = useState("-");
+  const [webhooks, setWebhooks] = useState({
+    yearly: DEFAULT_YEARLY_WEBHOOK,
+    release: DEFAULT_RELEASE_WEBHOOK,
+    activity: DEFAULT_ACTIVITY_WEBHOOK,
+  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
@@ -510,6 +516,33 @@ export default function Dashboard() {
     releasePostedRef.current = localStorage.getItem("dashboard-release-posted");
     activityPostedRef.current = localStorage.getItem("dashboard-activity-posted") || "";
   }, []);
+
+  // Load / bootstrap webhook settings
+  useEffect(() => {
+    if (!admin) return;
+    const ref = doc(db, "settings", "webhooks");
+    (async () => {
+      try {
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data();
+          setWebhooks({
+            yearly: data.yearly || DEFAULT_YEARLY_WEBHOOK,
+            release: data.release || DEFAULT_RELEASE_WEBHOOK,
+            activity: data.activity || DEFAULT_ACTIVITY_WEBHOOK,
+          });
+        } else {
+          await setDoc(ref, {
+            yearly: DEFAULT_YEARLY_WEBHOOK,
+            release: DEFAULT_RELEASE_WEBHOOK,
+            activity: DEFAULT_ACTIVITY_WEBHOOK,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load webhook settings", e);
+      }
+    })();
+  }, [admin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -668,7 +701,7 @@ export default function Dashboard() {
       .join(", ");
     const content = `Yearly reads summary for ${prevYear}: ${prevTotal} total. Breakdown: ${breakdown}`;
 
-    postWebhook(YEARLY_WEBHOOK, content).then(() => {
+    postWebhook(webhooks.yearly, content).then(() => {
       yearlyPostedRef.current = String(prevYear);
       if (typeof window !== "undefined") {
         localStorage.setItem("dashboard-yearly-posted", String(prevYear));
@@ -692,7 +725,7 @@ export default function Dashboard() {
       .map((r) => `- ${r.title}`)
       .join("\n")}`;
 
-    postWebhook(RELEASE_WEBHOOK, content).then(() => {
+    postWebhook(webhooks.release, content).then(() => {
       releasePostedRef.current = releaseKey;
       if (typeof window !== "undefined") {
         localStorage.setItem("dashboard-release-posted", releaseKey);
@@ -713,12 +746,12 @@ export default function Dashboard() {
       month: "short",
       day: "numeric",
     })})`;
-    postWebhook(ACTIVITY_WEBHOOK, content).then(() => {
+    postWebhook(webhooks.activity, content).then(() => {
       if (typeof window !== "undefined") {
         localStorage.setItem("dashboard-activity-posted", key);
       }
     });
-  }, [activity, admin]);
+  }, [activity, admin, webhooks]);
 
   useEffect(() => {
     if (!nextDate) {
@@ -1163,6 +1196,11 @@ export default function Dashboard() {
             Admin-only analytics for your manga library and wishlist.
           </p>
         </div>
+        {admin && (
+          <button className="stat-link" onClick={() => setSettingsOpen(true)} type="button">
+            Admin Settings
+          </button>
+        )}
       </header>
 
       <section id="dashboardSection" className="page-section active">
@@ -1537,6 +1575,78 @@ export default function Dashboard() {
               {detailModal.type === "releases" && "Wishlist Releases"}
             </h2>
             <div id="statDetailBody">{renderDetailBody()}</div>
+          </div>
+        </div>
+      )}
+
+      {admin && settingsOpen && (
+        <div
+          className="dashboard-modal-backdrop visible"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSettingsOpen(false);
+          }}
+        >
+          <div className="dashboard-modal">
+            <div className="dashboard-modal-header">
+              <h3>Webhook Settings</h3>
+              <button className="dashboard-close" onClick={() => setSettingsOpen(false)} type="button">
+                Close
+              </button>
+            </div>
+            <div className="dashboard-modal-body">
+              <label className="dashboard-input">
+                <span>Yearly summary webhook</span>
+                <input
+                  type="text"
+                  value={webhooks.yearly}
+                  onChange={(e) => setWebhooks((prev) => ({ ...prev, yearly: e.target.value }))}
+                />
+              </label>
+              <label className="dashboard-input">
+                <span>Release timer webhook</span>
+                <input
+                  type="text"
+                  value={webhooks.release}
+                  onChange={(e) => setWebhooks((prev) => ({ ...prev, release: e.target.value }))}
+                />
+              </label>
+              <label className="dashboard-input">
+                <span>Activity webhook</span>
+                <input
+                  type="text"
+                  value={webhooks.activity}
+                  onChange={(e) => setWebhooks((prev) => ({ ...prev, activity: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="dashboard-modal-footer">
+              <button
+                className="stat-link"
+                type="button"
+                onClick={async () => {
+                  try {
+                    await setDoc(doc(db, "settings", "webhooks"), {
+                      yearly: webhooks.yearly || DEFAULT_YEARLY_WEBHOOK,
+                      release: webhooks.release || DEFAULT_RELEASE_WEBHOOK,
+                      activity: webhooks.activity || DEFAULT_ACTIVITY_WEBHOOK,
+                    });
+                    setSettingsOpen(false);
+                  } catch (err) {
+                    console.error("Failed to save webhooks", err);
+                    alert("Failed to save webhooks.");
+                  }
+                }}
+              >
+                Save
+              </button>
+              <button
+                className="stat-link danger"
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
