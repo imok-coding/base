@@ -21,6 +21,41 @@ export default function Anime() {
   const [error, setError] = useState("");
   const [modalItem, setModalItem] = useState(null);
 
+  const downloadImagesZip = async () => {
+    const urls = Array.from(new Set(items.map((i) => i.image).filter(Boolean)));
+    if (!urls.length) {
+      alert("No images found to download.");
+      return;
+    }
+    try {
+      const JSZip = (await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
+      const zip = new JSZip();
+      const folder = zip.folder("images");
+      await Promise.all(
+        urls.map(async (u, idx) => {
+          try {
+            const res = await fetch(u);
+            const blob = await res.blob();
+            const ext = (u.split(".").pop() || "jpg").split(/[?#]/)[0];
+            folder.file(`image-${idx + 1}.${ext}`, blob);
+          } catch (e) {
+            console.warn("Failed to fetch image", u, e);
+          }
+        })
+      );
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "anime-images.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Zip download failed", err);
+      alert("Failed to create zip. Please try again.");
+    }
+  };
+
   useEffect(() => {
     async function load() {
       try {
@@ -193,6 +228,18 @@ export default function Anime() {
               {stats.totalHours ? stats.totalHours.toFixed(1) : "0.0"}
             </div>
           </div>
+          {admin && (
+            <div className="anime-stat-card">
+              <button
+                type="button"
+                className="manga-btn secondary"
+                style={{ width: "100%" }}
+                onClick={downloadImagesZip}
+              >
+                Download Images (zip)
+              </button>
+            </div>
+          )}
         </div>
 
         <section className="anime-toolbar">

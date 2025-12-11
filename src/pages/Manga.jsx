@@ -1221,21 +1221,38 @@ export default function Manga() {
     URL.revokeObjectURL(url);
   };
 
-  const exportImagesList = (rows, filename) => {
-    const urls = Array.from(
-      new Set(
-        rows
-          .map((r) => r.cover)
-          .filter(Boolean)
-      )
-    );
-    const blob = new Blob([urls.join("\n")], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadImagesZip = async (rows, filename) => {
+    const urls = Array.from(new Set(rows.map((r) => r.cover).filter(Boolean)));
+    if (!urls.length) {
+      alert("No images found to download.");
+      return;
+    }
+    try {
+      const JSZip = (await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
+      const zip = new JSZip();
+      const folder = zip.folder("images");
+      const fetches = urls.map(async (u, idx) => {
+        try {
+          const res = await fetch(u);
+          const blob = await res.blob();
+          const ext = (u.split(".").pop() || "jpg").split(/[?#]/)[0];
+          folder.file(`image-${idx + 1}.${ext}`, blob);
+        } catch (err) {
+          console.warn("Failed to fetch image", u, err);
+        }
+      });
+      await Promise.all(fetches);
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Zip download failed", err);
+      alert("Failed to create zip. Please try again.");
+    }
   };
 
   return (
@@ -1251,52 +1268,6 @@ export default function Manga() {
             same collections as your original index.html.
           </div>
         </div>
-        {isAdmin && (
-          <div className="manga-admin-actions">
-            <button
-              className="manga-btn"
-              onClick={() => openAdminAdd(activeTab === "wishlist" ? "wishlist" : "library")}
-            >
-              Add {activeTab === "wishlist" ? "Wishlist" : "Library"} Item
-            </button>
-            <button
-              className="manga-btn secondary"
-              type="button"
-              onClick={() =>
-                exportJSON(
-                  activeTab === "library" ? library : wishlist,
-                  activeTab === "library" ? "manga-library.json" : "manga-wishlist.json"
-                )
-              }
-            >
-              Export JSON
-            </button>
-            <button
-              className="manga-btn secondary"
-              type="button"
-              onClick={() =>
-                exportCSV(
-                  activeTab === "library" ? library : wishlist,
-                  activeTab === "library" ? "manga-library.csv" : "manga-wishlist.csv"
-                )
-              }
-            >
-              Export CSV
-            </button>
-            <button
-              className="manga-btn secondary"
-              type="button"
-              onClick={() =>
-                exportImagesList(
-                  activeTab === "library" ? library : wishlist,
-                  activeTab === "library" ? "manga-library-images.txt" : "manga-wishlist-images.txt"
-                )
-              }
-            >
-              Download Images
-            </button>
-          </div>
-        )}
       </header>
 
       {/* Tabs */}
@@ -1430,6 +1401,57 @@ export default function Manga() {
       ) : (
         <div className="manga-grid">
           {currentList.map((b) => renderCard(b))}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="manga-floating-actions">
+          <button
+            className="manga-btn"
+            type="button"
+            aria-label="Add item"
+            onClick={() => openAdminAdd(activeTab === "wishlist" ? "wishlist" : "library")}
+          >
+            + {activeTab === "wishlist" ? "Wishlist" : "Library"}
+          </button>
+          <div className="manga-export-actions">
+            <button
+              className="manga-btn secondary"
+              type="button"
+              onClick={() =>
+                exportJSON(
+                  activeTab === "library" ? library : wishlist,
+                  activeTab === "library" ? "manga-library.json" : "manga-wishlist.json"
+                )
+              }
+            >
+              Export JSON
+            </button>
+            <button
+              className="manga-btn secondary"
+              type="button"
+              onClick={() =>
+                exportCSV(
+                  activeTab === "library" ? library : wishlist,
+                  activeTab === "library" ? "manga-library.csv" : "manga-wishlist.csv"
+                )
+              }
+            >
+              Export CSV
+            </button>
+            <button
+              className="manga-btn secondary"
+              type="button"
+              onClick={() =>
+                downloadImagesZip(
+                  activeTab === "library" ? library : wishlist,
+                  activeTab === "library" ? "manga-library-images.zip" : "manga-wishlist-images.zip"
+                )
+              }
+            >
+              Download Images
+            </button>
+          </div>
         </div>
       )}
 

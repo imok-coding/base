@@ -1,44 +1,45 @@
+
 import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function TCG() {
+  const initialForm = {
+    game: "pokemon",
+    name: "",
+    setName: "",
+    number: "",
+    rarity: "",
+    condition: "",
+    quantity: 1,
+    pricePaid: "",
+    estimatedValue: "",
+    image: "",
+  };
+
   const { admin } = useAuth();
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [term, setTerm] = useState('');
-  const [gameFilter, setGameFilter] = useState('all');
+  const [term, setTerm] = useState("");
+  const [gameFilter, setGameFilter] = useState("all");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState("");
   const [editCard, setEditCard] = useState(null);
-
-  // Admin form
-  const [form, setForm] = useState({
-    game: 'pokemon',
-      name: '',
-      setName: '',
-      number: '',
-      rarity: '',
-      condition: '',
-      quantity: 1,
-      pricePaid: '',
-      estimatedValue: '',
-      image: '',
-    image: '',
-  });
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
     async function load() {
       try {
-        const col = collection(db, 'tcg');
+        const col = collection(db, "tcg");
         const snap = await getDocs(col);
         const rows = [];
         snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
         setCards(rows);
       } catch (err) {
-        console.error('Error loading TCG:', err);
+        console.error("Error loading TCG:", err);
       } finally {
         setLoading(false);
       }
@@ -47,13 +48,13 @@ export default function TCG() {
   }, []);
 
   const filtered = cards.filter((c) => {
-    if (gameFilter !== 'all' && c.game !== gameFilter) return false;
+    if (gameFilter !== "all" && c.game !== gameFilter) return false;
     if (!term) return true;
     const t = term.toLowerCase();
     return (
-      (c.name || '').toLowerCase().includes(t) ||
-      (c.setName || '').toLowerCase().includes(t) ||
-      (c.number || '').toLowerCase().includes(t)
+      (c.name || "").toLowerCase().includes(t) ||
+      (c.setName || "").toLowerCase().includes(t) ||
+      (c.number || "").toLowerCase().includes(t)
     );
   });
 
@@ -65,8 +66,8 @@ export default function TCG() {
       acc.totalCards += qty;
       acc.totalPaid += qty * paid;
       acc.totalValue += qty * val;
-      if (c.game === 'pokemon') acc.pokemon += qty;
-      if (c.game === 'onepiece') acc.onepiece += qty;
+      if (c.game === "pokemon") acc.pokemon += qty;
+      if (c.game === "onepiece") acc.onepiece += qty;
       return acc;
     },
     { totalCards: 0, totalPaid: 0, totalValue: 0, pokemon: 0, onepiece: 0 }
@@ -80,7 +81,7 @@ export default function TCG() {
   const handleAddCard = async () => {
     if (!admin) return;
     if (!form.name.trim()) {
-      alert('Card name is required.');
+      alert("Card name is required.");
       return;
     }
     const payload = {
@@ -96,27 +97,17 @@ export default function TCG() {
       image: form.image.trim(),
     };
     try {
-      const col = collection(db, 'tcg');
+      const col = collection(db, "tcg");
       await addDoc(col, payload);
-      setForm({
-        game: 'pokemon',
-        name: '',
-        setName: '',
-        number: '',
-        rarity: '',
-        condition: '',
-        quantity: 1,
-        pricePaid: '',
-        estimatedValue: '',
-      });
-      // Reload
+      setForm(initialForm);
+      setAddModalOpen(false);
       const snap = await getDocs(col);
       const rows = [];
       snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
       setCards(rows);
     } catch (err) {
-      console.error('Error adding card:', err);
-      alert('Failed to save card.');
+      console.error("Error adding card:", err);
+      alert("Failed to save card.");
     }
   };
 
@@ -140,9 +131,7 @@ export default function TCG() {
     };
     try {
       await updateDoc(doc(db, "tcg", editCard.id), payload);
-      setCards((prev) =>
-        prev.map((c) => (c.id === editCard.id ? { ...c, ...payload } : c))
-      );
+      setCards((prev) => prev.map((c) => (c.id === editCard.id ? { ...c, ...payload } : c)));
       setEditCard(null);
     } catch (err) {
       console.error("Error updating card:", err);
@@ -152,16 +141,15 @@ export default function TCG() {
 
   const handleDelete = async (id) => {
     if (!admin) return;
-    if (!window.confirm('Delete this card?')) return;
+    if (!window.confirm("Delete this card?")) return;
     try {
-      await deleteDoc(doc(db, 'tcg', id));
+      await deleteDoc(doc(db, "tcg", id));
       setCards((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
-      console.error('Delete error:', err);
-      alert('Failed to delete card.');
+      console.error("Delete error:", err);
+      alert("Failed to delete card.");
     }
   };
-
   if (!admin) {
     return (
       <main className="page">
@@ -177,72 +165,665 @@ export default function TCG() {
 
   return (
     <main className="page">
-      <header style={{ marginTop: '32px', marginBottom: '16px' }}>
+      <header style={{ marginTop: "32px", marginBottom: "16px" }}>
         <h1
           style={{
             margin: 0,
-            fontSize: '2rem',
-            color: '#ffb6c1',
-            textShadow: '0 0 8px rgba(255,182,193,0.8)',
+            fontSize: "2rem",
+            color: "#ffb6c1",
+            textShadow: "0 0 8px rgba(255,182,193,0.8)",
           }}
         >
           TCG Collection
         </h1>
-        <p style={{ margin: '6px 0 0', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
+        <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
           Pokemon &amp; One Piece TCG cards with quantities, prices, and collection value.
         </p>
       </header>
 
-      {/* Stats */}
-      <section
+      <button
+        className="manga-btn"
+        type="button"
+        aria-label="Add card"
+        onClick={() => setAddModalOpen(true)}
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: '12px',
-          marginTop: '18px',
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          zIndex: 1000,
+          width: "56px",
+          height: "56px",
+          borderRadius: "50%",
+          padding: 0,
+          fontSize: "28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Total cards</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{stats.totalCards}</div>
-        </div>
-        <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Total paid</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>${stats.totalPaid.toFixed(2)}</div>
-        </div>
-        <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Total value</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>${stats.totalValue.toFixed(2)}</div>
-        </div>
-        <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Unrealized gain / loss</div>
+        +
+      </button>
+
+      {addModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(8,1,10,0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            padding: "12px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAddModalOpen(false);
+          }}
+        >
           <div
             style={{
-              fontSize: '1.1rem',
-              fontWeight: 700,
-              color: gain >= 0 ? '#00e676' : '#ff8a80',
+              width: "min(720px, 95vw)",
+              background: "#140710",
+              border: "1px solid rgba(255,182,193,0.3)",
+              borderRadius: "12px",
+              padding: "14px",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.85)",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {gain >= 0 ? '+' : '-'}${Math.abs(gain).toFixed(2)}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, color: "#ffb6c1" }}>Add card</h2>
+              <button className="dashboard-close" onClick={() => setAddModalOpen(false)} type="button">
+                Close
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "180px 1fr",
+                gap: "12px",
+                alignItems: "flex-start",
+                marginTop: "10px",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: "180px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255,182,193,0.25)",
+                  background: "#1e0d14",
+                  overflow: "hidden",
+                  aspectRatio: "3 / 4",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {form.image ? (
+                  <img src={form.image} alt="Card preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ color: "var(--text-soft)", fontSize: "0.8rem", padding: "6px" }}>No image</div>
+                )}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "8px",
+                }}
+              >
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Game
+                  <select
+                    value={form.game}
+                    onChange={(e) => handleFormChange("game", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  >
+                    <option value="pokemon">Pokemon</option>
+                    <option value="onepiece">One Piece</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Card name
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => handleFormChange("name", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Set name
+                  <input
+                    type="text"
+                    value={form.setName}
+                    onChange={(e) => handleFormChange("setName", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Card number
+                  <input
+                    type="text"
+                    value={form.number}
+                    onChange={(e) => handleFormChange("number", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Rarity
+                  <input
+                    type="text"
+                    value={form.rarity}
+                    onChange={(e) => handleFormChange("rarity", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Condition
+                  <input
+                    type="text"
+                    value={form.condition}
+                    onChange={(e) => handleFormChange("condition", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Quantity
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.quantity}
+                    onChange={(e) => handleFormChange("quantity", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Price paid (per card)
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.pricePaid}
+                    onChange={(e) => handleFormChange("pricePaid", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Estimated value (per card)
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.estimatedValue}
+                    onChange={(e) => handleFormChange("estimatedValue", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Image URL
+                  <input
+                    type="text"
+                    value={form.image || ""}
+                    onChange={(e) => handleFormChange("image", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+                marginTop: "12px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setForm(initialForm);
+                  setAddModalOpen(false);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,182,193,0.5)",
+                  background: "transparent",
+                  color: "#ffb6c1",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCard}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  background: "#ff69b4",
+                  color: "#1e0d14",
+                }}
+              >
+                Save card
+              </button>
+            </div>
           </div>
         </div>
-        <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Pokemon cards</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{stats.pokemon}</div>
+      )}
+      {editCard && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(8,1,10,0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            padding: "12px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditCard(null);
+          }}
+        >
+          <div
+            style={{
+              width: "min(720px, 95vw)",
+              background: "#140710",
+              border: "1px solid rgba(255,182,193,0.3)",
+              borderRadius: "12px",
+              padding: "14px",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.85)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, color: "#ffb6c1" }}>Edit card</h2>
+              <button className="dashboard-close" onClick={() => setEditCard(null)} type="button">
+                Close
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "180px 1fr",
+                gap: "12px",
+                alignItems: "flex-start",
+                marginTop: "10px",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: "180px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255,182,193,0.25)",
+                  background: "#1e0d14",
+                  overflow: "hidden",
+                  aspectRatio: "3 / 4",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {editCard.image ? (
+                  <img src={editCard.image} alt="Card preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ color: "var(--text-soft)", fontSize: "0.8rem", padding: "6px" }}>No image</div>
+                )}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "8px",
+                }}
+              >
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Game
+                  <select
+                    value={editCard.game}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, game: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  >
+                    <option value="pokemon">Pokemon</option>
+                    <option value="onepiece">One Piece</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Card name
+                  <input
+                    type="text"
+                    value={editCard.name}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, name: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Set name
+                  <input
+                    type="text"
+                    value={editCard.setName}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, setName: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Card number
+                  <input
+                    type="text"
+                    value={editCard.number}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, number: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Rarity
+                  <input
+                    type="text"
+                    value={editCard.rarity}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, rarity: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Condition
+                  <input
+                    type="text"
+                    value={editCard.condition}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, condition: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Quantity
+                  <input
+                    type="number"
+                    value={editCard.quantity}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, quantity: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Price paid (each)
+                  <input
+                    type="number"
+                    value={editCard.pricePaid}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, pricePaid: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Estimated value (each)
+                  <input
+                    type="number"
+                    value={editCard.estimatedValue}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, estimatedValue: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Image URL
+                  <input
+                    type="text"
+                    value={editCard.image || ""}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, image: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+                marginTop: "12px",
+              }}
+            >
+              <button
+                onClick={() => setEditCard(null)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,182,193,0.5)",
+                  background: "transparent",
+                  color: "#ffb6c1",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateCard}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  background: "#ff69b4",
+                  color: "#1e0d14",
+                }}
+              >
+                Save changes
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>One Piece cards</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{stats.onepiece}</div>
+      )}
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: "12px",
+          marginTop: "18px",
+        }}
+      >
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total cards</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.totalCards}</div>
+        </div>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total paid</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2)}</div>
+        </div>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total value</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2)}</div>
+        </div>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Unrealized gain / loss</div>
+          <div
+            style={{
+              fontSize: "1.1rem",
+              fontWeight: 700,
+              color: gain >= 0 ? "#00e676" : "#ff8a80",
+            }}
+          >
+            {gain >= 0 ? "+" : "-"}${Math.abs(gain).toFixed(2)}
+          </div>
+        </div>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Pokemon cards</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.pokemon}</div>
+        </div>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>One Piece cards</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.onepiece}</div>
         </div>
       </section>
 
-      {/* Filters */}
       <section
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '10px',
-          marginTop: '16px',
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "10px",
+          marginTop: "16px",
         }}
       >
         <input
@@ -251,25 +832,25 @@ export default function TCG() {
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           style={{
-            flex: '1 1 220px',
-            minWidth: '220px',
-            padding: '8px 12px',
-            borderRadius: '999px',
-            border: '1px solid #bb7f8f',
-            background: '#2b0f1d',
-            color: '#fff',
+            flex: "1 1 220px",
+            minWidth: "220px",
+            padding: "8px 12px",
+            borderRadius: "999px",
+            border: "1px solid #bb7f8f",
+            background: "#2b0f1d",
+            color: "#fff",
           }}
         />
         <select
           value={gameFilter}
           onChange={(e) => setGameFilter(e.target.value)}
           style={{
-            flex: '0 0 220px',
-            padding: '8px 12px',
-            borderRadius: '999px',
-            border: '1px solid #bb7f8f',
-            background: '#2b0f1d',
-            color: '#fff',
+            flex: "0 0 220px",
+            padding: "8px 12px",
+            borderRadius: "999px",
+            border: "1px solid #bb7f8f",
+            background: "#2b0f1d",
+            color: "#fff",
           }}
         >
           <option value="all">All games</option>
@@ -278,242 +859,14 @@ export default function TCG() {
         </select>
       </section>
 
-      {/* Admin form */}
-      {admin && (
-        <section
-          className="card"
-          style={{
-            marginTop: '16px',
-            borderStyle: 'dashed',
-            borderColor: 'rgba(255,182,193,0.5)',
-          }}
-        >
-          <h2 style={{ marginTop: 0, marginBottom: '10px', fontSize: '1.05rem', color: '#ffb6c1' }}>
-            Add card (admin)
-          </h2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-              gap: '8px',
-            }}
-          >
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Game
-              <select
-                value={form.game}
-                onChange={(e) => handleFormChange('game', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              >
-                <option value="pokemon">Pokemon</option>
-                <option value="onepiece">One Piece</option>
-              </select>
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Card name
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => handleFormChange('name', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Set name
-              <input
-                type="text"
-                value={form.setName}
-                onChange={(e) => handleFormChange('setName', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Card number
-              <input
-                type="text"
-                value={form.number}
-                onChange={(e) => handleFormChange('number', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Rarity
-              <input
-                type="text"
-                value={form.rarity}
-                onChange={(e) => handleFormChange('rarity', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Condition
-              <input
-                type="text"
-                value={form.condition}
-                onChange={(e) => handleFormChange('condition', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Quantity
-              <input
-                type="number"
-                min="1"
-                value={form.quantity}
-                onChange={(e) => handleFormChange('quantity', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Price paid (per card)
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.pricePaid}
-                onChange={(e) => handleFormChange('pricePaid', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Estimated value (per card)
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.estimatedValue}
-                onChange={(e) => handleFormChange('estimatedValue', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Image URL
-              <input
-                type="text"
-                value={form.image || ""}
-                onChange={(e) => handleFormChange('image', e.target.value)}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              marginTop: '10px',
-            }}
-          >
-            <button
-              onClick={handleAddCard}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '999px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                background: '#ff69b4',
-                color: '#1e0d14',
-              }}
-            >
-              Save card
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* Cards grid */}
       {loading ? (
-        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>Loading TCG collection...</p>
+        <p style={{ marginTop: "20px", color: "var(--text-soft)" }}>Loading TCG collection...</p>
       ) : filtered.length === 0 ? (
-        <p style={{ marginTop: '20px', color: 'var(--text-soft)' }}>No cards found.</p>
+        <p style={{ marginTop: "20px", color: "var(--text-soft)" }}>No cards found.</p>
       ) : (
         <section
           className="grid"
-          style={{
-            gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-            marginTop: '20px',
-          }}
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", marginTop: "20px" }}
         >
           {filtered.map((c) => {
             const qty = Number(c.quantity || 1);
@@ -523,373 +876,103 @@ export default function TCG() {
               <article
                 key={c.id}
                 style={{
-                  background: '#2b0f1d',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255,182,193,0.25)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
-                  padding: '10px',
-                  fontSize: '0.82rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
+                  background: "#2b0f1d",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(255,182,193,0.25)",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
+                  padding: "10px",
+                  fontSize: "0.82rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
                 }}
               >
                 {c.image && (
                   <div
                     style={{
-                      width: '100%',
-                      paddingTop: '120%',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      borderRadius: '10px',
-                      background: '#1e0d14',
+                      width: "100%",
+                      paddingTop: "120%",
+                      position: "relative",
+                      overflow: "hidden",
+                      borderRadius: "10px",
+                      background: "#1e0d14",
                     }}
                   >
                     <img
                       src={c.image}
-                      alt={c.name || 'card image'}
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
+                      alt={c.name || "card image"}
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   </div>
                 )}
-                <div style={{ fontWeight: 700, color: '#ffb6c1', marginBottom: '4px' }}>
-                  {c.name || 'Unnamed card'}
+                <div style={{ fontWeight: 700, color: "#ffb6c1", marginBottom: "4px" }}>{c.name || "Unnamed card"}</div>
+                <div style={{ color: "var(--text-soft)", marginBottom: "4px" }}>{c.setName || ""}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-soft)" }}>
+                  <span>#{c.number || "-"}</span>
+                  <span>{c.rarity || ""}</span>
                 </div>
-                <div style={{ color: 'var(--text-soft)', marginBottom: '4px' }}>{c.setName || ''}</div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    color: 'var(--text-soft)',
-                  }}
-                >
-                  <span>#{c.number || '-'}</span>
-                  <span>{c.rarity || ''}</span>
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    color: 'var(--text-soft)',
-                    marginTop: '4px',
-                  }}
-                >
-                  <span>Cond: {c.condition || 'N/A'}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-soft)", marginTop: "4px" }}>
+                  <span>Cond: {c.condition || "N/A"}</span>
                   <span>Qty: {qty}</span>
                 </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    color: 'var(--text-soft)',
-                    marginTop: '4px',
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-soft)", marginTop: "4px" }}>
                   <span>Paid: ${paidTotal.toFixed(2)}</span>
                   <span>Value: ${valTotal.toFixed(2)}</span>
                 </div>
-                <div
-                  style={{
-                    marginTop: '4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
+                <div style={{ marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span
                     style={{
-                      padding: '2px 7px',
-                      borderRadius: '999px',
-                      background: 'rgba(255,105,180,0.18)',
-                      border: '1px solid rgba(255,105,180,0.5)',
-                      color: '#ffb6c1',
-                      fontSize: '0.7rem',
+                      padding: "2px 7px",
+                      borderRadius: "999px",
+                      background: "rgba(255,105,180,0.18)",
+                      border: "1px solid rgba(255,105,180,0.5)",
+                      color: "#ffb6c1",
+                      fontSize: "0.7rem",
                     }}
                   >
-                    {c.game === 'pokemon' ? 'Pokemon' : 'One Piece'}
+                    {c.game === "pokemon" ? "Pokemon" : "One Piece"}
                   </span>
-                  {admin && (
-                    <button
-                      onClick={() =>
-                        setEditCard({
-                          ...c,
-                          pricePaid: c.pricePaid ?? "",
-                          estimatedValue: c.estimatedValue ?? "",
-                          quantity: c.quantity ?? 1,
-                        })
-                      }
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '999px',
-                        border: '1px solid rgba(255,182,193,0.5)',
-                        background: 'rgba(255,105,180,0.15)',
-                        color: '#ffb6c1',
-                        fontSize: '0.7rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <button
+                    onClick={() =>
+                      setEditCard({
+                        ...c,
+                        pricePaid: c.pricePaid ?? "",
+                        estimatedValue: c.estimatedValue ?? "",
+                        quantity: c.quantity ?? 1,
+                      })
+                    }
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: "999px",
+                      border: "1px solid rgba(255,182,193,0.5)",
+                      background: "rgba(255,105,180,0.15)",
+                      color: "#ffb6c1",
+                      fontSize: "0.7rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Edit
+                  </button>
                 </div>
-                {admin && (
-                  <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={() => handleDelete(c.id)}
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '999px',
-                        border: '1px solid rgba(244,67,54,0.7)',
-                        background: 'rgba(244,67,54,0.12)',
-                        color: '#ff8a80',
-                        fontSize: '0.7rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
+                <div style={{ marginTop: "4px", display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => handleDelete(c.id)}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: "999px",
+                      border: "1px solid rgba(244,67,54,0.7)",
+                      background: "rgba(244,67,54,0.12)",
+                      color: "#ff8a80",
+                      fontSize: "0.7rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </article>
             );
           })}
-        </section>
-      )}
-
-      {admin && editCard && (
-        <section
-          className="card"
-          style={{
-            marginTop: '18px',
-            borderStyle: 'dashed',
-            borderColor: 'rgba(255,182,193,0.5)',
-          }}
-        >
-          <h2 style={{ marginTop: 0, marginBottom: '10px', fontSize: '1.05rem', color: '#ffb6c1' }}>
-            Edit card
-          </h2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-              gap: '8px',
-            }}
-          >
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Game
-              <select
-                value={editCard.game}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, game: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              >
-                <option value="pokemon">Pokemon</option>
-                <option value="onepiece">One Piece</option>
-              </select>
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Card name
-              <input
-                type="text"
-                value={editCard.name}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, name: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Set name
-              <input
-                type="text"
-                value={editCard.setName}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, setName: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Card number
-              <input
-                type="text"
-                value={editCard.number}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, number: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Rarity
-              <input
-                type="text"
-                value={editCard.rarity}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, rarity: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Condition
-              <input
-                type="text"
-                value={editCard.condition}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, condition: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Quantity
-              <input
-                type="number"
-                value={editCard.quantity}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, quantity: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Price paid (each)
-              <input
-                type="number"
-                value={editCard.pricePaid}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, pricePaid: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Estimated value (each)
-              <input
-                type="number"
-                value={editCard.estimatedValue}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, estimatedValue: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
-              Image URL
-              <input
-                type="text"
-                value={editCard.image || ""}
-                onChange={(e) => setEditCard((prev) => ({ ...prev, image: e.target.value }))}
-                style={{
-                  width: '100%',
-                  marginTop: '3px',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid #bb7f8f',
-                  background: '#1e0d14',
-                  color: '#fff',
-                }}
-              />
-            </label>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              marginTop: '10px',
-            }}
-          >
-            <button
-              onClick={() => setEditCard(null)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '999px',
-                border: '1px solid rgba(255,182,193,0.5)',
-                background: 'transparent',
-                color: '#ffb6c1',
-                cursor: 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleUpdateCard}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '999px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                background: '#ff69b4',
-                color: '#1e0d14',
-              }}
-            >
-              Save changes
-            </button>
-          </div>
         </section>
       )}
     </main>
