@@ -236,6 +236,43 @@ function computeAvgPurchaseToRead(library) {
   return totalDays / count;
 }
 
+function computePurchaseToReadSeries(library) {
+  const map = new Map();
+  for (const item of library) {
+    const dp = parseDate(item.datePurchased || item.DatePurchased);
+    const dr = parseDate(item.dateRead || item.DateRead);
+    if (!dp || !dr) continue;
+    const diff = dr - dp;
+    if (diff <= 0) continue;
+    const days = diff / (1000 * 60 * 60 * 24);
+    const key = getSeriesKey(item) || item.id;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        title:
+          item.series ||
+          item.Series ||
+          item.title ||
+          item.Title ||
+          "Untitled",
+        total: 0,
+        count: 0,
+        min: days,
+        max: days,
+      });
+    }
+    const row = map.get(key);
+    row.total += days;
+    row.count += 1;
+    row.min = Math.min(row.min, days);
+    row.max = Math.max(row.max, days);
+  }
+  return [...map.values()]
+    .filter((r) => r.count > 0)
+    .map((r) => ({ ...r, avg: r.total / r.count }))
+    .sort((a, b) => b.avg - a.avg);
+}
+
 function computeCollectionValue(library) {
   let msrpTotal = 0;
   let paidTotal = 0;
@@ -607,6 +644,7 @@ export default function Dashboard() {
     const collectionValue = computeCollectionValue(library);
     const pages = computePages(library);
     const avgRating = computeAverageRating(seriesMap);
+    const purchaseToReadSeries = computePurchaseToReadSeries(library);
 
     const topPublishers = buildTopFromSeries(seriesMap, "publisher", 5);
     const topGenres = buildTopFromSeries(seriesMap, "genre", 5);
@@ -648,6 +686,7 @@ export default function Dashboard() {
       releases,
       nextRelease,
       avgDays,
+      purchaseToReadSeries,
       collectionValue,
       pages,
       avgRating,
@@ -673,6 +712,7 @@ export default function Dashboard() {
     releases,
     nextRelease,
     avgDays,
+    purchaseToReadSeries,
     collectionValue,
     pages,
     avgRating,
@@ -953,6 +993,7 @@ export default function Dashboard() {
     }
 
     if (t === "timeToRead") {
+      const rows = purchaseToReadSeries || [];
       return (
         <>
           <h3>Average Time From Purchase to Read</h3>
@@ -962,11 +1003,39 @@ export default function Dashboard() {
               this yet.
             </p>
           ) : (
-            <p>
-              On average, it takes{" "}
-              <strong>{avgDays.toFixed(1)} days</strong> from purchase to
-              finishing a volume.
-            </p>
+            <>
+              <p>
+                On average, it takes{" "}
+                <strong>{avgDays.toFixed(1)} days</strong> from purchase to
+                finishing a volume.
+              </p>
+              {rows.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Series</th>
+                      <th>Avg Days</th>
+                      <th>Longest</th>
+                      <th>Shortest</th>
+                      <th>Reads Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.key}>
+                        <td>{r.title}</td>
+                        <td>{r.avg.toFixed(1)} days</td>
+                        <td>{Math.round(r.max)} days</td>
+                        <td>{Math.round(r.min)} days</td>
+                        <td>{r.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p style={{ marginTop: 8 }}>No series-level data yet.</p>
+              )}
+            </>
           )}
         </>
       );
