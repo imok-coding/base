@@ -6,17 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>base</title>
     <script>
-      /* GitHub Pages SPA redirect fix */
+      /* GitHub Pages SPA redirect fix (keeps /base prefix) */
       (function (l) {
+        var base = "/base";
         if (l.search[1] === "/") {
-          const decoded = l.search
+          var decoded = l.search
             .slice(1)
             .split("&")
             .map(function (s) {
               return s.replace(/~and~/g, "&");
             })
             .join("?");
-          window.history.replaceState(null, null, decoded + l.hash);
+          var newPath = base + (decoded.startsWith("/") ? decoded : "/" + decoded);
+          window.history.replaceState(null, null, newPath + l.hash);
         }
       })(window.location);
     </script>
