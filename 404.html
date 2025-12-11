@@ -13,7 +13,8 @@
         var parts = l.pathname.split("/").filter(Boolean);
         var repo = parts.length ? "/" + parts[0] : "";
         var base = repo || "";
-        var path = l.pathname.replace(new RegExp("^" + base), "");
+        var path = l.pathname.replace(new RegExp("^" + base + "/?"), "");
+        if (path.startsWith("/")) path = path.slice(1);
         var search = l.search ? l.search.slice(1).replace(/&/g, "~and~") : "";
         var hash = l.hash || "";
         var redirect = base + "/?/" + path + (search ? "&" + search : "") + hash;
