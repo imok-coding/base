@@ -508,6 +508,7 @@ export default function Dashboard() {
     if (typeof window === "undefined") return;
     yearlyPostedRef.current = localStorage.getItem("dashboard-yearly-posted");
     releasePostedRef.current = localStorage.getItem("dashboard-release-posted");
+    activityPostedRef.current = localStorage.getItem("dashboard-activity-posted") || "";
   }, []);
 
   useEffect(() => {
@@ -712,7 +713,11 @@ export default function Dashboard() {
       month: "short",
       day: "numeric",
     })})`;
-    postWebhook(ACTIVITY_WEBHOOK, content);
+    postWebhook(ACTIVITY_WEBHOOK, content).then(() => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("dashboard-activity-posted", key);
+      }
+    });
   }, [activity, admin]);
 
   useEffect(() => {
