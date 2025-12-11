@@ -270,9 +270,7 @@
   flex: 1;
   justify-content: space-between;
   width: 180.12px;
-  height: 213.79px;
   max-width: 180.12px;
-  max-height: 213.79px;
   min-width: 180.12px;
   min-height: 213.79px;
   margin: 0 auto;
@@ -283,8 +281,8 @@
   font-weight: 600;
   color: #ffb6c1;
   line-height: 1.3;
-  max-height: 2.6em;
-  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .manga-card-meta {
