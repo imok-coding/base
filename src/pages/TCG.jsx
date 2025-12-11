@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
-import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function TCG() {
@@ -12,6 +12,7 @@ export default function TCG() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState("");
+  const [editCard, setEditCard] = useState(null);
 
   // Admin form
   const [form, setForm] = useState({
@@ -116,6 +117,36 @@ export default function TCG() {
     } catch (err) {
       console.error('Error adding card:', err);
       alert('Failed to save card.');
+    }
+  };
+
+  const handleUpdateCard = async () => {
+    if (!admin || !editCard) return;
+    if (!editCard.name.trim()) {
+      alert("Card name is required.");
+      return;
+    }
+    const payload = {
+      game: editCard.game,
+      name: editCard.name.trim(),
+      setName: editCard.setName.trim(),
+      number: editCard.number.trim(),
+      rarity: editCard.rarity.trim(),
+      condition: editCard.condition.trim(),
+      quantity: Number(editCard.quantity || 1),
+      pricePaid: Number(editCard.pricePaid || 0),
+      estimatedValue: Number(editCard.estimatedValue || 0),
+      image: editCard.image ? editCard.image.trim() : "",
+    };
+    try {
+      await updateDoc(doc(db, "tcg", editCard.id), payload);
+      setCards((prev) =>
+        prev.map((c) => (c.id === editCard.id ? { ...c, ...payload } : c))
+      );
+      setEditCard(null);
+    } catch (err) {
+      console.error("Error updating card:", err);
+      alert("Failed to update card.");
     }
   };
 
@@ -541,6 +572,31 @@ export default function TCG() {
                   </span>
                   {admin && (
                     <button
+                      onClick={() =>
+                        setEditCard({
+                          ...c,
+                          pricePaid: c.pricePaid ?? "",
+                          estimatedValue: c.estimatedValue ?? "",
+                          quantity: c.quantity ?? 1,
+                        })
+                      }
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '999px',
+                        border: '1px solid rgba(255,182,193,0.5)',
+                        background: 'rgba(255,105,180,0.15)',
+                        color: '#ffb6c1',
+                        fontSize: '0.7rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+                {admin && (
+                  <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
                       onClick={() => handleDelete(c.id)}
                       style={{
                         padding: '3px 8px',
@@ -554,11 +610,242 @@ export default function TCG() {
                     >
                       Delete
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </article>
             );
           })}
+        </section>
+      )}
+
+      {admin && editCard && (
+        <section
+          className="card"
+          style={{
+            marginTop: '18px',
+            borderStyle: 'dashed',
+            borderColor: 'rgba(255,182,193,0.5)',
+          }}
+        >
+          <h2 style={{ marginTop: 0, marginBottom: '10px', fontSize: '1.05rem', color: '#ffb6c1' }}>
+            Edit card
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '8px',
+            }}
+          >
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Game
+              <select
+                value={editCard.game}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, game: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              >
+                <option value="pokemon">Pokemon</option>
+                <option value="onepiece">One Piece</option>
+              </select>
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Card name
+              <input
+                type="text"
+                value={editCard.name}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, name: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Set name
+              <input
+                type="text"
+                value={editCard.setName}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, setName: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Card number
+              <input
+                type="text"
+                value={editCard.number}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, number: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Rarity
+              <input
+                type="text"
+                value={editCard.rarity}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, rarity: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Condition
+              <input
+                type="text"
+                value={editCard.condition}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, condition: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Quantity
+              <input
+                type="number"
+                value={editCard.quantity}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, quantity: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Price paid (each)
+              <input
+                type="number"
+                value={editCard.pricePaid}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, pricePaid: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Estimated value (each)
+              <input
+                type="number"
+                value={editCard.estimatedValue}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, estimatedValue: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Image URL
+              <input
+                type="text"
+                value={editCard.image || ""}
+                onChange={(e) => setEditCard((prev) => ({ ...prev, image: e.target.value }))}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              marginTop: '10px',
+            }}
+          >
+            <button
+              onClick={() => setEditCard(null)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '999px',
+                border: '1px solid rgba(255,182,193,0.5)',
+                background: 'transparent',
+                color: '#ffb6c1',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpdateCard}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '999px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                background: '#ff69b4',
+                color: '#1e0d14',
+              }}
+            >
+              Save changes
+            </button>
+          </div>
         </section>
       )}
     </main>
