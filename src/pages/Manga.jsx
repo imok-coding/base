@@ -534,8 +534,75 @@ export default function Manga() {
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError("Failed to load manga data from Firestore.");
-          setLoading(false);
+          console.warn("Falling back to offline JSON for manga.");
+          try {
+            const base = import.meta.env.BASE_URL || "/";
+            const res = await fetch(`${base}manga-library-wishlist.json`, { cache: "no-cache" });
+            if (!res.ok) throw new Error("fallback fetch failed");
+            const json = await res.json();
+            const lib = Array.isArray(json.library) ? json.library : [];
+            const wish = Array.isArray(json.wishlist) ? json.wishlist : [];
+            setLibrary(
+              lib.map((data, idx) => ({
+                id: data.id || `offline-lib-${idx}`,
+                title: data.title || "",
+                authors: data.authors || "Unknown",
+                publisher: data.publisher || "Unknown",
+                demographic: data.demographic || "",
+                genre: data.genre || "",
+                subGenre: data.subGenre || "",
+                date: data.date || "Unknown",
+                cover: data.cover || "",
+                isbn: data.isbn || "",
+                pageCount: data.pageCount ?? "",
+                rating: data.rating ?? "",
+                amountPaid: data.amountPaid ?? "",
+                dateRead: data.dateRead || "",
+                datePurchased: data.datePurchased || "",
+                msrp: data.msrp ?? "",
+                specialType: data.specialType || "",
+                specialVolumes: data.specialVolumes ?? "",
+                collectiblePrice: data.collectiblePrice ?? "",
+                amazonURL: data.amazonURL || "",
+                read: !!data.read,
+                hidden: !!data.hidden,
+                kind: "library",
+              }))
+            );
+            setWishlist(
+              wish.map((data, idx) => ({
+                id: data.id || `offline-wish-${idx}`,
+                title: data.title || "",
+                authors: data.authors || "Unknown",
+                publisher: data.publisher || "Unknown",
+                demographic: data.demographic || "",
+                genre: data.genre || "",
+                subGenre: data.subGenre || "",
+                date: data.date || "Unknown",
+                cover: data.cover || "",
+                isbn: data.isbn || "",
+                pageCount: data.pageCount ?? "",
+                rating: data.rating ?? "",
+                amountPaid: data.amountPaid ?? "",
+                dateRead: data.dateRead || "",
+                datePurchased: data.datePurchased || "",
+                msrp: data.msrp ?? "",
+                specialType: data.specialType || "",
+                specialVolumes: data.specialVolumes ?? "",
+                collectiblePrice: data.collectiblePrice ?? "",
+                amazonURL: data.amazonURL || "",
+                read: !!data.read,
+                hidden: !!data.hidden,
+                kind: "wishlist",
+              }))
+            );
+            setLoading(false);
+            setError("Loaded offline data (Firestore unavailable).");
+          } catch (fallbackErr) {
+            console.error("Offline fallback failed", fallbackErr);
+            setError("Failed to load manga data from Firestore.");
+            setLoading(false);
+          }
         }
       }
     }

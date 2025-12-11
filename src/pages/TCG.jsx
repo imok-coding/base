@@ -35,20 +35,34 @@ export default function TCG() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       try {
         const col = collection(db, "tcg");
         const snap = await getDocs(col);
         const rows = [];
         snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
-        setCards(rows);
+        if (!cancelled) setCards(rows);
       } catch (err) {
         console.error("Error loading TCG:", err);
+        try {
+          const base = import.meta.env.BASE_URL || "/";
+          const res = await fetch(`${base}tcg-collection.json`, { cache: "no-cache" });
+          if (!res.ok) throw new Error("fallback fetch failed");
+          const json = await res.json();
+          const rows = Array.isArray(json.tcg) ? json.tcg : [];
+          if (!cancelled) setCards(rows.map((c, idx) => ({ id: c.id || `offline-${idx}`, ...c })));
+        } catch (fbErr) {
+          console.error("TCG offline fallback failed", fbErr);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filtered = cards.filter((c) => {
