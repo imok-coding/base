@@ -31,6 +31,10 @@ export default function TCG() {
   const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
+    document.title = "TCG | Collection";
+  }, []);
+
+  useEffect(() => {
     async function load() {
       try {
         const col = collection(db, "tcg");
@@ -152,13 +156,24 @@ export default function TCG() {
   };
   return (
     <main className="page">
-      <header style={{ marginTop: "32px", marginBottom: "16px" }}>
+      <header
+        style={{
+          marginTop: "32px",
+          marginBottom: "16px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+          gap: "6px",
+        }}
+      >
         <h1
           style={{
             margin: 0,
             fontSize: "2rem",
             color: "#ffb6c1",
             textShadow: "0 0 8px rgba(255,182,193,0.8)",
+            fontWeight: 700,
           }}
         >
           TCG Collection

@@ -1,7 +1,7 @@
 // src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
-import { collection, doc, getDocs, getDoc, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -534,6 +534,57 @@ export default function Dashboard() {
     activity: DEFAULT_ACTIVITY_WEBHOOK,
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [adminUidInput, setAdminUidInput] = useState("");
+  const [adminsList, setAdminsList] = useState([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const refreshAdmins = async () => {
+    if (!admin) return;
+    try {
+      setAdminsLoading(true);
+      const snap = await getDocs(collection(db, "admins"));
+      const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+      setAdminsList(rows);
+    } catch (e) {
+      console.error("Failed to refresh admins", e);
+    } finally {
+      setAdminsLoading(false);
+    }
+  };
+
+  const handleGrantAdmin = async () => {
+    const uid = adminUidInput.trim();
+    if (!uid) {
+      alert("Enter a UID to grant admin.");
+      return;
+    }
+    try {
+      await setDoc(doc(db, "admins", uid), {
+        grantedBy: user?.uid || "manual",
+        grantedAt: new Date().toISOString(),
+      });
+      setAdminUidInput("");
+      await refreshAdmins();
+    } catch (e) {
+      console.error("Grant admin failed", e);
+      alert("Failed to grant admin.");
+    }
+  };
+
+  const handleRevokeAdmin = async (uidOverride) => {
+    const target = (uidOverride || adminUidInput).trim();
+    if (!target) {
+      alert("Enter a UID to revoke admin.");
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, "admins", target));
+      if (!uidOverride) setAdminUidInput("");
+      await refreshAdmins();
+    } catch (e) {
+      console.error("Revoke admin failed", e);
+      alert("Failed to revoke admin.");
+    }
+  };
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
@@ -546,6 +597,10 @@ export default function Dashboard() {
   const yearlyPostedRef = useRef(null);
   const releasePostedRef = useRef(null);
   const activityPostedRef = useRef("");
+
+  useEffect(() => {
+    document.title = "Dashboard";
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -579,6 +634,28 @@ export default function Dashboard() {
         console.error("Failed to load webhook settings", e);
       }
     })();
+  }, [admin]);
+
+  // Load current admins for the admin settings modal
+  useEffect(() => {
+    if (!admin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setAdminsLoading(true);
+        const snap = await getDocs(collection(db, "admins"));
+        if (cancelled) return;
+        const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+        setAdminsList(rows);
+      } catch (e) {
+        console.error("Failed to load admins", e);
+      } finally {
+        if (!cancelled) setAdminsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [admin]);
 
   useEffect(() => {
@@ -1258,17 +1335,56 @@ export default function Dashboard() {
 
   return (
     <div className="page dashboard-page">
-      <header className="dashboard-header">
-        <div>
-          <h1>Dashboard</h1>
-          <p className="dashboard-sub">
+      <header
+        className="dashboard-header"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          textAlign: "center",
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            textAlign: "center",
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 60px",
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "2rem",
+              color: "#ffb6c1",
+              textShadow: "0 0 8px rgba(255,182,193,0.8)",
+              fontWeight: 700,
+            }}
+            >
+              Dashboard
+            </h1>
+          <p className="dashboard-sub" style={{ textAlign: "center", margin: "6px 0 0" }}>
             Admin-only analytics for your manga library and wishlist.
           </p>
         </div>
         {admin && (
-          <button className="stat-link" onClick={() => setSettingsOpen(true)} type="button">
-            Admin Settings
-          </button>
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "50%",
+              transform: "translateY(-50%)",
+            }}
+          >
+            <button className="stat-link" onClick={() => setSettingsOpen(true)} type="button">
+              Admin Settings
+            </button>
+          </div>
         )}
       </header>
 
@@ -1687,6 +1803,66 @@ export default function Dashboard() {
                   onChange={(e) => setWebhooks((prev) => ({ ...prev, activity: e.target.value }))}
                 />
               </label>
+              <div className="dashboard-input" style={{ borderTop: "1px solid rgba(255,182,193,0.2)", paddingTop: 8 }}>
+                <span>Admin UIDs</span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    placeholder="Enter UID"
+                    value={adminUidInput}
+                    onChange={(e) => setAdminUidInput(e.target.value)}
+                    style={{
+                      flex: "1 1 220px",
+                      padding: "8px 10px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,182,193,0.35)",
+                      background: "rgba(43,15,29,0.75)",
+                      color: "#ffffff",
+                    }}
+                  />
+                  <button className="stat-link" type="button" onClick={handleGrantAdmin}>
+                    Grant
+                  </button>
+                  <button className="stat-link danger" type="button" onClick={() => handleRevokeAdmin()}>
+                    Revoke
+                  </button>
+                </div>
+                <div style={{ marginTop: 8, fontSize: "0.85rem", color: "var(--text-soft)" }}>
+                  {adminsLoading ? (
+                    <span>Loading admins…</span>
+                  ) : adminsList.length === 0 ? (
+                    <span>No admins found.</span>
+                  ) : (
+                    <ul style={{ listStyle: "none", margin: "6px 0 0", padding: 0, display: "flex", gap: 6, flexDirection: "column" }}>
+                      {adminsList.map((a) => (
+                        <li
+                          key={a.uid}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            background: "rgba(24,5,18,0.7)",
+                            border: "1px solid rgba(255,182,193,0.18)",
+                            borderRadius: 10,
+                            padding: "6px 8px",
+                          }}
+                        >
+                          <span style={{ wordBreak: "break-all" }}>{a.uid}</span>
+                          <button
+                            className="dashboard-close"
+                            type="button"
+                            onClick={() => handleRevokeAdmin(a.uid)}
+                            style={{ padding: "4px 10px" }}
+                          >
+                            Revoke
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="dashboard-modal-footer">
               <button

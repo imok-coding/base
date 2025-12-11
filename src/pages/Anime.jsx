@@ -21,9 +21,28 @@ export default function Anime() {
   const [error, setError] = useState("");
   const [modalItem, setModalItem] = useState(null);
 
+  useEffect(() => {
+    document.title = "Anime | Library";
+  }, []);
+
+  const slugify = (text, fallback = "image") => {
+    const slug = (text || "")
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+    return slug || fallback;
+  };
+
   const downloadImagesZip = async () => {
-    const urls = Array.from(new Set(items.map((i) => i.image).filter(Boolean)));
-    if (!urls.length) {
+    const files = items
+      .filter((i) => i.image)
+      .map((i, idx) => ({
+        url: i.image,
+        name: slugify(i.title || `anime-${idx + 1}`, `anime-${idx + 1}`),
+      }));
+    if (!files.length) {
       alert("No images found to download.");
       return;
     }
@@ -31,15 +50,19 @@ export default function Anime() {
       const JSZip = (await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
       const zip = new JSZip();
       const folder = zip.folder("images");
+      const nameCounts = {};
       await Promise.all(
-        urls.map(async (u, idx) => {
+        files.map(async (file, idx) => {
           try {
-            const res = await fetch(u);
+            const res = await fetch(file.url);
             const blob = await res.blob();
-            const ext = (u.split(".").pop() || "jpg").split(/[?#]/)[0];
-            folder.file(`image-${idx + 1}.${ext}`, blob);
+            const ext = (file.url.split(".").pop() || "jpg").split(/[?#]/)[0];
+            const base = file.name || `image-${idx + 1}`;
+            nameCounts[base] = (nameCounts[base] || 0) + 1;
+            const suffix = nameCounts[base] > 1 ? `-${nameCounts[base]}` : "";
+            folder.file(`${base}${suffix}.${ext}`, blob);
           } catch (e) {
-            console.warn("Failed to fetch image", u, e);
+            console.warn("Failed to fetch image", file.url, e);
           }
         })
       );
@@ -174,28 +197,57 @@ export default function Anime() {
   return (
     <main className="anime-page">
       <div className="anime-content">
-        <header className="anime-header">
-          <div>
-            <h1 className="anime-title">Tyler&apos;s Anime Library</h1>
-            <p className="anime-sub">MAL-synced overview of your shows</p>
-          </div>
-          {admin && (
-            <button
-              className="stat-link"
-              type="button"
-              onClick={() => {
-                const urls = Array.from(new Set(items.map((i) => i.image).filter(Boolean)));
-                const blob = new Blob([urls.join("\n")], { type: "text/plain" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "anime-images.txt";
-                a.click();
-                URL.revokeObjectURL(url);
+        <header
+          className="anime-header"
+          style={{
+            position: "relative",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            textAlign: "center",
+            width: "100%",
+          }}
+        >
+          <div
+            style={{
+              textAlign: "center",
+              margin: "0 auto",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 60px",
+            }}
+          >
+            <h1
+              className="anime-title"
+              style={{
+                margin: 0,
+                fontSize: "2rem",
+                color: "#ffb6c1",
+                textShadow: "0 0 8px rgba(255,182,193,0.8)",
+                fontWeight: 700,
               }}
             >
-              Download Images
-            </button>
+              Tyler&apos;s Anime Library
+            </h1>
+            <p className="anime-sub" style={{ textAlign: "center", margin: "6px 0 0" }}>
+              MAL-synced overview of your shows
+            </p>
+          </div>
+          {admin && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: "50%",
+                transform: "translateY(-50%)",
+              }}
+            >
+              <button className="stat-link" type="button" onClick={downloadImagesZip}>
+                Download Images
+              </button>
+            </div>
           )}
         </header>
 
@@ -228,18 +280,6 @@ export default function Anime() {
               {stats.totalHours ? stats.totalHours.toFixed(1) : "0.0"}
             </div>
           </div>
-          {admin && (
-            <div className="anime-stat-card">
-              <button
-                type="button"
-                className="manga-btn secondary"
-                style={{ width: "100%" }}
-                onClick={downloadImagesZip}
-              >
-                Download Images (zip)
-              </button>
-            </div>
-          )}
         </div>
 
         <section className="anime-toolbar">

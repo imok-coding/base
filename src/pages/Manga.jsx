@@ -344,6 +344,9 @@ export default function Manga() {
   const isAdmin = admin;
 
   const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist'
+  useEffect(() => {
+    document.title = "Manga | Library";
+  }, []);
 
   const [library, setLibrary] = useState([]);
   const [wishlist, setWishlist] = useState([]);
@@ -1222,8 +1225,22 @@ export default function Manga() {
   };
 
   const downloadImagesZip = async (rows, filename) => {
-    const urls = Array.from(new Set(rows.map((r) => r.cover).filter(Boolean)));
-    if (!urls.length) {
+    const slugify = (text, fallback = "image") => {
+      const slug = (text || "")
+        .toString()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 100);
+      return slug || fallback;
+    };
+    const files = rows
+      .filter((r) => r.cover)
+      .map((r, idx) => ({
+        url: r.cover,
+        name: slugify(r.title || `manga-${idx + 1}`, `manga-${idx + 1}`),
+      }));
+    if (!files.length) {
       alert("No images found to download.");
       return;
     }
@@ -1231,14 +1248,18 @@ export default function Manga() {
       const JSZip = (await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
       const zip = new JSZip();
       const folder = zip.folder("images");
-      const fetches = urls.map(async (u, idx) => {
+      const nameCounts = {};
+      const fetches = files.map(async (file, idx) => {
         try {
-          const res = await fetch(u);
+          const res = await fetch(file.url);
           const blob = await res.blob();
-          const ext = (u.split(".").pop() || "jpg").split(/[?#]/)[0];
-          folder.file(`image-${idx + 1}.${ext}`, blob);
+          const ext = (file.url.split(".").pop() || "jpg").split(/[?#]/)[0];
+          const base = file.name || `image-${idx + 1}`;
+          nameCounts[base] = (nameCounts[base] || 0) + 1;
+          const suffix = nameCounts[base] > 1 ? `-${nameCounts[base]}` : "";
+          folder.file(`${base}${suffix}.${ext}`, blob);
         } catch (err) {
-          console.warn("Failed to fetch image", u, err);
+          console.warn("Failed to fetch image", file.url, err);
         }
       });
       await Promise.all(fetches);
@@ -1257,16 +1278,26 @@ export default function Manga() {
 
   return (
     <div className="manga-page">
-      <header className="manga-header">
-        <div>
-          <div className="manga-header-title">
-            Tyler&apos;s Manga Library
-            <span className="manga-badge">Firestore synced</span>
-          </div>
-          <div className="manga-header-sub">
-            Library &amp; Wishlist are managed via Firestore. This React port reuses the
-            same collections as your original index.html.
-          </div>
+      <header
+        className="manga-header"
+        style={{ flexDirection: "column", alignItems: "center", textAlign: "center" }}
+      >
+        <div
+          className="manga-header-title"
+          style={{
+            justifyContent: "center",
+            gap: "0.6rem",
+            fontSize: "2rem",
+            color: "#ffb6c1",
+            textShadow: "0 0 8px rgba(255,182,193,0.8)",
+            fontWeight: 700,
+          }}
+        >
+          Tyler&apos;s Manga Library
+        </div>
+        <div className="manga-header-sub" style={{ textAlign: "center" }}>
+          Library &amp; Wishlist are managed via Firestore. This React port reuses the
+          same collections as your original index.html.
         </div>
       </header>
 
