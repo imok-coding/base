@@ -150,19 +150,6 @@ export default function TCG() {
       alert("Failed to delete card.");
     }
   };
-  if (!admin) {
-    return (
-      <main className="page">
-        <div className="dashboard-locked" style={{ textAlign: "center", marginTop: "30px" }}>
-          <h1 style={{ color: "#ffb6c1" }}>TCG</h1>
-          <p style={{ color: "var(--text-soft)" }}>
-            This section is under construction and restricted to admins.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="page">
       <header style={{ marginTop: "32px", marginBottom: "16px" }}>
@@ -181,30 +168,32 @@ export default function TCG() {
         </p>
       </header>
 
-      <button
-        className="manga-btn"
-        type="button"
-        aria-label="Add card"
-        onClick={() => setAddModalOpen(true)}
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 1000,
-          width: "56px",
-          height: "56px",
-          borderRadius: "50%",
-          padding: 0,
-          fontSize: "28px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        +
-      </button>
+      {admin && (
+        <button
+          className="manga-btn"
+          type="button"
+          aria-label="Add card"
+          onClick={() => setAddModalOpen(true)}
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            zIndex: 1000,
+            width: "56px",
+            height: "56px",
+            borderRadius: "50%",
+            padding: 0,
+            fontSize: "28px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          +
+        </button>
+      )}
 
-      {addModalOpen && (
+      {admin && addModalOpen && (
         <div
           style={{
             position: "fixed",
@@ -494,7 +483,7 @@ export default function TCG() {
           </div>
         </div>
       )}
-      {editCard && (
+      {admin && editCard && (
         <div
           style={{
             position: "fixed",
@@ -932,44 +921,48 @@ export default function TCG() {
                   >
                     {c.game === "pokemon" ? "Pokemon" : "One Piece"}
                   </span>
-                  <button
-                    onClick={() =>
-                      setEditCard({
-                        ...c,
-                        pricePaid: c.pricePaid ?? "",
-                        estimatedValue: c.estimatedValue ?? "",
-                        quantity: c.quantity ?? 1,
-                      })
-                    }
-                    style={{
-                      padding: "3px 8px",
-                      borderRadius: "999px",
-                      border: "1px solid rgba(255,182,193,0.5)",
-                      background: "rgba(255,105,180,0.15)",
-                      color: "#ffb6c1",
-                      fontSize: "0.7rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Edit
-                  </button>
+                  {admin && (
+                    <button
+                      onClick={() =>
+                        setEditCard({
+                          ...c,
+                          pricePaid: c.pricePaid ?? "",
+                          estimatedValue: c.estimatedValue ?? "",
+                          quantity: c.quantity ?? 1,
+                        })
+                      }
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: "999px",
+                        border: "1px solid rgba(255,182,193,0.5)",
+                        background: "rgba(255,105,180,0.15)",
+                        color: "#ffb6c1",
+                        fontSize: "0.7rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
-                <div style={{ marginTop: "4px", display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    style={{
-                      padding: "3px 8px",
-                      borderRadius: "999px",
-                      border: "1px solid rgba(244,67,54,0.7)",
-                      background: "rgba(244,67,54,0.12)",
-                      color: "#ff8a80",
-                      fontSize: "0.7rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
+                {admin && (
+                  <div style={{ marginTop: "4px", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: "999px",
+                        border: "1px solid rgba(244,67,54,0.7)",
+                        background: "rgba(244,67,54,0.12)",
+                        color: "#ff8a80",
+                        fontSize: "0.7rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </article>
             );
           })}
