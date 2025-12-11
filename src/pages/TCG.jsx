@@ -458,6 +458,23 @@ export default function TCG() {
                 }}
               />
             </label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+              Image URL
+              <input
+                type="text"
+                value={form.image || ""}
+                onChange={(e) => handleFormChange('image', e.target.value)}
+                style={{
+                  width: '100%',
+                  marginTop: '3px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #bb7f8f',
+                  background: '#1e0d14',
+                  color: '#fff',
+                }}
+              />
+            </label>
           </div>
           <div
             style={{
@@ -512,8 +529,35 @@ export default function TCG() {
                   boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
                   padding: '10px',
                   fontSize: '0.82rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
                 }}
               >
+                {c.image && (
+                  <div
+                    style={{
+                      width: '100%',
+                      paddingTop: '120%',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: '10px',
+                      background: '#1e0d14',
+                    }}
+                  >
+                    <img
+                      src={c.image}
+                      alt={c.name || 'card image'}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </div>
+                )}
                 <div style={{ fontWeight: 700, color: '#ffb6c1', marginBottom: '4px' }}>
                   {c.name || 'Unnamed card'}
                 </div>
