@@ -558,10 +558,26 @@ export default function Dashboard() {
       return;
     }
     try {
-      await setDoc(doc(db, "admins", uid), {
-        grantedBy: user?.uid || "manual",
-        grantedAt: new Date().toISOString(),
-      });
+      await setDoc(
+        doc(db, "admins", uid),
+        {
+          uid,
+          role: "admin",
+          grantedBy: user?.uid || "manual",
+          grantedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      // legacy fallback for any rules that still read roles/<uid>
+      try {
+        await setDoc(
+          doc(db, "roles", uid),
+          { admin: true, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      } catch (fallbackErr) {
+        console.warn("Legacy roles write skipped (no permission):", fallbackErr?.message);
+      }
       setAdminUidInput("");
       await refreshAdmins();
     } catch (e) {
@@ -578,6 +594,7 @@ export default function Dashboard() {
     }
     try {
       await deleteDoc(doc(db, "admins", target));
+      await deleteDoc(doc(db, "roles", target));
       if (!uidOverride) setAdminUidInput("");
       await refreshAdmins();
     } catch (e) {
