@@ -19,6 +19,12 @@ function normalizeItem(raw) {
     episodes: raw.anime_num_episodes ?? raw.episodes ?? null,
     status,
     score: raw.score ?? null,
+    image:
+      raw.anime_image_path ||
+      raw.image_url ||
+      raw.anime_img ||
+      raw.picture ||
+      null,
   };
 }
 

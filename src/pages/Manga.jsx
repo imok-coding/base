@@ -902,12 +902,43 @@ export default function Manga() {
     }
   }
 
+  const [modalSaving, setModalSaving] = useState(false);
+
   const resetBulkEdit = () =>
     setBulkEdit({
       open: false,
       index: 0,
       items: [],
     });
+
+  async function saveInline(book, payload) {
+    if (!book?.id) return;
+    const col = book.kind === "wishlist" ? "wishlist" : "library";
+    setModalSaving(true);
+    try {
+      await updateDoc(doc(db, col, book.id), payload);
+      await Promise.all([loadLibrary(), loadWishlist()]);
+      setModalBook((prev) => (prev && prev.id === book.id ? { ...prev, ...payload } : prev));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update entry.");
+    } finally {
+      setModalSaving(false);
+    }
+  }
+
+  const handleInlineRating = (book, value) => {
+    const ratingValue = value === "" ? "" : Math.max(0.5, Math.min(5, Number(value)));
+    saveInline(book, { rating: ratingValue });
+  };
+
+  const handleInlineRead = (book, readState) => {
+    if (!book) return;
+    const payload = readState
+      ? { read: true, dateRead: new Date().toISOString().slice(0, 10) }
+      : { read: false, dateRead: "" };
+    saveInline(book, payload);
+  };
 
   const openBulkEdit = () => {
     if (!selectedIds.size) {
@@ -1369,12 +1400,13 @@ export default function Manga() {
                     <br />
                   </>
                 )}
-                {modalBook.rating && (
-                  <>
-                    <strong>Rating:</strong> {modalBook.rating}/5
-                    <br />
-                  </>
-                )}
+                <div style={{ margin: "6px 0" }}>
+                  <strong>Rating:</strong>{" "}
+                  <StarPicker
+                    value={modalBook.rating || ""}
+                    onChange={(v) => handleInlineRating(modalBook, v)}
+                  />
+                </div>
                 {modalBook.amountPaid && (
                   <>
                     <strong>Amount Paid:</strong> ${modalBook.amountPaid}
@@ -1412,7 +1444,7 @@ export default function Manga() {
                   </div>
                 )}
               </div>
-              <div className="manga-modal-footer">
+              <div className="manga-modal-footer" style={{ gap: "10px", alignItems: "center" }}>
                 <div>
                   {modalBook.kind === "library" && modalBook.read
                     ? "Marked as read in your library."
@@ -1420,6 +1452,29 @@ export default function Manga() {
                     ? "In your library (unread)."
                     : "Wishlist item - not in library yet."}
                 </div>
+                {modalBook.kind === "library" && (
+                  <>
+                    {!modalBook.read ? (
+                      <button
+                        className="manga-btn mini"
+                        disabled={modalSaving}
+                        onClick={() => handleInlineRead(modalBook, true)}
+                        type="button"
+                      >
+                        Mark as read
+                      </button>
+                    ) : (
+                      <button
+                        className="manga-btn mini secondary"
+                        disabled={modalSaving}
+                        onClick={() => handleInlineRead(modalBook, false)}
+                        type="button"
+                      >
+                        Mark as unread
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>

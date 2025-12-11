@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar/Navbar.jsx';
 import Home from './pages/Home.jsx';
 import Manga from './pages/Manga.jsx';
@@ -14,11 +14,13 @@ export default function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/manga" element={<Manga />} />
         <Route path="/anime" element={<Anime />} />
         <Route path="/tcg" element={<TCG />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/signin" element={<SignIn />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </AuthProvider>
   );

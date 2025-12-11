@@ -160,10 +160,11 @@
 
 .manga-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 14px;
   justify-items: center;
   align-items: stretch;
+  grid-auto-rows: 1fr;
 }
 
 .manga-card {
@@ -180,7 +181,9 @@
   flex-direction: column;
   text-align: center;
   height: 100%;
-  min-height: 360px;
+  min-height: 400px;
+  width: 100%;
+  max-width: 240px;
 }
 
 .manga-card.read::before {
@@ -230,6 +233,7 @@
   align-items: center;
   flex: 1;
   justify-content: space-between;
+  width: 100%;
 }
 
 .manga-card-title {

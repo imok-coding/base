@@ -5,6 +5,38 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>base</title>
+    <script>
+      /* GitHub Pages SPA redirect fix (auto-detect repo folder) */
+      (function (l) {
+        var parts = l.pathname.split("/").filter(Boolean);
+        var repo = parts.length ? "/" + parts[0] : "";
+        var base = repo || "";
+
+        if (l.search.startsWith("?/")) {
+          var decoded = l.search
+            .slice(2)
+            .split("&")
+            .map(function (s) {
+              return s.replace(/~and~/g, "&");
+            })
+            .join("?");
+          var newPath = base + "/" + decoded;
+          window.history.replaceState(null, null, newPath + l.hash);
+        } else if (l.search[1] === "/") {
+          var decoded2 = l.search
+            .slice(1)
+            .split("&")
+            .map(function (s) {
+              return s.replace(/~and~/g, "&");
+            })
+            .join("?");
+          // ensure single slash after base
+          if (decoded2.startsWith("/")) decoded2 = decoded2.slice(1);
+          var newPath2 = base + "/" + decoded2;
+          window.history.replaceState(null, null, newPath2 + l.hash);
+        }
+      })(window.location);
+    </script>
   </head>
   <body>
     <div id="root"></div>

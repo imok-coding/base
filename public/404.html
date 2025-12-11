@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting...</title>
+    <script>
+      /*
+       * SPA fallback for GitHub Pages.
+       * Based on https://github.com/rafgraph/spa-github-pages
+       * It preserves the path and query by encoding them into the redirect.
+       */
+      (function (l) {
+        var parts = l.pathname.split("/").filter(Boolean);
+        var repo = parts.length ? "/" + parts[0] : "";
+        var base = repo || "";
+        var path = l.pathname.replace(new RegExp("^" + base + "/?"), "");
+        if (path.startsWith("/")) path = path.slice(1);
+        var search = l.search ? l.search.slice(1).replace(/&/g, "~and~") : "";
+        var hash = l.hash || "";
+        var redirect = base + "/?/" + path + (search ? "&" + search : "") + hash;
+        l.replace(redirect);
+      })(window.location);
+    </script>
+  </head>
+  <body></body>
+</html>
