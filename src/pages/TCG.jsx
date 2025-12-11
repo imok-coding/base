@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
 import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { searchJustTcg } from "../api/justTcg";
 
 export default function TCG() {
   const { admin } = useAuth();
@@ -13,7 +12,6 @@ export default function TCG() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState("");
-  const [apiKey, setApiKey] = useState(import.meta.env.VITE_JUSTTCG_KEY || "");
 
   // Admin form
   const [form, setForm] = useState({
@@ -57,38 +55,6 @@ export default function TCG() {
       (c.number || '').toLowerCase().includes(t)
     );
   });
-
-  const handleSearch = async () => {
-    if (!term.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setSearching(true);
-    setSearchError("");
-    try {
-      const results = await searchJustTcg(term.trim(), gameFilter, apiKey);
-      setSearchResults(results);
-    } catch (err) {
-      console.error("JustTCG search failed:", err);
-      setSearchError("Search failed. Check API key or try again.");
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const applyResultToForm = (r) => {
-    setForm((prev) => ({
-      ...prev,
-      game: r.game || prev.game,
-      name: r.name || prev.name,
-      setName: r.setName || prev.setName,
-      number: r.number || prev.number,
-      rarity: r.rarity || prev.rarity,
-      estimatedValue:
-        r.marketPrice != null ? Number(r.marketPrice).toFixed(2) : prev.estimatedValue,
-      image: r.image || prev.image,
-    }));
-  };
 
   const stats = cards.reduce(
     (acc, c) => {
@@ -164,6 +130,19 @@ export default function TCG() {
       alert('Failed to delete card.');
     }
   };
+
+  if (!admin) {
+    return (
+      <main className="page">
+        <div className="dashboard-locked" style={{ textAlign: "center", marginTop: "30px" }}>
+          <h1 style={{ color: "#ffb6c1" }}>TCG</h1>
+          <p style={{ color: "var(--text-soft)" }}>
+            This section is under construction and restricted to admins.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="page">
@@ -266,89 +245,7 @@ export default function TCG() {
           <option value="pokemon">Pokemon only</option>
           <option value="onepiece">One Piece only</option>
         </select>
-        {admin && (
-          <input
-            type="password"
-            placeholder="JustTCG API Key (optional)"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            style={{
-              flex: '1 1 220px',
-              minWidth: '220px',
-              padding: '8px 12px',
-              borderRadius: '999px',
-              border: '1px solid #bb7f8f',
-              background: '#2b0f1d',
-              color: '#fff',
-            }}
-          />
-        )}
-        <button
-          className="manga-btn"
-          type="button"
-          onClick={handleSearch}
-          disabled={searching}
-        >
-          {searching ? "Searching..." : "Search JustTCG"}
-        </button>
       </section>
-
-      {searchError && (
-        <div style={{ color: '#ff9aa2', marginTop: '8px' }}>{searchError}</div>
-      )}
-
-      {searchResults.length > 0 && (
-        <section
-          style={{
-            marginTop: '12px',
-            padding: '10px',
-            border: '1px solid rgba(255,182,193,0.25)',
-            borderRadius: '12px',
-            background: 'rgba(43,15,29,0.6)',
-          }}
-        >
-          <div style={{ marginBottom: '6px', color: 'var(--text-soft)' }}>
-            JustTCG Results ({searchResults.length})
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '8px',
-            }}
-          >
-            {searchResults.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  padding: '8px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255,182,193,0.25)',
-                  background: '#2b0f1d',
-                }}
-              >
-                <div style={{ fontWeight: 700, color: '#ffb6c1' }}>{r.name}</div>
-                <div style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                  {r.setName} • {r.number || "No #"}
-                </div>
-                <div style={{ color: 'var(--text-soft)', fontSize: '0.8rem' }}>
-                  {r.rarity || "Unknown"}{r.marketPrice != null ? ` • $${r.marketPrice}` : ""}
-                </div>
-                {admin && (
-                  <button
-                    className="manga-btn mini"
-                    type="button"
-                    style={{ marginTop: '6px' }}
-                    onClick={() => applyResultToForm(r)}
-                  >
-                    Use for new card
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Admin form */}
       {admin && (
