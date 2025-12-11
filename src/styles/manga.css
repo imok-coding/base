@@ -550,9 +550,9 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-width: 220px;
-  padding: 4px 0;
+  gap: 14px;
+  min-width: 260px;
+  padding: 6px 0;
 }
 
 .star-track,
@@ -561,11 +561,11 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 26px;
+  font-size: 30px;
   letter-spacing: 2px;
   user-select: none;
   pointer-events: none;
-  width: 150px;
+  width: 180px;
   color: rgba(255, 182, 193, 0.25);
 }
 
@@ -582,8 +582,8 @@
 .star-clicks {
   position: relative;
   display: flex;
-  width: 150px;
-  height: 32px;
+  width: 180px;
+  height: 36px;
 }
 
 .star-clicks button {
