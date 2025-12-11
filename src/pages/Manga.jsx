@@ -589,6 +589,11 @@ export default function Manga() {
     });
   }, [wishlist, searchWishlist]);
 
+  const visibleWishlist = useMemo(() => {
+    if (isAdmin && showHidden) return filteredWishlist;
+    return filteredWishlist.filter((b) => !b.hidden);
+  }, [filteredWishlist, isAdmin, showHidden]);
+
   // ----- Multi-select -----
 
   function toggleMultiMode() {
@@ -1335,7 +1340,7 @@ export default function Manga() {
     );
   };
 
-  const currentList = activeTab === "library" ? visibleLibrary : filteredWishlist;
+  const currentList = activeTab === "library" ? visibleLibrary : visibleWishlist;
 
   const exportCSV = (rows, filename) => {
     if (!rows.length) return;
@@ -1422,6 +1427,18 @@ export default function Manga() {
       console.error("Zip download failed", err);
       alert("Failed to create zip. Please try again.");
     }
+  };
+
+  const downloadJson = (dataObj, filename) => {
+    const blob = new Blob([JSON.stringify(dataObj, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -1513,7 +1530,7 @@ export default function Manga() {
             </div>
 
             <div className="manga-toolbar-right">
-              {isAdmin && activeTab === "library" && (
+              {isAdmin && (
                 <button
                   className="manga-btn secondary"
                   type="button"
@@ -1606,12 +1623,7 @@ export default function Manga() {
             <button
               className="manga-btn secondary"
               type="button"
-              onClick={() =>
-                exportJSON(
-                  activeTab === "library" ? library : wishlist,
-                  activeTab === "library" ? "manga-library.json" : "manga-wishlist.json"
-                )
-              }
+              onClick={() => downloadJson({ library, wishlist }, "manga-library-wishlist.json")}
             >
               Export JSON
             </button>

@@ -154,6 +154,22 @@ export default function TCG() {
       alert("Failed to delete card.");
     }
   };
+
+  const exportTcgJson = () => {
+    if (!cards.length) {
+      alert("No cards to export.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify({ tcg: cards }, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tcg-collection.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   return (
     <main className="page">
       <header
@@ -175,13 +191,18 @@ export default function TCG() {
             textShadow: "0 0 8px rgba(255,182,193,0.8)",
             fontWeight: 700,
           }}
-        >
-          TCG Collection
-        </h1>
-        <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
-          Pokemon &amp; One Piece TCG cards with quantities, prices, and collection value.
-        </p>
-      </header>
+      >
+        TCG Collection
+      </h1>
+      <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
+        Pokemon &amp; One Piece TCG cards with quantities, prices, and collection value.
+      </p>
+      <div style={{ marginTop: "10px" }}>
+        <button className="manga-btn secondary" type="button" onClick={exportTcgJson}>
+          Export JSON
+        </button>
+      </div>
+    </header>
 
       {admin && (
         <button
