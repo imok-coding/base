@@ -108,6 +108,22 @@
   gap: 18px;
 }
 
+@media (max-width: 820px) {
+  .anime-page {
+    padding: 18px 12px 32px;
+  }
+  .anime-input {
+    min-width: 160px;
+  }
+  .anime-select {
+    flex: 0 0 160px;
+  }
+  .anime-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+  }
+}
+
 .anime-card {
   background: var(--anime-card-bg);
   border-radius: 16px;
