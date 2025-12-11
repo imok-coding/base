@@ -700,20 +700,20 @@ export default function Dashboard() {
   }, [nextRelease, releases]);
 
   useEffect(() => {
+    if (!admin) return;
     if (!activity || !activity.length) return;
     const latest = activity[0];
     if (!latest || !latest.date) return;
     const key = `${latest.type}-${latest.title}-${latest.date.toISOString?.() || latest.date}`;
     if (activityPostedRef.current === key) return;
+    activityPostedRef.current = key; // set immediately to avoid duplicate posts on rapid renders
     const content = `Activity: ${latest.type} — ${latest.title} (${latest.date.toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
     })})`;
-    postWebhook(ACTIVITY_WEBHOOK, content).then(() => {
-      activityPostedRef.current = key;
-    });
-  }, [activity]);
+    postWebhook(ACTIVITY_WEBHOOK, content);
+  }, [activity, admin]);
 
   useEffect(() => {
     if (!nextDate) {

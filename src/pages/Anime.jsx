@@ -23,11 +23,8 @@ export default function Anime() {
     async function load() {
       try {
         const data = await fetchAnimeList();
-        const sorted = [...data].sort((a, b) =>
-          (a.title || "").localeCompare(b.title || "")
-        );
-        setItems(sorted);
-        setFiltered(sorted);
+        setItems(data);
+        setFiltered(data);
       } catch (err) {
         console.error(err);
         setError("Failed to load data from MAL.");
@@ -38,6 +35,24 @@ export default function Anime() {
     load();
   }, []);
 
+  const getStatusRank = (s) => {
+    const key = (s || "unknown").toLowerCase();
+    switch (key) {
+      case "watching":
+        return 0;
+      case "completed":
+        return 1;
+      case "on_hold":
+        return 2;
+      case "plan_to_watch":
+        return 3;
+      case "dropped":
+        return 4;
+      default:
+        return 5;
+    }
+  };
+
   useEffect(() => {
     let cur = [...items];
     if (status !== "all") {
@@ -47,6 +62,12 @@ export default function Anime() {
       const t = term.toLowerCase();
       cur = cur.filter((a) => (a.title || "").toLowerCase().includes(t));
     }
+    cur.sort((a, b) => {
+      const ra = getStatusRank(a.status);
+      const rb = getStatusRank(b.status);
+      if (ra !== rb) return ra - rb;
+      return (a.title || "").localeCompare(b.title || "");
+    });
     setFiltered(cur);
   }, [items, status, term]);
 
@@ -147,18 +168,18 @@ export default function Anime() {
             className="anime-input"
           />
           <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="anime-select"
-          >
-            <option value="all">All statuses</option>
-            <option value="watching">Watching</option>
-            <option value="completed">Completed</option>
-            <option value="on_hold">On Hold</option>
-            <option value="dropped">Dropped</option>
-            <option value="plan_to_watch">Plan to Watch</option>
-          </select>
-        </section>
+        value={status}
+        onChange={(e) => setStatus(e.target.value)}
+        className="anime-select"
+      >
+        <option value="all">All statuses</option>
+        <option value="watching">Watching</option>
+        <option value="completed">Completed</option>
+        <option value="on_hold">On Hold</option>
+        <option value="plan_to_watch">Plan to Watch</option>
+        <option value="dropped">Dropped</option>
+        </select>
+      </section>
 
         {loading && <div className="loading">Loading anime list from MAL...</div>}
         {error && <div className="error-state">{error}</div>}

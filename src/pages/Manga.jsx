@@ -1128,8 +1128,10 @@ export default function Manga() {
   }
 
   const StarPicker = ({ value, onChange }) => {
-    const val = Math.max(0, Math.min(5, Number(value) || 0));
-    const pct = (val / 5) * 100;
+    const [hoverVal, setHoverVal] = useState(null);
+    const baseVal = Math.max(0, Math.min(5, Number(value) || 0));
+    const displayVal = hoverVal != null ? hoverVal : baseVal;
+    const pct = (displayVal / 5) * 100;
     const steps = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.5);
     return (
       <div className="star-picker" role="group" aria-label="Rating">
@@ -1144,11 +1146,13 @@ export default function Manga() {
               type="button"
               aria-label={`${v} stars`}
               style={{ width: `${100 / steps.length}%` }}
+              onMouseEnter={() => setHoverVal(v)}
+              onMouseLeave={() => setHoverVal(null)}
               onClick={() => onChange(v)}
             />
           ))}
         </div>
-        <div className="star-value">{val ? val.toFixed(1) : "--"}</div>
+        <div className="star-value">{displayVal ? displayVal.toFixed(1) : "--"}</div>
         <button
           type="button"
           className="star-clear"

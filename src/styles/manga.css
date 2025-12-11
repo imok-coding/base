@@ -552,6 +552,7 @@
   align-items: center;
   gap: 10px;
   min-width: 180px;
+  padding: 4px 0;
 }
 
 .star-track,
@@ -565,10 +566,10 @@
   user-select: none;
   pointer-events: none;
   width: 140px;
+  color: rgba(255, 182, 193, 0.25);
 }
 
 .star-track {
-  color: rgba(255, 182, 193, 0.25);
 }
 
 .star-fill {
@@ -591,6 +592,7 @@
   cursor: pointer;
   padding: 0;
   margin: 0;
+  height: 100%;
 }
 
 .star-clicks button:hover,
