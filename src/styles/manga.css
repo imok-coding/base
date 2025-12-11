@@ -551,7 +551,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-width: 180px;
+  min-width: 220px;
   padding: 4px 0;
 }
 
@@ -561,11 +561,11 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 24px;
-  letter-spacing: 0;
+  font-size: 26px;
+  letter-spacing: 2px;
   user-select: none;
   pointer-events: none;
-  width: 120px;
+  width: 150px;
   color: rgba(255, 182, 193, 0.25);
 }
 
@@ -582,8 +582,8 @@
 .star-clicks {
   position: relative;
   display: flex;
-  width: 120px;
-  height: 26px;
+  width: 150px;
+  height: 32px;
 }
 
 .star-clicks button {
