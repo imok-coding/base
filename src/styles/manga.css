@@ -546,61 +546,54 @@
   font-size: 14px;
 }
 
-.star-picker {
-  position: relative;
-  display: flex;
+.star-shell {
+  display: inline-flex;
   align-items: center;
   gap: 12px;
-  --star-size: 30px;
-  --star-count: 5;
-  min-width: calc(var(--star-size) * var(--star-count) + 110px);
-  padding: 6px 0;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
 }
 
-.star-track,
-.star-fill {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: var(--star-size);
-  letter-spacing: 0;
-  user-select: none;
-  pointer-events: none;
-  width: calc(var(--star-size) * var(--star-count));
-  color: rgba(255, 182, 193, 0.25);
-  font-family: "Arial", "Segoe UI Symbol", sans-serif;
-  line-height: 1;
-}
-
-.star-track {
-}
-
-.star-fill {
-  color: #ff7ccf;
-  width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.star-clicks {
+.star-visual {
   position: relative;
-  display: flex;
-  width: calc(var(--star-size) * var(--star-count));
-  height: calc(var(--star-size) + 6px);
+  width: 180px;
+  height: 34px;
   flex-shrink: 0;
 }
 
-.star-clicks button {
+.star-layer {
+  display: flex;
+  gap: 4px;
+}
+
+.star-layer.track {
+  position: absolute;
+  inset: 0;
+}
+
+.star-layer.fill {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.star-hit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 0;
+}
+
+.star-hit button {
+  flex: 1 1 10%;
   border: none;
   background: transparent;
   cursor: pointer;
-  padding: 0;
-  margin: 0;
-  height: 100%;
-  width: 10%;
+}
+
+.star-value {
+  font-weight: 700;
+  color: #ffb6c1;
+  min-width: 32px;
+  text-align: right;
 }
 
 .star-clicks button:hover,

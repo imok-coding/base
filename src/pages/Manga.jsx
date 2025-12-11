@@ -1133,24 +1133,43 @@ export default function Manga() {
     const displayVal = hoverVal != null ? hoverVal : baseVal;
     const pct = (displayVal / 5) * 100;
     const steps = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.5);
+
+    const renderStars = (filled) => {
+      const color = filled ? "#ff7ccf" : "rgba(255, 182, 193, 0.25)";
+      return Array.from({ length: 5 }, (_, i) => (
+        <svg
+          key={i}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          style={{ width: "30px", height: "30px" }}
+        >
+          <path
+            fill={color}
+            d="M12 2.5l2.9 5.88 6.5.95-4.7 4.58 1.1 6.43L12 17.9l-5.8 3.44 1.1-6.43-4.7-4.58 6.5-.95L12 2.5z"
+          />
+        </svg>
+      ));
+    };
+
     return (
-      <div className="star-picker" role="group" aria-label="Rating">
-        <div className="star-track" aria-hidden="true">★★★★★</div>
-        <div className="star-fill" style={{ width: `${pct}%` }} aria-hidden="true">
-          ★★★★★
-        </div>
-        <div className="star-clicks">
-          {steps.map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-label={`${v} stars`}
-              style={{ width: `${100 / steps.length}%` }}
-              onMouseEnter={() => setHoverVal(v)}
-              onMouseLeave={() => setHoverVal(null)}
-              onClick={() => onChange(v)}
-            />
-          ))}
+      <div className="star-shell" role="group" aria-label="Rating">
+        <div className="star-visual">
+          <div className="star-layer track">{renderStars(false)}</div>
+          <div className="star-layer fill" style={{ width: `${pct}%` }}>
+            {renderStars(true)}
+          </div>
+          <div className="star-hit">
+            {steps.map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-label={`${v} stars`}
+                onMouseEnter={() => setHoverVal(v)}
+                onMouseLeave={() => setHoverVal(null)}
+                onClick={() => onChange(v)}
+              />
+            ))}
+          </div>
         </div>
         <div className="star-value">{displayVal ? displayVal.toFixed(1) : "--"}</div>
         <button
