@@ -38,6 +38,13 @@ function normalizeResults(raw = []) {
       r.price ??
       r.avg ??
       null,
+    image:
+      r.image ||
+      r.imageUrl ||
+      r.image_url ||
+      r.images?.large ||
+      r.images?.small ||
+      null,
   }));
 }
 
@@ -58,19 +65,24 @@ export async function searchJustTcg(query, game, apiKey) {
   if (game && game !== "all") endpoint.searchParams.set("game", game);
   endpoint.searchParams.set("limit", "20");
 
-  const res = await fetch(endpoint.toString(), {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
-  });
+  try {
+    const res = await fetch(endpoint.toString(), {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+    });
 
-  if (!res.ok) {
-    console.warn("JustTCG search failed, falling back to sample data", res.status);
+    if (!res.ok) {
+      console.warn("JustTCG search failed, falling back to sample data", res.status);
+      return FALLBACK_RESULTS;
+    }
+
+    const data = await res.json();
+    const results = Array.isArray(data?.results) ? data.results : data;
+    return normalizeResults(results || []);
+  } catch (err) {
+    console.warn("JustTCG fetch error, returning fallback data", err);
     return FALLBACK_RESULTS;
   }
-
-  const data = await res.json();
-  const results = Array.isArray(data?.results) ? data.results : data;
-  return normalizeResults(results || []);
 }

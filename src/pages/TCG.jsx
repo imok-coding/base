@@ -18,14 +18,16 @@ export default function TCG() {
   // Admin form
   const [form, setForm] = useState({
     game: 'pokemon',
-    name: '',
-    setName: '',
-    number: '',
-    rarity: '',
-    condition: '',
-    quantity: 1,
-    pricePaid: '',
-    estimatedValue: '',
+      name: '',
+      setName: '',
+      number: '',
+      rarity: '',
+      condition: '',
+      quantity: 1,
+      pricePaid: '',
+      estimatedValue: '',
+      image: '',
+    image: '',
   });
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function TCG() {
       rarity: r.rarity || prev.rarity,
       estimatedValue:
         r.marketPrice != null ? Number(r.marketPrice).toFixed(2) : prev.estimatedValue,
+      image: r.image || prev.image,
     }));
   };
 
@@ -123,6 +126,7 @@ export default function TCG() {
       quantity: Number(form.quantity || 1),
       pricePaid: Number(form.pricePaid || 0),
       estimatedValue: Number(form.estimatedValue || 0),
+      image: form.image.trim(),
     };
     try {
       const col = collection(db, 'tcg');
