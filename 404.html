@@ -10,11 +10,13 @@
        * It preserves the path and query by encoding them into the redirect.
        */
       (function (l) {
-        var base = "/base";
-        var path = l.pathname.replace(base, "");
+        var parts = l.pathname.split("/").filter(Boolean);
+        var repo = parts.length ? "/" + parts[0] : "";
+        var base = repo || "";
+        var path = l.pathname.replace(new RegExp("^" + base), "");
         var search = l.search ? l.search.slice(1).replace(/&/g, "~and~") : "";
         var hash = l.hash || "";
-        var redirect = base + "/?" + path + (search ? "&" + search : "") + hash;
+        var redirect = base + "/?/" + path + (search ? "&" + search : "") + hash;
         l.replace(redirect);
       })(window.location);
     </script>
