@@ -548,13 +548,15 @@
 
 .star-picker {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 12px;
-  --star-size: 28px;
+  --star-size: 30px;
   --star-count: 5;
-  min-width: calc(var(--star-size) * var(--star-count) + 80px);
+  min-width: calc(var(--star-size) * var(--star-count) + 110px);
   padding: 6px 0;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .star-track,
@@ -588,6 +590,7 @@
   display: flex;
   width: calc(var(--star-size) * var(--star-count));
   height: calc(var(--star-size) + 6px);
+  flex-shrink: 0;
 }
 
 .star-clicks button {
