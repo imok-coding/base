@@ -76,16 +76,16 @@ function computeMangaStats(library, wishlist) {
 
   // Ratings
   const ratingBuckets = {
-    "10": 0,
-    "9": 0,
-    "8": 0,
-    "7": 0,
-    "6": 0,
     "5": 0,
+    "4.5": 0,
     "4": 0,
+    "3.5": 0,
     "3": 0,
+    "2.5": 0,
     "2": 0,
+    "1.5": 0,
     "1": 0,
+    "0.5": 0,
   };
   let ratingSum = 0;
   let ratingCount = 0;
@@ -93,11 +93,12 @@ function computeMangaStats(library, wishlist) {
   library.forEach((b) => {
     const r = b.rating == null || b.rating === "" ? NaN : parseFloat(b.rating);
     if (!Number.isFinite(r) || r <= 0) return;
-    const key = String(Math.round(r));
+    const clipped = Math.max(0.5, Math.min(5, r));
+    const key = String(Math.round(clipped * 2) / 2);
     if (ratingBuckets[key] != null) {
       ratingBuckets[key] += 1;
     }
-    ratingSum += r;
+    ratingSum += clipped;
     ratingCount += 1;
   });
 
@@ -832,6 +833,7 @@ export default function Manga() {
   async function saveAdminForm() {
     if (!isAdmin) return;
     const { mode, list, data, editingId, multiAdd, startVol, endVol } = adminForm;
+    const targetList = list || "library";
     if (!data.title.trim()) {
       alert("Title is required.");
       return;
@@ -847,7 +849,8 @@ export default function Manga() {
       cover: data.cover.trim(),
       isbn: data.isbn.trim(),
       pageCount: data.pageCount === "" ? "" : Number(data.pageCount),
-      rating: data.rating === "" ? "" : Number(data.rating),
+      rating:
+        data.rating === "" ? "" : Math.max(0.5, Math.min(5, Number(data.rating))),
       amountPaid: data.amountPaid === "" ? "" : Number(data.amountPaid),
       dateRead: data.dateRead.trim(),
       datePurchased: data.datePurchased.trim(),
@@ -871,13 +874,13 @@ export default function Manga() {
         const writes = [];
         for (let v = start; v <= end; v++) {
           const title = `${data.title.trim()} Vol. ${v}`;
-          writes.push(addDoc(collection(db, list), buildPayload(title)));
+          writes.push(addDoc(collection(db, targetList), buildPayload(title)));
         }
         await Promise.all(writes);
       } else if (mode === "add") {
-        await addDoc(collection(db, list), buildPayload());
+        await addDoc(collection(db, targetList), buildPayload());
       } else if (mode === "edit" && editingId) {
-        await updateDoc(doc(db, list, editingId), buildPayload());
+        await updateDoc(doc(db, targetList, editingId), buildPayload());
       }
       await Promise.all([loadLibrary(), loadWishlist()]);
       resetAdminForm();
@@ -985,7 +988,10 @@ export default function Manga() {
         const payload = {
           ...item.data,
           pageCount: item.data.pageCount === "" ? "" : Number(item.data.pageCount),
-          rating: item.data.rating === "" ? "" : Number(item.data.rating),
+          rating:
+            item.data.rating === ""
+              ? ""
+              : Math.max(0.5, Math.min(5, Number(item.data.rating))),
           amountPaid: item.data.amountPaid === "" ? "" : Number(item.data.amountPaid),
           msrp: item.data.msrp === "" ? "" : Number(item.data.msrp),
           collectiblePrice:
@@ -1089,6 +1095,40 @@ export default function Manga() {
       </div>
     );
   }
+
+  const StarPicker = ({ value, onChange }) => {
+    const val = Math.max(0, Math.min(5, Number(value) || 0));
+    const pct = (val / 5) * 100;
+    const steps = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.5);
+    return (
+      <div className="star-picker" role="group" aria-label="Rating">
+        <div className="star-track" aria-hidden="true">★★★★★</div>
+        <div className="star-fill" style={{ width: `${pct}%` }} aria-hidden="true">
+          ★★★★★
+        </div>
+        <div className="star-clicks">
+          {steps.map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-label={`${v} stars`}
+              style={{ width: `${100 / steps.length}%` }}
+              onClick={() => onChange(v)}
+            />
+          ))}
+        </div>
+        <div className="star-value">{val ? val.toFixed(1) : "--"}</div>
+        <button
+          type="button"
+          className="star-clear"
+          onClick={() => onChange("")}
+          aria-label="Clear rating"
+        >
+          clear
+        </button>
+      </div>
+    );
+  };
 
   const currentList = activeTab === "library" ? filteredLibrary : filteredWishlist;
 
@@ -1331,7 +1371,7 @@ export default function Manga() {
                 )}
                 {modalBook.rating && (
                   <>
-                    <strong>Rating:</strong> {modalBook.rating}/10
+                    <strong>Rating:</strong> {modalBook.rating}/5
                     <br />
                   </>
                 )}
@@ -1616,14 +1656,10 @@ export default function Manga() {
                       />
                     </label>
                     <label>
-                      Rating (1-10)
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="10"
+                      Rating (1-5 stars)
+                      <StarPicker
                         value={adminForm.data.rating}
-                        onChange={(e) => handleAdminChange("rating", e.target.value)}
+                        onChange={(v) => handleAdminChange("rating", v)}
                       />
                     </label>
                   </div>
@@ -1806,14 +1842,10 @@ export default function Manga() {
                       />
                     </label>
                     <label>
-                      Rating
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="10"
+                      Rating (1-5 stars)
+                      <StarPicker
                         value={bulkEdit.items[bulkEdit.index].data.rating}
-                        onChange={(e) => handleBulkChange("rating", e.target.value)}
+                        onChange={(v) => handleBulkChange("rating", v)}
                       />
                     </label>
                     <label>
