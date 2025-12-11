@@ -550,8 +550,10 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  min-width: 260px;
+  gap: 12px;
+  --star-size: 28px;
+  --star-count: 5;
+  min-width: calc(var(--star-size) * var(--star-count) + 80px);
   padding: 6px 0;
 }
 
@@ -561,12 +563,14 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 30px;
-  letter-spacing: 2px;
+  font-size: var(--star-size);
+  letter-spacing: 0;
   user-select: none;
   pointer-events: none;
-  width: 180px;
+  width: calc(var(--star-size) * var(--star-count));
   color: rgba(255, 182, 193, 0.25);
+  font-family: "Arial", "Segoe UI Symbol", sans-serif;
+  line-height: 1;
 }
 
 .star-track {
@@ -582,8 +586,8 @@
 .star-clicks {
   position: relative;
   display: flex;
-  width: 180px;
-  height: 36px;
+  width: calc(var(--star-size) * var(--star-count));
+  height: calc(var(--star-size) + 6px);
 }
 
 .star-clicks button {
@@ -593,6 +597,7 @@
   padding: 0;
   margin: 0;
   height: 100%;
+  width: 10%;
 }
 
 .star-clicks button:hover,
