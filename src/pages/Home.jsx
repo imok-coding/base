@@ -242,6 +242,29 @@ export default function Home() {
               </div>
             </a>
 
+            <a
+              href="/base/music"
+              className="section-card"
+              style={{ justifySelf: "end", alignSelf: "end", order: 99 }}
+            >
+              <h3 style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
+                {lang === "jp" ? "ミュージック" : "Music"}
+              </h3>
+              <p style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
+                {lang === "jp"
+                  ? "音楽を聴きに来たなら、このページへ。最新リリースをまとめてチェック。"
+                  : "If you are here for my music, this is the page for you! Catch all the latest releases."}
+              </p>
+              <div className="section-chip-row">
+                <span className="section-chip accent" style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
+                  {lang === "jp" ? "最新曲" : "Latest tracks"}
+                </span>
+                <span className="section-chip" style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
+                  {lang === "jp" ? "Spotify & SoundCloud" : "Spotify & SoundCloud"}
+                </span>
+              </div>
+            </a>
+
             <a href="/base/anime" className="section-card">
               <h3 style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
                 {lang === "jp" ? "\u30a2\u30cb\u30e1\u4e00\u89a7" : "Anime Library"}

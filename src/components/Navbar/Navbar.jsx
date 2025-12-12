@@ -57,6 +57,10 @@ export default function Navbar() {
           TCG
         </Link>
 
+        <Link to="/music" className="menu-item" onClick={() => setOpen(false)}>
+          Music
+        </Link>
+
         {/* ADMIN-ONLY DASHBOARD */}
         {admin && (
           <Link
