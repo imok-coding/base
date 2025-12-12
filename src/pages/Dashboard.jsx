@@ -629,6 +629,19 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const hasOpenModal =
+      calendarOpen || detailModal.open || settingsOpen || !!calendarModalDay;
+    if (hasOpenModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [calendarOpen, detailModal.open, settingsOpen, calendarModalDay]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     yearlyPostedRef.current = localStorage.getItem("dashboard-yearly-posted");
     releasePostedRef.current = localStorage.getItem("dashboard-release-posted");
@@ -1744,15 +1757,21 @@ export default function Dashboard() {
                       {cell.releases.length > 2 && (
                         <button
                           className="calendar-more-btn"
-                          onClick={() =>
+                          onClick={() => {
+                            const fullDate = new Date(
+                              calendarMonth.getFullYear(),
+                              calendarMonth.getMonth(),
+                              cell.day
+                            );
                             setCalendarModalDay({
-                              dateLabel: `${calendarMonth.toLocaleString(undefined, {
+                              dateLabel: fullDate.toLocaleDateString(undefined, {
                                 month: "long",
+                                day: "numeric",
                                 year: "numeric",
-                              })} ${cell.day}`,
+                              }),
                               releases: cell.releases,
-                            })
-                          }
+                            });
+                          }}
                         >
                           +{cell.releases.length - 2} more
                         </button>
@@ -1822,9 +1841,9 @@ export default function Dashboard() {
             <div className="calendar-header">
               <div className="calendar-title">{calendarModalDay.dateLabel}</div>
               <button
-                className="calendar-nav-btn"
+                className="calendar-close-btn"
                 onClick={() => setCalendarModalDay(null)}
-                style={{ width: 36 }}
+                type="button"
               >
                 Close
               </button>

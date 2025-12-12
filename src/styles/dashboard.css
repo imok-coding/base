@@ -617,6 +617,21 @@
   background: rgba(255, 105, 180, 0.15);
 }
 
+.calendar-close-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 182, 193, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffb6c1;
+  cursor: pointer;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.calendar-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 #calendarClose {
   position: absolute;
   top: 12px;
@@ -645,8 +660,8 @@
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(90px, 1fr));
   gap: 6px;
-  grid-auto-rows: minmax(90px, 1fr);
 }
 
 .calendar-day {

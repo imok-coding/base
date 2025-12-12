@@ -1075,7 +1075,11 @@ export default function Manga() {
       isbn: targetList === "wishlist" ? "" : (d.isbn || "").trim(),
       pageCount: d.pageCount === "" ? "" : Number(d.pageCount),
       rating:
-        d.rating === "" ? "" : Math.max(0.5, Math.min(5, Number(d.rating))),
+        targetList === "wishlist"
+          ? ""
+          : d.rating === ""
+          ? ""
+          : Math.max(0.5, Math.min(5, Number(d.rating))),
       amountPaid: d.amountPaid === "" ? "" : Number(d.amountPaid),
       dateRead: (d.dateRead || "").trim(),
       datePurchased: (d.datePurchased || "").trim(),
@@ -1095,7 +1099,6 @@ export default function Manga() {
           : Number(d.collectiblePrice),
       amazonURL: (d.amazonURL || "").trim(),
       read: targetList === "wishlist" ? false : !!d.read,
-      rating: targetList === "wishlist" ? "" : d.rating,
       hidden: !!d.hidden,
       kind: list,
     });
