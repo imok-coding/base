@@ -1072,20 +1072,30 @@ export default function Manga() {
       subGenre: (d.subGenre || "").trim(),
       date: (d.date || "").trim(),
       cover: (d.cover || "").trim(),
-      isbn: (d.isbn || "").trim(),
+      isbn: targetList === "wishlist" ? "" : (d.isbn || "").trim(),
       pageCount: d.pageCount === "" ? "" : Number(d.pageCount),
       rating:
         d.rating === "" ? "" : Math.max(0.5, Math.min(5, Number(d.rating))),
       amountPaid: d.amountPaid === "" ? "" : Number(d.amountPaid),
       dateRead: (d.dateRead || "").trim(),
       datePurchased: (d.datePurchased || "").trim(),
-      msrp: d.msrp === "" ? "" : Number(d.msrp),
-      specialType: (d.specialType || "").trim(),
-      specialVolumes: d.specialVolumes === "" ? "" : Number(d.specialVolumes),
+      msrp: targetList === "wishlist" ? "" : d.msrp === "" ? "" : Number(d.msrp),
+      specialType: targetList === "wishlist" ? "" : (d.specialType || "").trim(),
+      specialVolumes:
+        targetList === "wishlist"
+          ? ""
+          : d.specialVolumes === ""
+          ? ""
+          : Number(d.specialVolumes),
       collectiblePrice:
-        d.collectiblePrice === "" ? "" : Number(d.collectiblePrice),
+        targetList === "wishlist"
+          ? ""
+          : d.collectiblePrice === ""
+          ? ""
+          : Number(d.collectiblePrice),
       amazonURL: (d.amazonURL || "").trim(),
-      read: !!d.read,
+      read: targetList === "wishlist" ? false : !!d.read,
+      rating: targetList === "wishlist" ? "" : d.rating,
       hidden: !!d.hidden,
       kind: list,
     });
