@@ -23,7 +23,28 @@ export default function Music() {
         if (!res.ok) throw new Error("Worker fetch failed");
         const json = await res.json();
         if (cancelled) return;
-        const normalized = (Array.isArray(json.combined) ? json.combined : []).map((item) => ({
+        const combinedRaw = Array.isArray(json.combined) ? json.combined : [];
+        const spotifyRaw = Array.isArray(json.spotify) ? json.spotify : [];
+        const scRaw = Array.isArray(json.soundcloud) ? json.soundcloud : [];
+
+        // Merge everything we have, then de-dupe with Spotify preferred on title collisions
+        const mergedAll = [...combinedRaw, ...spotifyRaw, ...scRaw].reduce((acc, item) => {
+          const title = (item.title || "").toLowerCase().trim();
+          if (!title) return acc;
+          const existingIdx = acc.findIndex(
+            (x) => (x.title || "").toLowerCase().trim() === title
+          );
+          if (existingIdx >= 0) {
+            if (acc[existingIdx].source !== "spotify" && item.source === "spotify") {
+              acc[existingIdx] = item;
+            }
+            return acc;
+          }
+          acc.push(item);
+          return acc;
+        }, []);
+
+        const normalized = mergedAll.map((item) => ({
           ...item,
           releaseDate: item.releaseDate ? new Date(item.releaseDate) : new Date(),
         }));

@@ -2133,38 +2133,6 @@ export default function Manga() {
                     </label>
                   </div>
 
-                  <div className="admin-row two">
-                    <label>
-                      Page Count
-                      <input
-                        type="number"
-                        placeholder="e.g. 192"
-                        value={adminForm.data.pageCount}
-                        onChange={(e) => handleAdminChange("pageCount", e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      ISBN (library only)
-                      <input
-                        type="text"
-                        value={adminForm.data.isbn}
-                        onChange={(e) => handleAdminChange("isbn", e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="admin-row">
-                    <label>
-                      Cover URL
-                      <input
-                        type="text"
-                        placeholder="Paste image URL here"
-                        value={adminForm.data.cover}
-                        onChange={(e) => handleAdminChange("cover", e.target.value)}
-                      />
-                    </label>
-                  </div>
-
                   {!isWishlistForm && (
                     <>
                       <div className="admin-row two">
