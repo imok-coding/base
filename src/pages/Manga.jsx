@@ -709,14 +709,10 @@ export default function Manga() {
               authors: item.authors,
               publisher: item.publisher,
               date: item.date,
-              isbn: item.isbn,
               pageCount: item.pageCount || "",
               cover: item.cover,
               amazonURL: item.amazonURL || "",
-              specialType: item.specialType || "",
-              specialVolumes: item.specialVolumes || "",
-              collectiblePrice: item.collectiblePrice || "",
-              rating: item.rating || "",
+              hidden: !!item.hidden,
             };
             await addDoc(collection(db, "wishlist"), payload);
             await deleteDoc(doc(db, "library", id));
@@ -731,15 +727,20 @@ export default function Manga() {
               authors: item.authors,
               publisher: item.publisher,
               date: item.date,
-              isbn: item.isbn,
               pageCount: item.pageCount || "",
               cover: item.cover,
               amountPaid: "",
               read: false,
               rating: "",
-              specialType: item.specialType || "",
-              specialVolumes: item.specialVolumes || "",
-              collectiblePrice: item.collectiblePrice || "",
+              msrp: "",
+              collectiblePrice: "",
+              specialType: "",
+              specialVolumes: "",
+              isbn: "",
+              demographic: "",
+              genre: "",
+              subGenre: "",
+              hidden: !!item.hidden,
             };
             await addDoc(collection(db, "library"), payload);
             await deleteDoc(doc(db, "wishlist", id));
@@ -1508,6 +1509,56 @@ export default function Manga() {
     URL.revokeObjectURL(url);
   };
 
+  const moveSingle = async (book) => {
+    if (!isAdmin || !book?.id) return;
+    const from = book.kind === "wishlist" ? "wishlist" : "library";
+    const to = from === "library" ? "wishlist" : "library";
+    try {
+      if (from === "library") {
+        const payload = {
+          title: book.title,
+          authors: book.authors,
+          publisher: book.publisher,
+          date: book.date,
+          pageCount: book.pageCount || "",
+          cover: book.cover || "",
+          amazonURL: book.amazonURL || "",
+          hidden: !!book.hidden,
+        };
+        await addDoc(collection(db, to), payload);
+      } else {
+        const payload = {
+          title: book.title,
+          authors: book.authors,
+          publisher: book.publisher,
+          date: book.date,
+          pageCount: book.pageCount || "",
+          cover: book.cover || "",
+          amountPaid: "",
+          read: false,
+          rating: "",
+          msrp: "",
+          collectiblePrice: "",
+          specialType: "",
+          specialVolumes: "",
+          isbn: "",
+          demographic: "",
+          genre: "",
+          subGenre: "",
+          amazonURL: book.amazonURL || "",
+          hidden: !!book.hidden,
+        };
+        await addDoc(collection(db, to), payload);
+      }
+      await deleteDoc(doc(db, from, book.id));
+      await Promise.all([loadLibrary(), loadWishlist()]);
+      closeModal();
+    } catch (err) {
+      console.error("Move failed", err);
+      alert("Failed to move item.");
+    }
+  };
+
   const isWishlistForm = adminForm.list === "wishlist";
   const bulkCurrent = bulkEdit.items[bulkEdit.index] || null;
   const bulkIsWishlist = bulkCurrent?.kind === "wishlist";
@@ -1842,29 +1893,40 @@ export default function Manga() {
                     ? "In your library (unread)."
                     : "Wishlist item - not in library yet."}
                 </div>
-                {modalBook.kind === "library" && (
-                  <>
-                    {!modalBook.read ? (
-                      <button
-                        className="manga-btn mini"
-                        disabled={modalSaving}
-                        onClick={() => handleInlineRead(modalBook, true)}
-                        type="button"
-                      >
-                        Mark as read
-                      </button>
-                    ) : (
-                      <button
-                        className="manga-btn mini secondary"
-                        disabled={modalSaving}
-                        onClick={() => handleInlineRead(modalBook, false)}
-                        type="button"
-                      >
-                        Mark as unread
-                      </button>
-                    )}
-                  </>
-                )}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {modalBook.kind === "library" && (
+                    <>
+                      {!modalBook.read ? (
+                        <button
+                          className="manga-btn mini"
+                          disabled={modalSaving}
+                          onClick={() => handleInlineRead(modalBook, true)}
+                          type="button"
+                        >
+                          Mark as read
+                        </button>
+                      ) : (
+                        <button
+                          className="manga-btn mini secondary"
+                          disabled={modalSaving}
+                          onClick={() => handleInlineRead(modalBook, false)}
+                          type="button"
+                        >
+                          Mark as unread
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button
+                      className="manga-btn mini"
+                      type="button"
+                      onClick={() => moveSingle(modalBook)}
+                    >
+                      Move to {modalBook.kind === "library" ? "Wishlist" : "Library"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
