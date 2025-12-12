@@ -10,6 +10,10 @@ export default function Home() {
   const [contentOpacity, setContentOpacity] = useState(1);
 
   useEffect(() => {
+    document.title = "Tyler's Collection";
+  }, []);
+
+  useEffect(() => {
     blinkRef.current = setInterval(() => setCursorVisible((v) => !v), 450);
     return () => {
       if (blinkRef.current) clearInterval(blinkRef.current);
