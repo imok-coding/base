@@ -544,6 +544,7 @@ export default function Dashboard() {
   const [adminUidInput, setAdminUidInput] = useState("");
   const [adminsList, setAdminsList] = useState([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
+  const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const refreshAdmins = async () => {
     if (!admin) return;
     try {
@@ -994,7 +995,6 @@ export default function Dashboard() {
   }
 
   const todayKey = formatDateKey(new Date());
-  const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const calendarCells = buildCalendarGrid(calendarMonth, releases, todayKey);
 
   // ---------- Detail modal body ----------
