@@ -545,6 +545,7 @@ export default function Dashboard() {
   const [adminsList, setAdminsList] = useState([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
+  const [calendarModalDay, setCalendarModalDay] = useState(null);
   const refreshAdmins = async () => {
     if (!admin) return;
     try {
@@ -1744,14 +1745,16 @@ export default function Dashboard() {
                         <button
                           className="calendar-more-btn"
                           onClick={() =>
-                            setCalendarExpandedDay((prev) =>
-                              prev === cell.dateKey ? null : cell.dateKey
-                            )
+                            setCalendarModalDay({
+                              dateLabel: `${calendarMonth.toLocaleString(undefined, {
+                                month: "long",
+                                year: "numeric",
+                              })} ${cell.day}`,
+                              releases: cell.releases,
+                            })
                           }
                         >
-                          {calendarExpandedDay === cell.dateKey
-                            ? "Show less"
-                            : `+${cell.releases.length - 2} more`}
+                          +{cell.releases.length - 2} more
                         </button>
                       )}
                     </div>
@@ -1801,6 +1804,38 @@ export default function Dashboard() {
               {detailModal.type === "releases" && "Wishlist Releases"}
             </h2>
             <div id="statDetailBody">{renderDetailBody()}</div>
+          </div>
+        </div>
+      )}
+
+      {calendarModalDay && (
+        <div
+          id="calendarOverlay"
+          onClick={() => setCalendarModalDay(null)}
+          style={{ zIndex: 10080 }}
+        >
+          <div
+            id="calendarCard"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "520px" }}
+          >
+            <div className="calendar-header">
+              <div className="calendar-title">{calendarModalDay.dateLabel}</div>
+              <button
+                className="calendar-nav-btn"
+                onClick={() => setCalendarModalDay(null)}
+                style={{ width: 36 }}
+              >
+                Close
+              </button>
+            </div>
+            <div className="calendar-releases">
+              {calendarModalDay.releases.map((r, idx) => (
+                <div className="calendar-release" key={idx} title={r.title}>
+                  {r.title}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
