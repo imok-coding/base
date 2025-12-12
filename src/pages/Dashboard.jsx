@@ -485,7 +485,7 @@ function WeekdayBreakdown({ data }) {
 
 /* ---------- Calendar helpers ---------- */
 
-function buildCalendarGrid(monthDate, releases) {
+function buildCalendarGrid(monthDate, releases, todayKey) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const firstOfMonth = new Date(year, month, 1);
@@ -510,11 +510,18 @@ function buildCalendarGrid(monthDate, releases) {
     cells.push({ type: "pad" });
   }
   for (let d = 1; d <= daysInMonth; d++) {
+    const dateKey = formatDateKey(new Date(year, month, d));
     cells.push({
       type: "day",
       day: d,
       releases: byDay.get(d) || [],
+      dateKey,
+      isToday: dateKey === todayKey,
     });
+  }
+  const totalCells = Math.ceil(cells.length / 7) * 7;
+  while (cells.length < totalCells) {
+    cells.push({ type: "pad" });
   }
   return cells;
 }
@@ -986,7 +993,9 @@ export default function Dashboard() {
     setDetailModal({ open: false, type: null });
   }
 
-  const calendarCells = buildCalendarGrid(calendarMonth, releases);
+  const todayKey = formatDateKey(new Date());
+  const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
+  const calendarCells = buildCalendarGrid(calendarMonth, releases, todayKey);
 
   // ---------- Detail modal body ----------
   function renderDetailBody() {
@@ -1713,10 +1722,16 @@ export default function Dashboard() {
                 cell.type === "pad" ? (
                   <div key={idx} className="calendar-day pad" />
                 ) : (
-                  <div key={idx} className="calendar-day">
+                  <div
+                    key={idx}
+                    className={"calendar-day" + (cell.isToday ? " today" : "")}
+                  >
                     <div className="day-num">{cell.day}</div>
                     <div className="calendar-releases">
-                      {cell.releases.slice(0, 2).map((r, i) => (
+                      {(calendarExpandedDay === cell.dateKey
+                        ? cell.releases
+                        : cell.releases.slice(0, 2)
+                      ).map((r, i) => (
                         <div
                           className="calendar-release"
                           key={i}
@@ -1726,8 +1741,17 @@ export default function Dashboard() {
                         </div>
                       ))}
                       {cell.releases.length > 2 && (
-                        <button className="calendar-more-btn">
-                          +{cell.releases.length - 2} more
+                        <button
+                          className="calendar-more-btn"
+                          onClick={() =>
+                            setCalendarExpandedDay((prev) =>
+                              prev === cell.dateKey ? null : cell.dateKey
+                            )
+                          }
+                        >
+                          {calendarExpandedDay === cell.dateKey
+                            ? "Show less"
+                            : `+${cell.releases.length - 2} more`}
                         </button>
                       )}
                     </div>

@@ -646,6 +646,7 @@
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
+  grid-auto-rows: minmax(90px, 1fr);
 }
 
 .calendar-day {
@@ -657,6 +658,11 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.calendar-day.today {
+  border: 2px solid rgba(255, 182, 193, 0.9);
+  box-shadow: 0 0 10px rgba(255, 182, 193, 0.4);
 }
 
 .calendar-day.pad {
