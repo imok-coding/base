@@ -16,6 +16,8 @@ export default function TCG() {
     pricePaid: "",
     estimatedValue: "",
     image: "",
+    productURL: "",
+    notes: "",
   };
 
   const { admin } = useAuth();
@@ -113,6 +115,8 @@ export default function TCG() {
       pricePaid: Number(form.pricePaid || 0),
       estimatedValue: Number(form.estimatedValue || 0),
       image: form.image.trim(),
+      productURL: form.productURL.trim(),
+      notes: form.notes.trim(),
     };
     try {
       const col = collection(db, "tcg");
@@ -146,6 +150,8 @@ export default function TCG() {
       pricePaid: Number(editCard.pricePaid || 0),
       estimatedValue: Number(editCard.estimatedValue || 0),
       image: editCard.image ? editCard.image.trim() : "",
+      productURL: editCard.productURL ? editCard.productURL.trim() : "",
+      notes: editCard.notes ? editCard.notes.trim() : "",
     };
     try {
       await updateDoc(doc(db, "tcg", editCard.id), payload);
@@ -489,6 +495,41 @@ export default function TCG() {
                     }}
                   />
                 </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Product URL (backend only)
+                  <input
+                    type="text"
+                    value={form.productURL || ""}
+                    onChange={(e) => handleFormChange("productURL", e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1", fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Notes
+                  <textarea
+                    value={form.notes}
+                    onChange={(e) => handleFormChange("notes", e.target.value)}
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
               </div>
             </div>
             <div
@@ -774,6 +815,41 @@ export default function TCG() {
                     }}
                   />
                 </label>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Product URL (backend only)
+                  <input
+                    type="text"
+                    value={editCard.productURL || ""}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, productURL: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                    }}
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1", fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Notes
+                  <textarea
+                    value={editCard.notes || ""}
+                    onChange={(e) => setEditCard((prev) => ({ ...prev, notes: e.target.value }))}
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid #bb7f8f",
+                      background: "#1e0d14",
+                      color: "#fff",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
               </div>
             </div>
             <div
@@ -946,6 +1022,19 @@ export default function TCG() {
                 )}
                 <div style={{ fontWeight: 700, color: "#ffb6c1", marginBottom: "4px" }}>{c.name || "Unnamed card"}</div>
                 <div style={{ color: "var(--text-soft)", marginBottom: "4px" }}>{c.setName || ""}</div>
+                {c.notes && (
+                  <div
+                    style={{
+                      color: "var(--text-soft)",
+                      fontSize: "0.78rem",
+                      background: "rgba(255,255,255,0.04)",
+                      borderRadius: "8px",
+                      padding: "6px 8px",
+                    }}
+                  >
+                    {c.notes}
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-soft)" }}>
                   <span>#{c.number || "-"}</span>
                   <span>{c.rarity || ""}</span>

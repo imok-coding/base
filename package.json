@@ -19,5 +19,18 @@
     "@vitejs/plugin-react": "^4.3.0",
     "gh-pages": "^6.3.0",
     "vite": "^6.0.0"
+  },
+  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imok-coding/base.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/imok-coding/base/issues"
   }
 }
