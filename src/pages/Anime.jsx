@@ -138,6 +138,8 @@ export default function Anime() {
       0
     );
     const totalHours = totalEpisodes * 0.4; // ~24 minutes per episode
+    const scoredItems = items.filter((a) => Number.isFinite(a.score) && a.score > 0);
+    const scoreSum = scoredItems.reduce((s, a) => s + a.score, 0);
     const byStatus = {
       watching: 0,
       completed: 0,
@@ -151,13 +153,10 @@ export default function Anime() {
       if (byStatus[s] != null) byStatus[s] += 1;
       else byStatus.unknown += 1;
     });
-    const avgScore =
-      items.reduce((s, a) => (Number.isFinite(a.score) ? s + a.score : s), 0) /
-      Math.max(1, items.filter((a) => Number.isFinite(a.score)).length || 1);
     return {
       total,
       byStatus,
-      avgScore: Number.isFinite(avgScore) ? avgScore : 0,
+      avgScore: scoredItems.length ? scoreSum / scoredItems.length : 0,
       totalHours,
     };
   }, [items]);
@@ -166,12 +165,18 @@ export default function Anime() {
     const cover =
       a.image ||
       "https://imgur.com/chUgq4W.png";
+    const watched = Number.isFinite(Number(a.watchedEpisodes)) ? Number(a.watchedEpisodes) : 0;
+    const total = Number.isFinite(Number(a.episodes)) ? Number(a.episodes) : null;
+    const progressLabel = total
+      ? `Episode ${Math.min(watched, total)}/${total}`
+      : `Episode ${watched}`;
+    const scoreLabel = Number.isFinite(Number(a.score)) && Number(a.score) > 0 ? a.score : "Not rated";
     return (
       <article
         key={a.id || a.title}
         className="anime-card"
         onClick={() => setModalItem(a)}
-      >
+        >
         <div className="anime-cover-wrap">
           <img className="anime-cover" src={cover} alt={a.title} loading="lazy" decoding="async" />
           <div className={`badge-status ${(a.status || 'unknown').toLowerCase()}`}>
@@ -179,7 +184,7 @@ export default function Anime() {
           </div>
           {a.score != null && (
             <div className="badge-score">
-              {a.score}
+              {scoreLabel}
             </div>
           )}
         </div>
@@ -188,6 +193,7 @@ export default function Anime() {
           <div className="anime-sub">
             {a.episodes ? `${a.episodes} episodes` : "Episodes: ?"}
           </div>
+          <div className="anime-progress">{progressLabel}</div>
           <div className="anime-progress">Status: {formatStatus(a.status)}</div>
         </div>
       </article>
@@ -352,8 +358,20 @@ export default function Anime() {
                   {modalItem.episodes ? modalItem.episodes : "Unknown"}
                 </div>
                 <div>
+                  <strong>Progress:</strong>{" "}
+                  {Number.isFinite(Number(modalItem.watchedEpisodes))
+                    ? `Episode ${modalItem.watchedEpisodes}${
+                        Number.isFinite(Number(modalItem.episodes))
+                          ? `/${modalItem.episodes}`
+                          : ""
+                      }`
+                    : "Unknown"}
+                </div>
+                <div>
                   <strong>Score:</strong>{" "}
-                  {modalItem.score != null ? modalItem.score : "N/A"}
+                  {Number.isFinite(Number(modalItem.score)) && Number(modalItem.score) > 0
+                    ? modalItem.score
+                    : "Not rated"}
                 </div>
               </div>
             </div>

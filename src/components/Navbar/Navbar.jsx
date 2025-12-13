@@ -61,6 +61,10 @@ export default function Navbar() {
           Music
         </Link>
 
+        <Link to="/steam" className="menu-item" onClick={() => setOpen(false)}>
+          Gaming
+        </Link>
+
         {/* ADMIN-ONLY DASHBOARD */}
         {admin && (
           <Link

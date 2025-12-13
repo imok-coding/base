@@ -17,6 +17,12 @@ function normalizeItem(raw) {
     id: raw.anime_id || raw.id,
     title: raw.anime_title || raw.title || "Untitled",
     episodes: raw.anime_num_episodes ?? raw.episodes ?? null,
+    watchedEpisodes:
+      raw.num_watched_episodes ??
+      raw.my_watched_episodes ??
+      raw.watched_episodes ??
+      raw.num_watched ??
+      0,
     status,
     score: raw.score ?? null,
     image:

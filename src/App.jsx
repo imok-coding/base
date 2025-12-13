@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Music from './pages/Music.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import SignIn from "./pages/SignIn";
+import Steam from "./pages/Steam.jsx";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/music" element={<Music />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/steam" element={<Steam />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </AuthProvider>
