@@ -206,7 +206,7 @@ export default function TCG() {
             fontWeight: 700,
           }}
       >
-        TCG Collection
+        Tyler&apos;s TCG Collection
       </h1>
       <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
         Pokemon &amp; One Piece TCG cards with quantities, prices, and collection value.
