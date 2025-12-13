@@ -229,7 +229,7 @@ export default function TCG() {
           className="manga-btn"
           type="button"
           aria-label="Add card"
-          onClick={() => setAddModalOpen(true)}
+          onClick={() => setAddModalOpen(true )}
           style={{
             position: "fixed",
             bottom: "20px",
@@ -247,7 +247,7 @@ export default function TCG() {
         >
           +
         </button>
-      )}
+       )}
 
       {admin && addModalOpen && (
         <div
@@ -274,11 +274,11 @@ export default function TCG() {
               padding: "14px",
               boxShadow: "0 24px 60px rgba(0,0,0,0.85)",
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation( )}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0, color: "#ffb6c1" }}>Add card</h2>
-              <button className="dashboard-close" onClick={() => setAddModalOpen(false)} type="button">
+              <button className="dashboard-close" onClick={() => setAddModalOpen(false )} type="button">
                 Close
               </button>
             </div>
@@ -309,7 +309,7 @@ export default function TCG() {
                   <img src={form.image} alt="Card preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   <div style={{ color: "var(--text-soft)", fontSize: "0.8rem", padding: "6px" }}>No image</div>
-                )}
+                 )}
               </div>
               <div
                 style={{
@@ -322,7 +322,7 @@ export default function TCG() {
                   Game
                   <select
                     value={form.game}
-                    onChange={(e) => handleFormChange("game", e.target.value)}
+                    onChange={(e) => handleFormChange("game", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -342,7 +342,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.name}
-                    onChange={(e) => handleFormChange("name", e.target.value)}
+                    onChange={(e) => handleFormChange("name", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -359,7 +359,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.setName}
-                    onChange={(e) => handleFormChange("setName", e.target.value)}
+                    onChange={(e) => handleFormChange("setName", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -376,7 +376,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.number}
-                    onChange={(e) => handleFormChange("number", e.target.value)}
+                    onChange={(e) => handleFormChange("number", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -393,7 +393,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.rarity}
-                    onChange={(e) => handleFormChange("rarity", e.target.value)}
+                    onChange={(e) => handleFormChange("rarity", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -410,7 +410,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.condition}
-                    onChange={(e) => handleFormChange("condition", e.target.value)}
+                    onChange={(e) => handleFormChange("condition", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -428,7 +428,7 @@ export default function TCG() {
                     type="number"
                     min="1"
                     value={form.quantity}
-                    onChange={(e) => handleFormChange("quantity", e.target.value)}
+                    onChange={(e) => handleFormChange("quantity", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -447,7 +447,7 @@ export default function TCG() {
                     step="0.01"
                     min="0"
                     value={form.pricePaid}
-                    onChange={(e) => handleFormChange("pricePaid", e.target.value)}
+                    onChange={(e) => handleFormChange("pricePaid", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -466,7 +466,7 @@ export default function TCG() {
                     step="0.01"
                     min="0"
                     value={form.estimatedValue}
-                    onChange={(e) => handleFormChange("estimatedValue", e.target.value)}
+                    onChange={(e) => handleFormChange("estimatedValue", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -483,7 +483,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.image || ""}
-                    onChange={(e) => handleFormChange("image", e.target.value)}
+                    onChange={(e) => handleFormChange("image", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -500,7 +500,7 @@ export default function TCG() {
                   <input
                     type="text"
                     value={form.productURL || ""}
-                    onChange={(e) => handleFormChange("productURL", e.target.value)}
+                    onChange={(e) => handleFormChange("productURL", e.target.value )}
                     style={{
                       width: "100%",
                       marginTop: "3px",
@@ -516,7 +516,7 @@ export default function TCG() {
                   Notes
                   <textarea
                     value={form.notes}
-                    onChange={(e) => handleFormChange("notes", e.target.value)}
+                    onChange={(e) => handleFormChange("notes", e.target.value )}
                     rows={3}
                     style={{
                       width: "100%",
@@ -573,7 +573,7 @@ export default function TCG() {
             </div>
           </div>
         </div>
-      )}
+       )}
       {admin && editCard && (
         <div
           style={{
@@ -599,11 +599,11 @@ export default function TCG() {
               padding: "14px",
               boxShadow: "0 24px 60px rgba(0,0,0,0.85)",
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation( )}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0, color: "#ffb6c1" }}>Edit card</h2>
-              <button className="dashboard-close" onClick={() => setEditCard(null)} type="button">
+              <button className="dashboard-close" onClick={() => setEditCard(null )} type="button">
                 Close
               </button>
             </div>
@@ -634,7 +634,7 @@ export default function TCG() {
                   <img src={editCard.image} alt="Card preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   <div style={{ color: "var(--text-soft)", fontSize: "0.8rem", padding: "6px" }}>No image</div>
-                )}
+                 )}
               </div>
               <div
                 style={{
@@ -861,7 +861,7 @@ export default function TCG() {
               }}
             >
               <button
-                onClick={() => setEditCard(null)}
+                onClick={() => setEditCard(null )}
                 style={{
                   padding: "6px 12px",
                   borderRadius: "999px",
@@ -890,7 +890,7 @@ export default function TCG() {
             </div>
           </div>
         </div>
-      )}
+       )}
       <section
         style={{
           display: "grid",
@@ -905,11 +905,11 @@ export default function TCG() {
         </div>
         <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total paid</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2)}</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2 )}</div>
         </div>
         <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total value</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2)}</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2 )}</div>
         </div>
         <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Unrealized gain / loss</div>
@@ -920,7 +920,7 @@ export default function TCG() {
               color: gain >= 0 ? "#00e676" : "#ff8a80",
             }}
           >
-            {gain >= 0 ? "+" : "-"}${Math.abs(gain).toFixed(2)}
+            {gain >= 0 ? "+" : "-"}${Math.abs(gain).toFixed(2 )}
           </div>
         </div>
         <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
@@ -945,7 +945,7 @@ export default function TCG() {
           type="text"
           placeholder="Search by name, set, or number..."
           value={term}
-          onChange={(e) => setTerm(e.target.value)}
+          onChange={(e) => setTerm(e.target.value )}
           style={{
             flex: "1 1 220px",
             minWidth: "220px",
@@ -958,7 +958,7 @@ export default function TCG() {
         />
         <select
           value={gameFilter}
-          onChange={(e) => setGameFilter(e.target.value)}
+          onChange={(e) => setGameFilter(e.target.value )}
           style={{
             flex: "0 0 220px",
             padding: "8px 12px",
@@ -1006,7 +1006,7 @@ export default function TCG() {
                   <div
                     style={{
                       width: "100%",
-                      paddingTop: "120%",
+                      paddingTop: "140%",
                       position: "relative",
                       overflow: "hidden",
                       borderRadius: "10px",
@@ -1016,25 +1016,20 @@ export default function TCG() {
                     <img
                       src={c.image}
                       alt={c.name || "card image"}
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
                     />
                   </div>
                 )}
-                <div style={{ fontWeight: 700, color: "#ffb6c1", marginBottom: "4px" }}>{c.name || "Unnamed card"}</div>
+                <div style={{ fontWeight: 700, color: "#ffb6c1", marginBottom: "4px" }}>
+                  {c.name || "Unnamed card"}
+                </div>
                 <div style={{ color: "var(--text-soft)", marginBottom: "4px" }}>{c.setName || ""}</div>
-                {c.notes && (
-                  <div
-                    style={{
-                      color: "var(--text-soft)",
-                      fontSize: "0.78rem",
-                      background: "rgba(255,255,255,0.04)",
-                      borderRadius: "8px",
-                      padding: "6px 8px",
-                    }}
-                  >
-                    {c.notes}
-                  </div>
-                )}
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-soft)" }}>
                   <span>#{c.number || "-"}</span>
                   <span>{c.rarity || ""}</span>
@@ -1047,7 +1042,20 @@ export default function TCG() {
                   <span>Paid: ${paidTotal.toFixed(2)}</span>
                   <span>Value: ${valTotal.toFixed(2)}</span>
                 </div>
-                <div style={{ marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                {c.notes && (
+                  <div
+                    style={{
+                      color: "#9c8fa6",
+                      fontSize: "0.72rem",
+                      fontStyle: "italic",
+                      textAlign: "center",
+                      marginTop: "6px",
+                    }}
+                  >
+                    "{c.notes}"
+                  </div>
+                )}
+                <div style={{ marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
                   <span
                     style={{
                       padding: "2px 7px",
@@ -1056,52 +1064,51 @@ export default function TCG() {
                       border: "1px solid rgba(255,105,180,0.5)",
                       color: "#ffb6c1",
                       fontSize: "0.7rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {c.game === "pokemon" ? "Pokemon" : "One Piece"}
                   </span>
                   {admin && (
-                    <button
-                      onClick={() =>
-                        setEditCard({
-                          ...c,
-                          pricePaid: c.pricePaid ?? "",
-                          estimatedValue: c.estimatedValue ?? "",
-                          quantity: c.quantity ?? 1,
-                        })
-                      }
-                      style={{
-                        padding: "3px 8px",
-                        borderRadius: "999px",
-                        border: "1px solid rgba(255,182,193,0.5)",
-                        background: "rgba(255,105,180,0.15)",
-                        color: "#ffb6c1",
-                        fontSize: "0.7rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Edit
-                    </button>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginLeft: "auto" }}>
+                      <button
+                        onClick={() =>
+                          setEditCard({
+                            ...c,
+                            pricePaid: c.pricePaid ?? "",
+                            estimatedValue: c.estimatedValue ?? "",
+                            quantity: c.quantity ?? 1,
+                          })
+                        }
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: "999px",
+                          border: "1px solid rgba(255,182,193,0.5)",
+                          background: "rgba(255,105,180,0.15)",
+                          color: "#ffb6c1",
+                          fontSize: "0.7rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id)}
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: "999px",
+                          border: "1px solid rgba(244,67,54,0.7)",
+                          background: "rgba(244,67,54,0.12)",
+                          color: "#ff8a80",
+                          fontSize: "0.7rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </div>
-                {admin && (
-                  <div style={{ marginTop: "4px", display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      onClick={() => handleDelete(c.id)}
-                      style={{
-                        padding: "3px 8px",
-                        borderRadius: "999px",
-                        border: "1px solid rgba(244,67,54,0.7)",
-                        background: "rgba(244,67,54,0.12)",
-                        color: "#ff8a80",
-                        fontSize: "0.7rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
               </article>
             );
           })}
@@ -1110,3 +1117,6 @@ export default function TCG() {
     </main>
   );
 }
+
+
+
