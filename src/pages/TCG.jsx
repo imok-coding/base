@@ -25,6 +25,7 @@ export default function TCG() {
   const [loading, setLoading] = useState(true);
   const [term, setTerm] = useState("");
   const [gameFilter, setGameFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState("");
@@ -76,6 +77,31 @@ export default function TCG() {
       (c.setName || "").toLowerCase().includes(t) ||
       (c.number || "").toLowerCase().includes(t)
     );
+  });
+  const sortedCards = [...filtered].sort((a, b) => {
+    const aName = (a.name || "").toLowerCase();
+    const bName = (b.name || "").toLowerCase();
+    const aSet = (a.setName || "").toLowerCase();
+    const bSet = (b.setName || "").toLowerCase();
+    const aRarity = (a.rarity || "").toLowerCase();
+    const bRarity = (b.rarity || "").toLowerCase();
+    const aQty = Number(a.quantity || 0);
+    const bQty = Number(b.quantity || 0);
+    const aVal = Number(a.estimatedValue || 0) * Math.max(1, aQty);
+    const bVal = Number(b.estimatedValue || 0) * Math.max(1, bQty);
+    switch (sortBy) {
+      case "set":
+        return aSet.localeCompare(bSet) || aName.localeCompare(bName);
+      case "rarity":
+        return aRarity.localeCompare(bRarity) || aName.localeCompare(bName);
+      case "quantity":
+        return bQty - aQty || aName.localeCompare(bName);
+      case "value":
+        return bVal - aVal || aName.localeCompare(bName);
+      case "name":
+      default:
+        return aName.localeCompare(bName);
+    }
   });
 
   const stats = cards.reduce(
@@ -1010,6 +1036,24 @@ export default function TCG() {
           <option value="pokemon">Pokemon only</option>
           <option value="onepiece">One Piece only</option>
         </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value )}
+          style={{
+            flex: "0 0 220px",
+            padding: "8px 12px",
+            borderRadius: "999px",
+            border: "1px solid #bb7f8f",
+            background: "#2b0f1d",
+            color: "#fff",
+          }}
+        >
+          <option value="name">Sort: Name (A-Z)</option>
+          <option value="set">Sort: Set (A-Z)</option>
+          <option value="rarity">Sort: Rarity (A-Z)</option>
+          <option value="quantity">Sort: Quantity (high to low)</option>
+          <option value="value">Sort: Value (high to low)</option>
+        </select>
       </section>
 
       {loading ? (
@@ -1021,7 +1065,7 @@ export default function TCG() {
           className="grid"
           style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", marginTop: "20px" }}
         >
-          {filtered.map((c) => {
+          {sortedCards.map((c) => {
             const qty = Number(c.quantity || 1);
             const paidTotal = qty * Number(c.pricePaid || 0);
             const valTotal = qty * Number(c.estimatedValue || 0);
@@ -1155,5 +1199,4 @@ export default function TCG() {
     </main>
   );
 }
-
 
