@@ -118,15 +118,53 @@ export default function TCG() {
       productURL: form.productURL.trim(),
       notes: form.notes.trim(),
     };
+    const normalize = (obj) => ({
+      game: (obj.game || "").toLowerCase().trim(),
+      name: (obj.name || "").toLowerCase().trim(),
+      setName: (obj.setName || "").toLowerCase().trim(),
+      number: (obj.number || "").toLowerCase().trim(),
+      rarity: (obj.rarity || "").toLowerCase().trim(),
+      condition: (obj.condition || "").toLowerCase().trim(),
+      pricePaid: Number(obj.pricePaid || 0),
+      estimatedValue: Number(obj.estimatedValue || 0),
+      image: (obj.image || "").trim(),
+      productURL: (obj.productURL || "").trim(),
+      notes: (obj.notes || "").trim(),
+    });
+    const target = normalize(payload);
+    const dup = cards.find((c) => {
+      const cur = normalize(c);
+      return (
+        cur.game === target.game &&
+        cur.name === target.name &&
+        cur.setName === target.setName &&
+        cur.number === target.number &&
+        cur.rarity === target.rarity &&
+        cur.condition === target.condition &&
+        cur.pricePaid === target.pricePaid &&
+        cur.estimatedValue === target.estimatedValue &&
+        cur.image === target.image &&
+        cur.productURL === target.productURL &&
+        cur.notes === target.notes
+      );
+    });
     try {
       const col = collection(db, "tcg");
-      await addDoc(col, payload);
+      if (dup?.id) {
+        const newQty = Number(dup.quantity || 1) + payload.quantity;
+        await updateDoc(doc(db, "tcg", dup.id), { quantity: newQty });
+        setCards((prev) =>
+          prev.map((c) => (c.id === dup.id ? { ...c, quantity: newQty } : c))
+        );
+      } else {
+        await addDoc(col, payload);
+        const snap = await getDocs(col);
+        const rows = [];
+        snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
+        setCards(rows);
+      }
       setForm(initialForm);
       setAddModalOpen(false);
-      const snap = await getDocs(col);
-      const rows = [];
-      snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
-      setCards(rows);
     } catch (err) {
       console.error("Error adding card:", err);
       alert("Failed to save card.");
@@ -1117,6 +1155,5 @@ export default function TCG() {
     </main>
   );
 }
-
 
 
