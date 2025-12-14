@@ -384,6 +384,7 @@ export default function Manga() {
       dateRead: "",
       datePurchased: "",
       msrp: "",
+      special: false,
       specialType: "",
       specialVolumes: "",
       collectiblePrice: "",
@@ -818,6 +819,7 @@ export default function Manga() {
         dateRead: "",
         datePurchased: "",
         msrp: "",
+        special: false,
         specialType: "",
         specialVolumes: "",
         collectiblePrice: "",
@@ -921,6 +923,7 @@ export default function Manga() {
         dateRead: book.dateRead || "",
         datePurchased: book.datePurchased || "",
         msrp: book.msrp || "",
+        special: !!(book.specialType || book.specialVolumes || book.collectiblePrice),
         specialType: book.specialType || "",
         specialVolumes: book.specialVolumes || "",
         collectiblePrice: book.collectiblePrice || "",
@@ -944,6 +947,21 @@ export default function Manga() {
         ...prev.data,
         [field]: type === "checkbox" ? !!value : value,
       };
+      if (field === "special" && !value) {
+        nextData.specialType = "";
+        nextData.specialVolumes = "";
+        nextData.collectiblePrice = "";
+      }
+      if (field === "specialType") {
+        if (value === "collectible") {
+          nextData.specialVolumes = "";
+        } else if (value === "specialEdition") {
+          nextData.collectiblePrice = "";
+        } else {
+          nextData.specialVolumes = "";
+          nextData.collectiblePrice = "";
+        }
+      }
 
       if (field === "title") {
         const parsed = parseTitleForSort(value || "");
@@ -1035,6 +1053,7 @@ export default function Manga() {
       date: "",
       dateRead: "",
       datePurchased: "",
+      special: false,
       specialType: "",
       specialVolumes: "",
       collectiblePrice: "",
@@ -1084,19 +1103,30 @@ export default function Manga() {
       dateRead: (d.dateRead || "").trim(),
       datePurchased: (d.datePurchased || "").trim(),
       msrp: targetList === "wishlist" ? "" : d.msrp === "" ? "" : Number(d.msrp),
-      specialType: targetList === "wishlist" ? "" : (d.specialType || "").trim(),
+      special:
+        targetList === "wishlist"
+          ? false
+          : !!(d.special && (d.specialType || "").trim()),
+      specialType:
+        targetList === "wishlist" || !(d.special && (d.specialType || "").trim())
+          ? ""
+          : (d.specialType || "").trim(),
       specialVolumes:
         targetList === "wishlist"
           ? ""
-          : d.specialVolumes === ""
-          ? ""
-          : Number(d.specialVolumes),
+          : d.special && d.specialType === "specialEdition"
+          ? d.specialVolumes === ""
+            ? ""
+            : Number(d.specialVolumes)
+          : "",
       collectiblePrice:
         targetList === "wishlist"
           ? ""
-          : d.collectiblePrice === ""
-          ? ""
-          : Number(d.collectiblePrice),
+          : d.special && d.specialType === "collectible"
+          ? d.collectiblePrice === ""
+            ? ""
+            : Number(d.collectiblePrice)
+          : "",
       amazonURL: (d.amazonURL || "").trim(),
       read: targetList === "wishlist" ? false : !!d.read,
       hidden: !!d.hidden,
@@ -1206,6 +1236,7 @@ export default function Manga() {
         dateRead: b.dateRead || "",
         datePurchased: b.datePurchased || "",
         msrp: b.msrp || "",
+        special: !!(b.specialType || b.specialVolumes || b.collectiblePrice),
         specialType: b.specialType || "",
         specialVolumes: b.specialVolumes || "",
         collectiblePrice: b.collectiblePrice || "",
@@ -1221,10 +1252,26 @@ export default function Manga() {
     setBulkEdit((prev) => {
       const items = [...prev.items];
       const current = { ...items[prev.index] };
-      current.data = {
+      const nextData = {
         ...current.data,
         [field]: type === "checkbox" ? !!value : value,
       };
+      if (field === "special" && !value) {
+        nextData.specialType = "";
+        nextData.specialVolumes = "";
+        nextData.collectiblePrice = "";
+      }
+      if (field === "specialType") {
+        if (value === "collectible") {
+          nextData.specialVolumes = "";
+        } else if (value === "specialEdition") {
+          nextData.collectiblePrice = "";
+        } else {
+          nextData.specialVolumes = "";
+          nextData.collectiblePrice = "";
+        }
+      }
+      current.data = nextData;
       items[prev.index] = current;
       return { ...prev, items };
     });
@@ -1253,6 +1300,9 @@ export default function Manga() {
     }
     try {
       const promises = updates.map((item) => {
+        const isWishlistItem = item.kind === "wishlist";
+        const specialOn =
+          !isWishlistItem && !!(item.data.special && (item.data.specialType || "").trim());
         const payload = {
           ...item.data,
           pageCount: item.data.pageCount === "" ? "" : Number(item.data.pageCount),
@@ -1262,10 +1312,21 @@ export default function Manga() {
               : Math.max(0.5, Math.min(5, Number(item.data.rating))),
           amountPaid: item.data.amountPaid === "" ? "" : Number(item.data.amountPaid),
           msrp: item.data.msrp === "" ? "" : Number(item.data.msrp),
+          special: specialOn,
+          specialType: specialOn ? item.data.specialType : "",
           collectiblePrice:
-            item.data.collectiblePrice === "" ? "" : Number(item.data.collectiblePrice),
+            specialOn && item.data.specialType === "collectible"
+              ? item.data.collectiblePrice === ""
+                ? ""
+                : Number(item.data.collectiblePrice)
+              : "",
           specialVolumes:
-            item.data.specialVolumes === "" ? "" : Number(item.data.specialVolumes),
+            specialOn && item.data.specialType === "specialEdition"
+              ? item.data.specialVolumes === ""
+                ? ""
+                : Number(item.data.specialVolumes)
+              : "",
+          amazonURL: item.data.amazonURL || "",
           read: !!item.data.read,
         };
         const target = item.kind === "wishlist" ? "wishlist" : "library";
@@ -2136,15 +2197,17 @@ export default function Manga() {
                   {!isWishlistForm && (
                     <>
                       <div className="admin-row two">
-                        <label>
-                          Amount Paid
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={adminForm.data.amountPaid}
-                            onChange={(e) => handleAdminChange("amountPaid", e.target.value)}
-                          />
-                        </label>
+                        {!(adminForm.data.special && adminForm.data.specialType === "collectible") && (
+                          <label>
+                            Amount Paid
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={adminForm.data.amountPaid}
+                              onChange={(e) => handleAdminChange("amountPaid", e.target.value)}
+                            />
+                          </label>
+                        )}
                         <label>
                           MSRP
                           <input
@@ -2156,47 +2219,61 @@ export default function Manga() {
                         </label>
                       </div>
 
-                      <div className="admin-row two">
-                        <label>
-                          Collectible Price
+                      <div className="admin-row">
+                        <label className="checkbox-row">
                           <input
-                            type="number"
-                            step="0.01"
-                            value={adminForm.data.collectiblePrice}
-                            onChange={(e) =>
-                              handleAdminChange("collectiblePrice", e.target.value)
-                            }
+                            type="checkbox"
+                            checked={!!adminForm.data.special}
+                            onChange={(e) => handleAdminChange("special", e.target.checked, "checkbox")}
                           />
-                        </label>
-                        <label>
-                          Special Volumes
-                          <input
-                            type="number"
-                            min="0"
-                            value={adminForm.data.specialVolumes}
-                            onChange={(e) => handleAdminChange("specialVolumes", e.target.value)}
-                          />
+                          <span>Special item?</span>
                         </label>
                       </div>
-
-                      <div className="admin-row two">
-                        <label>
-                          Special Type
-                          <input
-                            type="text"
-                            value={adminForm.data.specialType}
-                            onChange={(e) => handleAdminChange("specialType", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Amazon URL
-                          <input
-                            type="text"
-                            value={adminForm.data.amazonURL}
-                            onChange={(e) => handleAdminChange("amazonURL", e.target.value)}
-                          />
-                        </label>
-                      </div>
+                      {adminForm.data.special && (
+                        <>
+                          <div className="admin-row two">
+                            <label>
+                              Special Type
+                              <select
+                                value={adminForm.data.specialType}
+                                onChange={(e) => handleAdminChange("specialType", e.target.value)}
+                              >
+                                <option value="">Select type</option>
+                                <option value="specialEdition">Special Edition</option>
+                                <option value="collectible">Collectible</option>
+                              </select>
+                            </label>
+                            {adminForm.data.specialType === "collectible" && (
+                              <label>
+                                Collectible Price
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={adminForm.data.collectiblePrice}
+                                  onChange={(e) =>
+                                    handleAdminChange("collectiblePrice", e.target.value)
+                                  }
+                                />
+                              </label>
+                            )}
+                          </div>
+                          {adminForm.data.specialType === "specialEdition" && (
+                            <div className="admin-row">
+                              <label>
+                                Special Volumes
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={adminForm.data.specialVolumes}
+                                  onChange={(e) =>
+                                    handleAdminChange("specialVolumes", e.target.value)
+                                  }
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </>
                   )}
                   {isWishlistForm && (
@@ -2214,39 +2291,7 @@ export default function Manga() {
 
                   {!isWishlistForm && (
                     <>
-                      <div className="admin-row two">
-                        <label>
-                          Demographic
-                          <select
-                            value={adminForm.data.demographic}
-                            onChange={(e) => handleAdminChange("demographic", e.target.value)}
-                          >
-                            <option value="">Select</option>
-                            <option value="Shounen">Shounen</option>
-                            <option value="Seinen">Seinen</option>
-                            <option value="Shoujo">Shoujo</option>
-                            <option value="Josei">Josei</option>
-                          </select>
-                        </label>
-                        <label>
-                          Genre
-                          <input
-                            type="text"
-                            value={adminForm.data.genre}
-                            onChange={(e) => handleAdminChange("genre", e.target.value)}
-                          />
-                        </label>
-                      </div>
-
-                      <div className="admin-row two">
-                        <label>
-                          Sub Genre
-                          <input
-                            type="text"
-                            value={adminForm.data.subGenre}
-                            onChange={(e) => handleAdminChange("subGenre", e.target.value)}
-                          />
-                        </label>
+                      <div className="admin-row">
                         <label>
                           Rating (1-5 stars)
                           <StarPicker
@@ -2366,39 +2411,6 @@ export default function Manga() {
                         onChange={(e) => handleBulkChange("publisher", e.target.value)}
                       />
                     </label>
-                    {!bulkIsWishlist && (
-                      <>
-                        <label>
-                          Demographic
-                          <select
-                            value={bulkEdit.items[bulkEdit.index].data.demographic}
-                            onChange={(e) => handleBulkChange("demographic", e.target.value)}
-                          >
-                            <option value="">Select</option>
-                            <option value="Shounen">Shounen</option>
-                            <option value="Seinen">Seinen</option>
-                            <option value="Shoujo">Shoujo</option>
-                            <option value="Josei">Josei</option>
-                          </select>
-                        </label>
-                        <label>
-                          Genre
-                          <input
-                            type="text"
-                            value={bulkEdit.items[bulkEdit.index].data.genre}
-                            onChange={(e) => handleBulkChange("genre", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Sub Genre
-                          <input
-                            type="text"
-                            value={bulkEdit.items[bulkEdit.index].data.subGenre}
-                            onChange={(e) => handleBulkChange("subGenre", e.target.value)}
-                          />
-                        </label>
-                      </>
-                    )}
                     <label>
                       Release Date
                       <input
@@ -2442,15 +2454,32 @@ export default function Manga() {
                             onChange={(v) => handleBulkChange("rating", v)}
                           />
                         </label>
-                        <label>
-                          Amount Paid
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={bulkEdit.items[bulkEdit.index].data.amountPaid}
-                            onChange={(e) => handleBulkChange("amountPaid", e.target.value)}
-                          />
-                        </label>
+                        {!(bulkEdit.items[bulkEdit.index].data.special &&
+                          bulkEdit.items[bulkEdit.index].data.specialType === "collectible") && (
+                          <label>
+                            Amount Paid
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={bulkEdit.items[bulkEdit.index].data.amountPaid}
+                              onChange={(e) =>
+                                handleBulkChange("amountPaid", e.target.value)
+                              }
+                            />
+                          </label>
+                        )}
+                        {!(bulkEdit.items[bulkEdit.index].data.special &&
+                          bulkEdit.items[bulkEdit.index].data.specialType === "collectible") && (
+                          <label>
+                            Amount Paid
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={bulkEdit.items[bulkEdit.index].data.amountPaid}
+                              onChange={(e) => handleBulkChange("amountPaid", e.target.value)}
+                            />
+                          </label>
+                        )}
                         <label>
                           MSRP
                           <input
@@ -2460,17 +2489,20 @@ export default function Manga() {
                             onChange={(e) => handleBulkChange("msrp", e.target.value)}
                           />
                         </label>
-                        <label>
-                          Collectible Price
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={bulkEdit.items[bulkEdit.index].data.collectiblePrice}
-                            onChange={(e) =>
-                              handleBulkChange("collectiblePrice", e.target.value)
-                            }
-                          />
-                        </label>
+                        {bulkEdit.items[bulkEdit.index].data.special &&
+                          bulkEdit.items[bulkEdit.index].data.specialType === "collectible" && (
+                            <label>
+                              Collectible Price
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={bulkEdit.items[bulkEdit.index].data.collectiblePrice}
+                                onChange={(e) =>
+                                  handleBulkChange("collectiblePrice", e.target.value)
+                                }
+                              />
+                            </label>
+                          )}
                       </>
                     )}
                     {!bulkIsWishlist && (
@@ -2497,34 +2529,68 @@ export default function Manga() {
                     )}
                     {!bulkIsWishlist && (
                       <>
-                        <label>
-                          Special Type
+                        <label className="checkbox-row">
                           <input
-                            type="text"
-                            value={bulkEdit.items[bulkEdit.index].data.specialType}
-                            onChange={(e) => handleBulkChange("specialType", e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Special Volumes
-                          <input
-                            type="number"
-                            value={bulkEdit.items[bulkEdit.index].data.specialVolumes}
+                            type="checkbox"
+                            checked={!!bulkEdit.items[bulkEdit.index].data.special}
                             onChange={(e) =>
-                              handleBulkChange("specialVolumes", e.target.value)
+                              handleBulkChange("special", e.target.checked, "checkbox")
                             }
                           />
+                          <span>Special item?</span>
                         </label>
+                        {bulkEdit.items[bulkEdit.index].data.special && (
+                          <>
+                            <label>
+                              Special Type
+                              <select
+                                value={bulkEdit.items[bulkEdit.index].data.specialType}
+                                onChange={(e) => handleBulkChange("specialType", e.target.value)}
+                              >
+                                <option value="">Select type</option>
+                                <option value="specialEdition">Special Edition</option>
+                                <option value="collectible">Collectible</option>
+                              </select>
+                            </label>
+                            {bulkEdit.items[bulkEdit.index].data.specialType === "specialEdition" && (
+                              <label>
+                                Special Volumes
+                                <input
+                                  type="number"
+                                  value={bulkEdit.items[bulkEdit.index].data.specialVolumes}
+                                  onChange={(e) =>
+                                    handleBulkChange("specialVolumes", e.target.value)
+                                  }
+                                />
+                              </label>
+                            )}
+                            {bulkEdit.items[bulkEdit.index].data.specialType === "collectible" && (
+                              <label>
+                                Collectible Price
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={bulkEdit.items[bulkEdit.index].data.collectiblePrice}
+                                  onChange={(e) =>
+                                    handleBulkChange("collectiblePrice", e.target.value)
+                                  }
+                                />
+                              </label>
+                            )}
+                          </>
+                        )}
                       </>
                     )}
-                    <label>
-                      Amazon URL
-                      <input
-                        type="text"
-                        value={bulkEdit.items[bulkEdit.index].data.amazonURL}
-                        onChange={(e) => handleBulkChange("amazonURL", e.target.value)}
-                      />
-                    </label>
+                    {bulkIsWishlist && (
+                      <label>
+                        Amazon URL
+                        <input
+                          type="text"
+                          value={bulkEdit.items[bulkEdit.index].data.amazonURL}
+                          onChange={(e) => handleBulkChange("amazonURL", e.target.value)}
+                        />
+                      </label>
+                    )}
                     {!bulkIsWishlist && (
                       <label className="checkbox-row">
                         <input

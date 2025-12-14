@@ -1,7 +1,7 @@
 // src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -11,6 +11,7 @@ const DEFAULT_RELEASE_WEBHOOK =
   "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
 const DEFAULT_ACTIVITY_WEBHOOK =
   "https://discord.com/api/webhooks/1448329790942613667/wsC8psNZ-Ax2D1O9Gl4sJi6ay7df2cr7IrIdxMPwGZTBnkSUIY2NDpeVd98qW_4plz82";
+const ACTIVITY_STORAGE_KEY = "mangaLibraryActivityLog";
 
 /* ---------- Helpers ---------- */
 
@@ -58,6 +59,169 @@ function getSeriesKey(doc) {
   const normalized = cleaned.trim();
   if (!normalized) return "";
   return normalized.toLowerCase();
+}
+
+function getSeriesDisplayName(doc) {
+  const base =
+    doc?.series ||
+    doc?.Series ||
+    doc?.title ||
+    doc?.Title ||
+    "Unknown Series";
+  return stripVolumeInfo(base) || "Unknown Series";
+}
+
+function parseTitleForSort(t) {
+  const text = (t || "").trim();
+  const match = text.match(/^(.*?)(?:,?\s*(?:vol\.|volume)\s*(\d+)(?:\s*[-–]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i);
+  const base = match ? match[1].trim().toLowerCase() : text.toLowerCase();
+  const volNum = match && match[2] ? parseInt(match[2], 10) : 0;
+  return {
+    name: base,
+    vol: Number.isFinite(volNum) ? volNum : 0,
+  };
+}
+
+function sortBooksForManager(a, b) {
+  const aTitle = a?.Title || a?.title || "";
+  const bTitle = b?.Title || b?.title || "";
+  const aParsed = parseTitleForSort(aTitle);
+  const bParsed = parseTitleForSort(bTitle);
+  const nameCmp = aParsed.name.localeCompare(bParsed.name);
+  if (nameCmp !== 0) return nameCmp;
+  if (aParsed.vol !== bParsed.vol) return aParsed.vol - bParsed.vol;
+  return aTitle.localeCompare(bTitle);
+}
+
+function getSeriesFormDefaults() {
+  return {
+    publisher: "",
+    demographic: "",
+    genre: "",
+    subGenre: "",
+    datePurchased: "",
+    msrp: "",
+    initialPublisher: "",
+    initialDemographic: "",
+    initialGenre: "",
+    initialSubGenre: "",
+    initialDatePurchased: "",
+    initialMsrp: "",
+    dateMixed: false,
+    readChecked: false,
+    readIndeterminate: false,
+  };
+}
+
+function getBookFormDefaults() {
+  return {
+    read: false,
+    datePurchased: "",
+    dateRead: "",
+    pageCount: "",
+    msrp: "",
+    amountPaid: "",
+    rating: "",
+    special: false,
+    specialType: "",
+    specialVolumes: "",
+    collectiblePrice: "",
+  };
+}
+
+function hasMissingManagerData(book, options = {}) {
+  const ignoreShared = options.ignoreShared;
+  const amountPaid =
+    book?.amountPaid ?? book?.AmountPaid ?? book?.paid ?? book?.Paid ?? "";
+  const msrp = book?.msrp ?? book?.MSRP ?? "";
+  const datePurchased = (book?.datePurchased || book?.DatePurchased || "").trim();
+  const publisher = (book?.publisher || book?.Publisher || "").trim();
+  const demographic = (book?.demographic || book?.Demographic || "").trim();
+  const genre = (book?.genre || book?.Genre || "").trim();
+  const specialType = (book?.specialType || book?.SpecialType || "").trim();
+  const specialVolumes =
+    book?.specialVolumes ?? book?.SpecialVolumes ?? book?.volumesContained ?? "";
+  const collectiblePrice =
+    book?.collectiblePrice ?? book?.CollectiblePrice ?? "";
+  const specialOn = !!specialType;
+  const pageRaw =
+    book?.pageCount ?? book?.PageCount ?? book?.pages ?? book?.Pages ?? "";
+  const pageStr = pageRaw === undefined || pageRaw === null ? "" : String(pageRaw).trim();
+  const pageNum = Number(pageStr);
+  const missingPage =
+    !pageStr || Number.isNaN(pageNum) || pageNum <= 0;
+
+  const missingAmountPaid = !specialOn && (amountPaid === "" || amountPaid === null);
+  const missingShared = msrp === "" || !publisher || !demographic || !genre;
+
+  return (
+    missingAmountPaid ||
+    missingPage ||
+    !datePurchased ||
+    (!ignoreShared && missingShared) ||
+    (specialOn && !specialType) ||
+    (specialOn &&
+      specialType.toLowerCase() === "collectible" &&
+      (collectiblePrice === "" || collectiblePrice === null)) ||
+    (specialOn &&
+      specialType.toLowerCase() === "specialedition" &&
+      (specialVolumes === "" || specialVolumes === null))
+  );
+}
+
+function getBookMissingFlagsFromForm(form) {
+  const amountPaidRaw = form?.amountPaid ?? "";
+  const datePurchasedRaw = (form?.datePurchased || "").trim();
+  const specialOn = !!form?.specialType || !!form?.special;
+  const specialTypeRaw = (form?.specialType || "").trim();
+  const specialVolumesRaw = form?.specialVolumes ?? "";
+  const collectiblePriceRaw = form?.collectiblePrice ?? "";
+  const pageCountRaw = form?.pageCount ?? "";
+  const msrpRaw = form?.msrp ?? "";
+  const publisherRaw = (form?.publisher || "").trim();
+  const demographicRaw = (form?.demographic || "").trim();
+  const genreRaw = (form?.genre || "").trim();
+
+  const missingAmountPaid = !specialOn && (amountPaidRaw === "" || amountPaidRaw === null);
+  const missingSpecialType = specialOn && !specialTypeRaw;
+  const missingCollectible =
+    specialOn &&
+    specialTypeRaw.toLowerCase() === "collectible" &&
+    (collectiblePriceRaw === "" || collectiblePriceRaw === null);
+  const missingVolumes =
+    specialOn &&
+    specialTypeRaw.toLowerCase() === "specialedition" &&
+    (specialVolumesRaw === "" || specialVolumesRaw === null);
+  const missingPageCount = (() => {
+    const str = (pageCountRaw ?? "").toString().trim();
+    if (str === "") return true;
+    const num = Number(str);
+    return Number.isNaN(num) || num <= 0;
+  })();
+
+  return {
+    amountPaid: missingAmountPaid,
+    datePurchased: !datePurchasedRaw,
+    specialType: missingSpecialType,
+    collectiblePrice: missingCollectible,
+    specialVolumes: missingVolumes,
+    pageCount: missingPageCount,
+    msrp: msrpRaw === "" || msrpRaw === null,
+    publisher: !publisherRaw,
+    demographic: !demographicRaw,
+    genre: !genreRaw,
+  };
+}
+
+function groupHasSharedMissing(group) {
+  if (!group || !group.books || !group.books.length) return false;
+  return group.books.some((book) => {
+    const msrp = book?.msrp ?? book?.MSRP ?? "";
+    const publisher = (book?.publisher || book?.Publisher || "").trim();
+    const demographic = (book?.demographic || book?.Demographic || "").trim();
+    const genre = (book?.genre || book?.Genre || "").trim();
+    return msrp === "" || !publisher || !demographic || !genre;
+  });
 }
 
 // Build series-level map: all stats aggregated per series
@@ -555,6 +719,16 @@ export default function Dashboard() {
     release: DEFAULT_RELEASE_WEBHOOK,
     activity: DEFAULT_ACTIVITY_WEBHOOK,
   });
+  const [managerExpanded, setManagerExpanded] = useState(new Set());
+  const [managerSelectedSeries, setManagerSelectedSeries] = useState(null);
+  const [managerSelectedBook, setManagerSelectedBook] = useState(null);
+  const [managerMultiSelected, setManagerMultiSelected] = useState(new Set());
+  const [managerLastIndex, setManagerLastIndex] = useState(null);
+  const [bulkPaidValue, setBulkPaidValue] = useState("");
+  const seriesReadRef = useRef(null);
+  const [seriesForm, setSeriesForm] = useState(() => getSeriesFormDefaults());
+  const [bookForm, setBookForm] = useState(() => getBookFormDefaults());
+  const [activityLog, setActivityLog] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminUidInput, setAdminUidInput] = useState("");
   const [adminsList, setAdminsList] = useState([]);
@@ -637,7 +811,6 @@ export default function Dashboard() {
   const currentYear = new Date().getFullYear();
   const yearlyPostedRef = useRef(null);
   const releasePostedRef = useRef(null);
-  const activityPostedRef = useRef("");
 
   useEffect(() => {
     document.title = "Dashboard";
@@ -660,7 +833,6 @@ export default function Dashboard() {
     if (typeof window === "undefined") return;
     yearlyPostedRef.current = localStorage.getItem("dashboard-yearly-posted");
     releasePostedRef.current = localStorage.getItem("dashboard-release-posted");
-    activityPostedRef.current = localStorage.getItem("dashboard-activity-posted") || "";
   }, []);
 
   // Load / bootstrap webhook settings
@@ -781,26 +953,6 @@ export default function Dashboard() {
     const topGenres = buildTopFromSeries(seriesMap, "genre", 5);
     const topDemographics = buildTopFromSeries(seriesMap, "demographic", 5);
     const seriesAggregates = aggregateBySeries(library);
-    const activity = [...library]
-      .map((item) => {
-        const date =
-          parseDate(item.dateRead || item.DateRead) ||
-          parseDate(item.datePurchased || item.DatePurchased);
-        if (!date) return null;
-        return {
-          title:
-            item.title ||
-            item.Title ||
-            item.series ||
-            item.Series ||
-            "Untitled",
-          type: item.dateRead || item.DateRead ? "Read" : "Purchased",
-          date,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.date - a.date)
-      .slice(0, 12);
 
     return {
       totalLibrary,
@@ -825,7 +977,6 @@ export default function Dashboard() {
       topGenres,
       topDemographics,
       seriesAggregates,
-      activity,
     };
   }, [library, wishlist, currentYear]);
   const {
@@ -851,11 +1002,176 @@ export default function Dashboard() {
     topGenres,
     topDemographics,
     seriesAggregates,
-    activity,
   } = stats;
 
   const nextDate = nextRelease ? nextRelease.date : null;
   const hasError = Boolean(err);
+
+  const managerGroups = useMemo(() => {
+    if (!library || !library.length) return [];
+    const map = new Map();
+    library.forEach((book) => {
+      const key = getSeriesKey(book) || book.id;
+      const displayName = getSeriesDisplayName(book);
+      if (!map.has(key)) {
+        map.set(key, { seriesKey: key, displayName, books: [] });
+      }
+      map.get(key).books.push(book);
+    });
+    const groups = Array.from(map.values()).map((group) => ({
+      ...group,
+      books: [...group.books].sort(sortBooksForManager),
+    }));
+    groups.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return groups;
+  }, [library]);
+
+  const managerFlatBookIds = useMemo(
+    () => managerGroups.flatMap((g) => g.books.map((b) => b.id)),
+    [managerGroups]
+  );
+
+  useEffect(() => {
+    if (!managerSelectedBook) return;
+    if (!library.some((b) => b.id === managerSelectedBook)) {
+      setManagerSelectedBook(null);
+    }
+  }, [library, managerSelectedBook]);
+
+  useEffect(() => {
+    if (!managerSelectedSeries) return;
+    if (!managerGroups.some((g) => g.seriesKey === managerSelectedSeries)) {
+      setManagerSelectedSeries(null);
+    }
+  }, [managerGroups, managerSelectedSeries]);
+
+  useEffect(() => {
+    if (!managerMultiSelected.size) return;
+    const existing = new Set(library.map((b) => b.id));
+    const missing = Array.from(managerMultiSelected).filter((id) => !existing.has(id));
+    if (!missing.length) return;
+    setManagerMultiSelected((prev) => {
+      const next = new Set(prev);
+      missing.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, [library, managerMultiSelected]);
+
+  useEffect(() => {
+    const ids = Array.from(managerMultiSelected);
+    if (!ids.length) {
+      setBulkPaidValue("");
+      return;
+    }
+    const values = Array.from(
+      new Set(
+        ids
+          .map((id) => library.find((b) => b.id === id))
+          .filter(Boolean)
+          .map((b) => {
+            const raw = b.amountPaid ?? b.AmountPaid ?? "";
+            return raw === undefined || raw === null ? "" : String(raw);
+          })
+      )
+    );
+    setBulkPaidValue(values.length === 1 ? values[0] : "");
+  }, [managerMultiSelected, library]);
+
+  useEffect(() => {
+    const group = managerGroups.find((g) => g.seriesKey === managerSelectedSeries);
+    if (!group) {
+      setSeriesForm(getSeriesFormDefaults());
+      return;
+    }
+    const books = group.books;
+    const pickShared = (getter) => {
+      const vals = Array.from(
+        new Set(
+          books.map((b) => {
+            const raw = getter(b);
+            if (raw === undefined || raw === null) return "";
+            return String(raw).trim();
+          })
+        )
+      );
+      return vals.length === 1 ? vals[0] : "";
+    };
+
+    const publisher = pickShared((b) => b.publisher || b.Publisher);
+    const demographic = pickShared((b) => b.demographic || b.Demographic);
+    const genre = pickShared((b) => b.genre || b.Genre);
+    const subGenre = pickShared((b) => b.subGenre || b.SubGenre);
+    const msrp = pickShared((b) => b.msrp ?? b.MSRP);
+    const dateValues = Array.from(
+      new Set(
+        books
+          .map((b) => (b.datePurchased || b.DatePurchased || "").trim())
+          .filter(Boolean)
+      )
+    );
+    const dateMixed = dateValues.length > 1;
+    const datePurchased = dateMixed ? "" : (dateValues[0] || "");
+
+    const readCount = books.filter(
+      (b) => !!b.read || b.status === "Read" || b.Read === true
+    ).length;
+    const allRead = readCount === books.length && books.length > 0;
+    const allUnread = readCount === 0;
+
+    setSeriesForm({
+      publisher,
+      demographic,
+      genre,
+      subGenre,
+      datePurchased,
+      msrp,
+      initialPublisher: publisher,
+      initialDemographic: demographic,
+      initialGenre: genre,
+      initialSubGenre: subGenre,
+      initialDatePurchased: datePurchased,
+      initialMsrp: msrp,
+      dateMixed,
+      readChecked: allRead,
+      readIndeterminate: !allRead && !allUnread,
+    });
+  }, [managerGroups, managerSelectedSeries]);
+
+  useEffect(() => {
+    if (seriesReadRef.current) {
+      seriesReadRef.current.indeterminate = seriesForm.readIndeterminate;
+    }
+  }, [seriesForm.readIndeterminate]);
+
+  useEffect(() => {
+    const book = library.find((b) => b.id === managerSelectedBook);
+    if (!book) {
+      setBookForm(getBookFormDefaults());
+      return;
+    }
+    const readFlag = !!book.read || book.status === "Read" || book.Read === true;
+    setBookForm({
+      read: readFlag,
+      datePurchased: book.datePurchased || book.DatePurchased || "",
+      dateRead: readFlag ? book.dateRead || book.DateRead || "" : "",
+      pageCount:
+        book.pageCount ??
+        book.PageCount ??
+        book.pages ??
+        book.Pages ??
+        "",
+      msrp: book.msrp ?? book.MSRP ?? "",
+      amountPaid: book.amountPaid ?? book.AmountPaid ?? "",
+      rating: readFlag ? book.rating ?? book.Rating ?? "" : "",
+      special: !!(book.specialType || book.SpecialType),
+      specialType: book.specialType ?? book.SpecialType ?? "",
+      specialVolumes: book.specialVolumes ?? book.SpecialVolumes ?? "",
+      collectiblePrice: book.collectiblePrice ?? book.CollectiblePrice ?? "",
+      publisher: book.publisher || book.Publisher || "",
+      demographic: book.demographic || book.Demographic || "",
+      genre: book.genre || book.Genre || "",
+    });
+  }, [managerSelectedBook, library]);
 
   useEffect(() => {
     if (!prevYearReads || !prevYearReads.length) return;
@@ -904,25 +1220,6 @@ export default function Dashboard() {
     });
   }, [nextRelease, releases]);
 
-  useEffect(() => {
-    if (!admin) return;
-    if (!activity || !activity.length) return;
-    const latest = activity[0];
-    if (!latest || !latest.date) return;
-    const key = `${latest.type}-${latest.title}-${latest.date.toISOString?.() || latest.date}`;
-    if (activityPostedRef.current === key) return;
-    activityPostedRef.current = key; // set immediately to avoid duplicate posts on rapid renders
-    const content = `Activity: ${latest.type} — ${latest.title} (${latest.date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })})`;
-    postWebhook(webhooks.activity, content).then(() => {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("dashboard-activity-posted", key);
-      }
-    });
-  }, [activity, admin, webhooks]);
 
   useEffect(() => {
     if (!nextDate) {
@@ -952,6 +1249,364 @@ export default function Dashboard() {
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, [nextDate]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(ACTIVITY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const entries = parsed
+        .map((e) => ({
+          message: e.message,
+          ts: e.ts ? new Date(e.ts) : new Date(),
+        }))
+        .filter((e) => e.message);
+      if (entries.length) setActivityLog(entries);
+    } catch (err) {
+      console.warn("Failed to load activity log", err);
+    }
+  }, []);
+
+  const refreshLibraryData = async () => {
+    try {
+      const snap = await getDocs(collection(db, "library"));
+      setLibrary(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (refreshErr) {
+      console.error("Failed to refresh library", refreshErr);
+      setErr((prev) => prev || "Failed to refresh library data.");
+    }
+  };
+
+  const parseNumberInput = (val) => {
+    const str = (val ?? "").toString().trim();
+    if (str === "") return "";
+    const num = parseFloat(str);
+    return Number.isFinite(num) ? num : "";
+  };
+
+  const parseIntegerInput = (val) => {
+    const str = (val ?? "").toString().trim();
+    if (str === "") return "";
+    const num = parseInt(str, 10);
+    return Number.isFinite(num) ? num : "";
+  };
+
+  const persistActivityLog = (entries) => {
+    try {
+      const payload = entries.slice(0, 100).map((entry) => ({
+        message: entry.message,
+        ts: entry.ts instanceof Date ? entry.ts.toISOString() : entry.ts,
+      }));
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(payload));
+      }
+    } catch (err) {
+      console.warn("Failed to persist activity log", err);
+    }
+  };
+
+  const addActivity = (message) => {
+    if (!message) return;
+    const entry = { message, ts: new Date() };
+    setActivityLog((prev) => {
+      const next = [entry, ...prev].slice(0, 100);
+      persistActivityLog(next);
+      return next;
+    });
+    const email = user?.email || "anonymous";
+    const content = `Activity: ${message}\nUser: ${email}\nTime: ${new Date().toLocaleString()}`;
+    postWebhook(webhooks.activity, content).catch((err) =>
+      console.warn("Activity webhook failed", err)
+    );
+  };
+
+  const handleSeriesHeaderClick = (seriesKey) => {
+    setManagerExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(seriesKey)) next.delete(seriesKey);
+      else next.add(seriesKey);
+      return next;
+    });
+    setManagerSelectedSeries(seriesKey);
+    setManagerSelectedBook(null);
+  };
+
+  const handleBookClick = (event, bookId, seriesKey) => {
+    const ctrl = event.metaKey || event.ctrlKey;
+    const shift = event.shiftKey;
+    const currentIndex = managerFlatBookIds.indexOf(bookId);
+    let nextSelected = new Set(managerMultiSelected);
+
+    if (shift && managerLastIndex !== null && currentIndex !== -1) {
+      const start = Math.min(managerLastIndex, currentIndex);
+      const end = Math.max(managerLastIndex, currentIndex);
+      for (let i = start; i <= end; i += 1) {
+        const id = managerFlatBookIds[i];
+        if (id) nextSelected.add(id);
+      }
+    } else if (ctrl) {
+      if (nextSelected.has(bookId)) nextSelected.delete(bookId);
+      else nextSelected.add(bookId);
+    } else {
+      nextSelected = new Set();
+    }
+
+    setManagerMultiSelected(nextSelected);
+    setManagerLastIndex(currentIndex);
+    setManagerSelectedBook(bookId);
+    setManagerSelectedSeries(seriesKey);
+    setManagerExpanded((prev) => {
+      const next = new Set(prev);
+      next.add(seriesKey);
+      return next;
+    });
+  };
+
+  const clearManagerSelection = () => {
+    setManagerMultiSelected(new Set());
+    setManagerLastIndex(null);
+  };
+
+  const handleBulkApplyPaid = async () => {
+    if (!admin) {
+      alert("Dashboard is read-only for your account.");
+      return;
+    }
+    const ids = Array.from(managerMultiSelected);
+    if (!ids.length) {
+      alert("Select books in Library Manager (use Ctrl/Cmd or Shift) before bulk editing.");
+      return;
+    }
+    const raw = (bulkPaidValue || "").toString().trim();
+    const hasValue = raw !== "";
+    const parsed = parseNumberInput(raw);
+    if (hasValue && parsed === "") {
+      alert("Enter a valid number for Amount Paid.");
+      return;
+    }
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          updateDoc(doc(db, "library", id), {
+            amountPaid: hasValue ? parsed : "",
+          })
+        )
+      );
+      await refreshLibraryData();
+      clearManagerSelection();
+      addActivity(`Updated amount paid for ${ids.length} book${ids.length === 1 ? "" : "s"} in library`);
+      alert(`Applied Amount Paid to ${ids.length} selection${ids.length === 1 ? "" : "s"}.`);
+    } catch (err) {
+      console.error("Failed to apply Amount Paid", err);
+      alert("Failed to apply Amount Paid to selection.");
+    }
+  };
+
+  const handleSeriesSave = async () => {
+    if (!admin) {
+      alert("Dashboard is read-only for your account.");
+      return;
+    }
+    const group = managerGroups.find((g) => g.seriesKey === managerSelectedSeries);
+    if (!group || !group.books.length) return;
+
+    const applyRead = !seriesForm.readIndeterminate;
+    const readValue = !!seriesForm.readChecked;
+    const dpChanged = seriesForm.datePurchased !== seriesForm.initialDatePurchased;
+    const msrpChanged = seriesForm.msrp !== seriesForm.initialMsrp;
+    const pubChanged = seriesForm.publisher !== seriesForm.initialPublisher;
+    const demoChanged = seriesForm.demographic !== seriesForm.initialDemographic;
+    const genreChanged = seriesForm.genre !== seriesForm.initialGenre;
+    const subChanged = seriesForm.subGenre !== seriesForm.initialSubGenre;
+
+    if (
+      !applyRead &&
+      !dpChanged &&
+      !msrpChanged &&
+      !pubChanged &&
+      !demoChanged &&
+      !genreChanged &&
+      !subChanged
+    ) {
+      return;
+    }
+
+    const msrpInput = String(seriesForm.msrp ?? "").trim();
+    const msrpValue = msrpChanged ? parseNumberInput(msrpInput) : "";
+    if (msrpChanged && msrpInput !== "" && msrpValue === "") {
+      alert("Enter a valid number for MSRP.");
+      return;
+    }
+
+    try {
+      const updates = [];
+      group.books.forEach((book) => {
+        const payload = {};
+        if (applyRead) {
+          payload.read = readValue;
+          payload.dateRead = readValue
+            ? book.dateRead || book.DateRead || new Date().toISOString().slice(0, 10)
+            : "";
+        }
+        if (dpChanged) {
+          payload.datePurchased = seriesForm.datePurchased || "";
+        }
+        if (msrpChanged) {
+          payload.msrp = seriesForm.msrp === "" ? "" : msrpValue;
+        }
+        if (pubChanged) {
+          payload.publisher = seriesForm.publisher || "";
+        }
+        if (demoChanged) {
+          payload.demographic = seriesForm.demographic || "";
+        }
+        if (genreChanged) {
+          payload.genre = seriesForm.genre || "";
+        }
+        if (subChanged) {
+          payload.subGenre = seriesForm.subGenre || "";
+        }
+        if (Object.keys(payload).length) {
+          updates.push(updateDoc(doc(db, "library", book.id), payload));
+        }
+      });
+      if (!updates.length) return;
+      await Promise.all(updates);
+      await refreshLibraryData();
+      setManagerSelectedBook(null);
+      addActivity(`Updated series "${group.displayName || "Series"}" (${group.books.length} book${group.books.length === 1 ? "" : "s"})`);
+      alert("Series updated.");
+    } catch (err) {
+      console.error("Failed to save series changes", err);
+      alert("Failed to update series.");
+    }
+  };
+
+  const handleBookSave = async () => {
+    if (!admin) {
+      alert("Dashboard is read-only for your account.");
+      return;
+    }
+    if (!managerSelectedBook) return;
+    const readVal = !!bookForm.read;
+    const msrpInput = String(bookForm.msrp ?? "").trim();
+    const paidInput = String(bookForm.amountPaid ?? "").trim();
+    const pageInput = String(bookForm.pageCount ?? "").trim();
+    const ratingInput = String(bookForm.rating ?? "").trim();
+    const msrpVal = parseNumberInput(msrpInput);
+    const paidVal = parseNumberInput(paidInput);
+    const pageVal = parseIntegerInput(pageInput);
+    const ratingVal = parseNumberInput(ratingInput);
+
+    if (msrpInput !== "" && msrpVal === "") {
+      alert("Enter a valid number for MSRP.");
+      return;
+    }
+    if (paidInput !== "" && paidVal === "") {
+      alert("Enter a valid number for Amount Paid.");
+      return;
+    }
+    if (pageInput !== "" && pageVal === "") {
+      alert("Enter a valid page count.");
+      return;
+    }
+    if (readVal && ratingInput !== "" && ratingVal === "") {
+      alert("Enter a valid rating.");
+      return;
+    }
+
+    const specialOn = !!bookForm.special;
+    const specialVolVal = parseIntegerInput(bookForm.specialVolumes);
+    const collectibleVal = parseNumberInput(bookForm.collectiblePrice);
+    const specialVolInput = String(bookForm.specialVolumes ?? "").trim();
+    const collectibleInput = String(bookForm.collectiblePrice ?? "").trim();
+    if (specialOn && bookForm.specialType === "specialEdition" && specialVolInput !== "" && specialVolVal === "") {
+      alert("Enter a valid number for volumes contained.");
+      return;
+    }
+    if (specialOn && bookForm.specialType === "collectible" && collectibleInput !== "" && collectibleVal === "") {
+      alert("Enter a valid collectible price.");
+      return;
+    }
+
+    const dateReadVal = readVal
+      ? (bookForm.dateRead || new Date().toISOString().slice(0, 10))
+      : "";
+
+    const payload = {
+      read: readVal,
+      datePurchased: bookForm.datePurchased || "",
+      dateRead: dateReadVal,
+      msrp: bookForm.msrp === "" ? "" : msrpVal,
+      amountPaid: bookForm.amountPaid === "" ? "" : paidVal,
+      pageCount: bookForm.pageCount === "" ? "" : pageVal,
+      rating: readVal ? (bookForm.rating === "" ? "" : ratingVal) : "",
+      specialType: specialOn ? bookForm.specialType || "" : "",
+      specialVolumes:
+        specialOn && bookForm.specialType === "specialEdition"
+          ? bookForm.specialVolumes === "" ? "" : specialVolVal
+          : "",
+      collectiblePrice:
+        specialOn && bookForm.specialType === "collectible"
+          ? bookForm.collectiblePrice === "" ? "" : collectibleVal
+          : "",
+    };
+
+    try {
+      await updateDoc(doc(db, "library", managerSelectedBook), payload);
+      await refreshLibraryData();
+      const target =
+        library.find((b) => b.id === managerSelectedBook) || selectedBook;
+      const title = target?.Title || target?.title || "Untitled";
+      addActivity(`Updated "${title}" in library`);
+      alert("Saved changes.");
+    } catch (err) {
+      console.error("Failed to save book changes", err);
+      alert("Failed to save changes.");
+    }
+  };
+
+  const handleSeriesCancel = () => {
+    setManagerSelectedSeries(null);
+    setManagerSelectedBook(null);
+    clearManagerSelection();
+    setSeriesForm(getSeriesFormDefaults());
+  };
+
+  const handleBookCancel = () => {
+    setManagerSelectedBook(null);
+    setManagerLastIndex(null);
+  };
+
+  const selectedSeriesGroup =
+    managerGroups.find((g) => g.seriesKey === managerSelectedSeries) || null;
+  const selectedBook = library.find((b) => b.id === managerSelectedBook) || null;
+  const missingSeriesFlags = managerSelectedSeries
+    ? {
+        msrp: !seriesForm.msrp,
+        datePurchased: !seriesForm.datePurchased && !seriesForm.dateMixed,
+        publisher: !seriesForm.publisher,
+        demographic: !seriesForm.demographic,
+        genre: !seriesForm.genre,
+      }
+    : {};
+  const missingBookFlags = managerSelectedBook
+    ? getBookMissingFlagsFromForm({
+        amountPaid: bookForm.amountPaid,
+        msrp: bookForm.msrp,
+        datePurchased: bookForm.datePurchased,
+        publisher: selectedBook?.publisher || selectedBook?.Publisher || "",
+        demographic: selectedBook?.demographic || selectedBook?.Demographic || "",
+        genre: selectedBook?.genre || selectedBook?.Genre || "",
+        special: bookForm.special,
+        specialType: bookForm.specialType,
+        specialVolumes: bookForm.specialVolumes,
+        collectiblePrice: bookForm.collectiblePrice,
+        pageCount: bookForm.pageCount,
+      })
+    : {};
 
   if (authLoading) {
     return (
@@ -1651,11 +2306,11 @@ export default function Dashboard() {
             <div className="stat-card tall">
               <h3>Reads by Day of Week (Lifetime)</h3>
               <WeekdayBreakdown data={weekdayBreakdown} />
-              <div className="stat-sub">
-                Based on all entries with a read date.
-              </div>
+            <div className="stat-sub">
+              Based on all entries with a read date.
             </div>
           </div>
+        </div>
 
           <div className="stat-card wide">
             <h3>Activity Log</h3>
@@ -1664,26 +2319,605 @@ export default function Dashboard() {
                 {err}
               </div>
             )}
-            <div className="activity-log">
-              {activity.length ? (
-                activity.map((item, idx) => (
-                  <div className="activity-row" key={item.title + idx}>
-                    <span className="activity-type">{item.type}</span>
-                    <span className="activity-title">{item.title}</span>
-                    <span className="activity-date">
-                      {item.date.toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                ))
+            <div className="activity-log scrollable">
+              {activityLog.length ? (
+                activityLog.map((item, idx) => {
+                  const ts = item.ts ? new Date(item.ts) : null;
+                  return (
+                    <div className="activity-row" key={(item.message || "activity") + idx}>
+                      <span className="activity-title">{item.message}</span>
+                      <span className="activity-date">
+                        {ts
+                          ? ts.toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })
+                          : ""}
+                      </span>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="stat-sub">No recent activity yet.</div>
               )}
             </div>
           </div>
+
+          <div className="stat-card wide">
+            <h3>Library Manager</h3>
+            {!managerGroups.length ? (
+              <div className="stat-sub">No library items.</div>
+            ) : (
+              <div className="dash-library">
+                <div className="dash-library-list">
+                  {managerGroups.map((group) => {
+                    const readCount = group.books.filter(
+                      (b) => !!b.read || b.status === "Read" || b.Read === true
+                    ).length;
+                    const expanded = managerExpanded.has(group.seriesKey);
+                    const seriesActive =
+                      managerSelectedSeries === group.seriesKey &&
+                      !managerSelectedBook;
+                    const sharedMissing = groupHasSharedMissing(group);
+                    const bookMissing = group.books.some((b) => hasMissingManagerData(b));
+                    return (
+                      <div key={group.seriesKey} style={{ marginBottom: "8px" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSeriesHeaderClick(group.seriesKey)}
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                            background: sharedMissing ? "rgba(255,179,71,0.08)" : "transparent",
+                            border: `1px solid ${
+                              seriesActive
+                                ? "#ff69b4"
+                                : sharedMissing
+                                ? "rgba(255,179,71,0.6)"
+                                : "rgba(255,182,193,0.25)"
+                            }`,
+                            color: "#ffb6c1",
+                            padding: "8px",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                            position: "relative",
+                            boxShadow: sharedMissing
+                              ? "0 0 10px rgba(255,179,71,0.5)"
+                              : seriesActive
+                              ? "0 0 8px rgba(255,105,180,0.5)"
+                              : "none",
+                          }}
+                        >
+                          <span
+                            style={{
+                              transition: "transform 0.2s ease",
+                              transform: expanded ? "rotate(90deg)" : "none",
+                            }}
+                          >
+                            {">"}
+                          </span>
+                          <span style={{ flex: 1 }}>{group.displayName}</span>
+                          <span style={{ fontSize: "11px", color: "#f8d1d8" }}>
+                            {group.books.length} book{group.books.length === 1 ? "" : "s"}
+                            {group.books.length ? ` • ${readCount} read` : ""}
+                          </span>
+                          {bookMissing && (
+                            <span
+                              title="Some volumes are missing required data"
+                              style={{
+                                width: "12px",
+                                height: "12px",
+                                borderRadius: "999px",
+                                background: "#ffb347",
+                                border: "1px solid rgba(255,255,255,0.25)",
+                                boxShadow: "0 0 10px rgba(255,179,71,0.6)",
+                              }}
+                            />
+                          )}
+                        </button>
+                        <div
+                          style={{
+                            margin: "6px 0 10px 10px",
+                            paddingLeft: "10px",
+                            borderLeft: "1px solid rgba(255,182,193,0.25)",
+                            display: expanded ? "block" : "none",
+                          }}
+                        >
+                          {group.books.map((book) => {
+                            const isActive = managerSelectedBook === book.id;
+                            const isMulti = managerMultiSelected.has(book.id);
+                            const readFlag =
+                              !!book.read || book.status === "Read" || book.Read === true;
+                            const missing = hasMissingManagerData(book, { ignoreShared: true });
+                            return (
+                              <button
+                                key={book.id}
+                                type="button"
+                                onClick={(e) => handleBookClick(e, book.id, group.seriesKey)}
+                                style={{
+                                  width: "100%",
+                                  textAlign: "left",
+                                  background: missing
+                                    ? "rgba(255,179,71,0.1)"
+                                    : "transparent",
+                                  border: `1px solid ${
+                                    isActive
+                                      ? "#ff69b4"
+                                      : isMulti
+                                      ? "#fff59d"
+                                      : missing
+                                      ? "rgba(255,179,71,0.6)"
+                                      : "rgba(255,182,193,0.25)"
+                                  }`,
+                                  color: "#ffb6c1",
+                                  padding: "8px",
+                                  borderRadius: "8px",
+                                  marginBottom: "6px",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: "8px",
+                                  boxShadow: isActive
+                                    ? "0 0 8px rgba(255,105,180,0.5)"
+                                    : isMulti
+                                    ? "0 0 10px rgba(255,255,180,0.65)"
+                                    : missing
+                                    ? "0 0 10px rgba(255,179,71,0.5)"
+                                    : "none",
+                                }}
+                              >
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                  {(book.Title || book.title || "Untitled") +
+                                    (readFlag ? " ?" : "")}
+                                </span>
+                                {missing && (
+                                  <span
+                                    style={{
+                                      flexShrink: 0,
+                                      padding: "2px 8px",
+                                      borderRadius: "999px",
+                                      background: "rgba(255,179,71,0.18)",
+                                      border: "1px solid rgba(255,179,71,0.6)",
+                                      color: "#ffd8a1",
+                                      fontSize: "11px",
+                                      fontWeight: 700,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    Missing data
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {managerGroups.length > 0 && managerMultiSelected.size > 0 && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                      <button
+                        type="button"
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "999px",
+                          border: "1px solid #ffb6c1",
+                          background: "transparent",
+                          color: "#ffb6c1",
+                          cursor: "pointer",
+                        }}
+                        onClick={clearManagerSelection}
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="dash-library-details">
+                  {managerMultiSelected.size > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        padding: "10px",
+                        marginBottom: "10px",
+                        border: "1px dashed rgba(255,182,193,0.45)",
+                        borderRadius: "10px",
+                        background: "rgba(255,182,193,0.08)",
+                      }}
+                    >
+                      <div>
+                        Apply Amount Paid to {managerMultiSelected.size} selected book
+                        {managerMultiSelected.size === 1 ? "" : "s"}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={bulkPaidValue}
+                          onChange={(e) => setBulkPaidValue(e.target.value)}
+                          style={{ maxWidth: "140px" }}
+                        />
+                        <button
+                          type="button"
+                          className="dash-btn primary"
+                          onClick={handleBulkApplyPaid}
+                        >
+                          Apply to Selected
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!managerSelectedSeries && !managerSelectedBook && (
+                    <div className="stat-sub" style={{ marginTop: 6 }}>
+                      Select a series or book to edit
+                    </div>
+                  )}
+
+                  {managerSelectedSeries && !managerSelectedBook && selectedSeriesGroup && (
+                    <div>
+                      <div className="dash-detail-title">{selectedSeriesGroup.displayName}</div>
+                      <div className="dash-detail-row">
+                        <label className="inline-checkbox">
+                          <input
+                            ref={seriesReadRef}
+                            type="checkbox"
+                            checked={seriesForm.readChecked}
+                            onChange={(e) =>
+                              setSeriesForm((prev) => ({
+                                ...prev,
+                                readChecked: e.target.checked,
+                                readIndeterminate: false,
+                              }))
+                            }
+                          />
+                          <span>Mark series as read</span>
+                        </label>
+                      </div>
+                      <div className={`dash-detail-row${missingSeriesFlags.publisher ? " missing-row" : ""}`}>
+                        <span>Publisher</span>
+                        <input
+                          type="text"
+                          value={seriesForm.publisher}
+                          onChange={(e) =>
+                            setSeriesForm((prev) => ({
+                              ...prev,
+                              publisher: e.target.value,
+                            }))
+                          }
+                          placeholder="Set publisher for series"
+                        />
+                      </div>
+                      <div className={`dash-detail-row${missingSeriesFlags.demographic ? " missing-row" : ""}`}>
+                        <span>Demographic</span>
+                        <select
+                          value={seriesForm.demographic}
+                          onChange={(e) =>
+                            setSeriesForm((prev) => ({
+                              ...prev,
+                              demographic: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Select Demographic</option>
+                          <option value="Shounen">Shounen</option>
+                          <option value="Seinen">Seinen</option>
+                          <option value="Shoujo">Shoujo</option>
+                          <option value="Josei">Josei</option>
+                        </select>
+                      </div>
+                      <div className={`dash-detail-row${missingSeriesFlags.genre ? " missing-row" : ""}`}>
+                        <span>Genre</span>
+                        <input
+                          type="text"
+                          value={seriesForm.genre}
+                          onChange={(e) =>
+                            setSeriesForm((prev) => ({
+                              ...prev,
+                              genre: e.target.value,
+                            }))
+                          }
+                          placeholder="Primary genre"
+                        />
+                      </div>
+                      <div className="dash-detail-row">
+                        <span>Sub-Genre</span>
+                        <input
+                          type="text"
+                          value={seriesForm.subGenre}
+                          onChange={(e) =>
+                            setSeriesForm((prev) => ({
+                              ...prev,
+                              subGenre: e.target.value,
+                            }))
+                          }
+                          placeholder="Secondary genre / theme"
+                        />
+                      </div>
+                      <div className={`dash-detail-row${missingSeriesFlags.datePurchased ? " missing-row" : ""}`}>
+                        <span>Date Purchased</span>
+                        <input
+                          type="date"
+                          value={seriesForm.datePurchased}
+                          onChange={(e) =>
+                            setSeriesForm((prev) => ({
+                              ...prev,
+                              datePurchased: e.target.value,
+                            }))
+                          }
+                        />
+                        {seriesForm.dateMixed && (
+                          <span className="stat-sub" style={{ marginTop: 4 }}>
+                            Volumes have different purchase dates. Setting a date will overwrite all.
+                          </span>
+                        )}
+                      </div>
+                      <div className={`dash-detail-row${missingSeriesFlags.msrp ? " missing-row" : ""}`}>
+                        <span>MSRP (per book)</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={seriesForm.msrp}
+                          onChange={(e) =>
+                            setSeriesForm((prev) => ({
+                              ...prev,
+                              msrp: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="dash-detail-actions">
+                        <button
+                          type="button"
+                          className="dash-btn secondary"
+                          onClick={handleSeriesCancel}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="dash-btn primary"
+                          onClick={handleSeriesSave}
+                        >
+                          Save Series
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {managerSelectedBook && selectedBook && (
+                    <div>
+                      <div className="dash-detail-title">
+                        {selectedBook.Title || selectedBook.title || "Untitled"}
+                      </div>
+                      <div className="dash-detail-row">
+                        <label className="inline-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={!!bookForm.read}
+                            onChange={(e) =>
+                              setBookForm((prev) => ({
+                                ...prev,
+                                read: e.target.checked,
+                                dateRead: e.target.checked
+                                  ? prev.dateRead || new Date().toISOString().slice(0, 10)
+                                  : "",
+                                rating: e.target.checked ? prev.rating : "",
+                              }))
+                            }
+                          />
+                          <span>Mark as read</span>
+                        </label>
+                      </div>
+                      <div className={`dash-detail-row${missingBookFlags.datePurchased ? " missing-row" : ""}`}>
+                        <span>Date Purchased</span>
+                        <input
+                          type="date"
+                          value={bookForm.datePurchased}
+                          onChange={(e) =>
+                            setBookForm((prev) => ({
+                              ...prev,
+                              datePurchased: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      {bookForm.read && (
+                        <div className="dash-detail-row">
+                          <span>Date Read</span>
+                          <input
+                            type="date"
+                            value={bookForm.dateRead}
+                            onChange={(e) =>
+                              setBookForm((prev) => ({
+                                ...prev,
+                                dateRead: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
+                      <div className={`dash-detail-row${missingBookFlags.pageCount ? " missing-row" : ""}`}>
+                        <span>Page Count</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={bookForm.pageCount}
+                          onChange={(e) =>
+                            setBookForm((prev) => ({
+                              ...prev,
+                              pageCount: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className={`dash-detail-row${missingBookFlags.msrp ? " missing-row" : ""}`}>
+                        <span>MSRP (per book)</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={bookForm.msrp}
+                          onChange={(e) =>
+                            setBookForm((prev) => ({
+                              ...prev,
+                              msrp: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                      {!(bookForm.special && bookForm.specialType === "collectible") && (
+                        <div className={`dash-detail-row${missingBookFlags.amountPaid ? " missing-row" : ""}`}>
+                          <span>Amount Paid</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={bookForm.amountPaid}
+                            onChange={(e) =>
+                              setBookForm((prev) => ({
+                                ...prev,
+                                amountPaid: e.target.value,
+                              }))
+                            }
+                            placeholder="0.00"
+                          />
+                        </div>
+                      )}
+                      {bookForm.read && (
+                        <div className="dash-detail-row">
+                          <span>Star Rating</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="5"
+                            step="0.5"
+                            value={bookForm.rating}
+                            onChange={(e) =>
+                              setBookForm((prev) => ({
+                                ...prev,
+                                rating: e.target.value,
+                              }))
+                            }
+                            placeholder="0-5"
+                          />
+                        </div>
+                      )}
+                      <div className={`dash-detail-row${missingBookFlags.specialType ? " missing-row" : ""}`}>
+                        <label className="inline-checkbox" style={{ width: "100%" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!bookForm.special}
+                            onChange={(e) =>
+                              setBookForm((prev) => ({
+                                ...prev,
+                                special: e.target.checked,
+                                specialType: e.target.checked ? prev.specialType : "",
+                                specialVolumes: e.target.checked ? prev.specialVolumes : "",
+                                collectiblePrice: e.target.checked ? prev.collectiblePrice : "",
+                              }))
+                            }
+                          />
+                          <span>Special?</span>
+                        </label>
+                      </div>
+                      {bookForm.special && (
+                        <>
+                          <div className={`dash-detail-row${missingBookFlags.specialType ? " missing-row" : ""}`}>
+                            <span>Special Type</span>
+                            <select
+                              value={bookForm.specialType}
+                              onChange={(e) =>
+                                setBookForm((prev) => ({
+                                  ...prev,
+                                  specialType: e.target.value,
+                                  specialVolumes:
+                                    e.target.value === "specialEdition" ? prev.specialVolumes : "",
+                                  collectiblePrice:
+                                    e.target.value === "collectible" ? prev.collectiblePrice : "",
+                                }))
+                              }
+                            >
+                              <option value="">Select type</option>
+                              <option value="specialEdition">Special Edition</option>
+                              <option value="collectible">Collectible</option>
+                            </select>
+                          </div>
+                          {bookForm.specialType === "specialEdition" && (
+                            <div className={`dash-detail-row${missingBookFlags.specialVolumes ? " missing-row" : ""}`}>
+                              <span>Volumes Contained</span>
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={bookForm.specialVolumes}
+                                onChange={(e) =>
+                                  setBookForm((prev) => ({
+                                    ...prev,
+                                    specialVolumes: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          )}
+                          {bookForm.specialType === "collectible" && (
+                            <div className={`dash-detail-row${missingBookFlags.collectiblePrice ? " missing-row" : ""}`}>
+                              <span>Collectible Price</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={bookForm.collectiblePrice}
+                                onChange={(e) =>
+                                  setBookForm((prev) => ({
+                                    ...prev,
+                                    collectiblePrice: e.target.value,
+                                  }))
+                                }
+                                placeholder="0.00"
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div className="dash-detail-actions">
+                        <button
+                          type="button"
+                          className="dash-btn secondary"
+                          onClick={handleBookCancel}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="dash-btn primary"
+                          onClick={handleBookSave}
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </section>
 

@@ -401,6 +401,115 @@
   color: #ffb6c1;
 }
 
+/* Library Manager (lightweight styles to support dashboard JSX) */
+.dash-library {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  align-items: stretch;
+  box-sizing: border-box;
+  padding: 4px;
+  max-height: 540px;
+  overflow: hidden;
+}
+
+.dash-library-list,
+.dash-library-details {
+  min-height: 380px;
+  height: 100%;
+  max-height: 540px;
+  box-sizing: border-box;
+}
+
+.dash-library-list {
+  overflow-y: auto;
+  border: 1px solid rgba(255, 182, 193, 0.25);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(43, 15, 29, 0.5);
+}
+
+.dash-library-details {
+  border: 1px solid rgba(255, 182, 193, 0.25);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(43, 15, 29, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.dash-detail-row {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  color: #f8d1d8;
+  font-size: 12px;
+}
+
+.dash-detail-row input,
+.dash-detail-row select {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #bb7f8f;
+  background: #1e0d14;
+  color: #fff;
+}
+
+.dash-detail-row.missing-row {
+  border: 1px solid rgba(255, 179, 71, 0.6);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 0 10px rgba(255, 179, 71, 0.35);
+  background: rgba(255, 179, 71, 0.08);
+}
+
+.dash-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dash-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.dash-btn.primary {
+  background: #ff69b4;
+  color: #1e0d14;
+}
+
+.dash-btn.secondary {
+  background: transparent;
+  border: 1px solid #ffb6c1;
+  color: #ffb6c1;
+}
+
+.inline-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .dash-library {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+  .dash-library-list,
+  .dash-library-details {
+    max-height: none;
+  }
+}
+
 /* ===== BAR CHART ===== */
 
 .bar-chart {
@@ -527,9 +636,15 @@
   gap: 8px;
 }
 
+.activity-log.scrollable {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .activity-row {
   display: grid;
-  grid-template-columns: 80px 1fr 120px;
+  grid-template-columns: 1fr 140px;
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid rgba(255, 182, 193, 0.2);
@@ -553,6 +668,7 @@
   color: #f8d1d8;
   font-size: 12px;
   text-align: right;
+  white-space: nowrap;
 }
 
 /* ===== CALENDAR OVERLAY ===== */
