@@ -256,15 +256,19 @@ function computePurchaseToReadSeries(library) {
     if (diff <= 0) continue;
     const days = diff / (1000 * 60 * 60 * 24);
     const key = getSeriesKey(item) || item.id;
-    if (!map.has(key)) {
-      map.set(key, {
-        key,
-        title:
-          item.series ||
+    const baseTitle =
+      stripVolumeInfo(
+        item.series ||
           item.Series ||
           item.title ||
           item.Title ||
-          "Untitled",
+          "Untitled"
+      ) ||
+      "Untitled";
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        title: baseTitle,
         total: 0,
         count: 0,
         min: days,
