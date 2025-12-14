@@ -14,6 +14,15 @@ const DEFAULT_ACTIVITY_WEBHOOK =
 
 /* ---------- Helpers ---------- */
 
+// Remove trailing volume indicators so series-level stats don't carry volume numbers
+function stripVolumeInfo(raw) {
+  const str = raw == null ? "" : String(raw);
+  if (!str.trim()) return "";
+  return str
+    .replace(/\s*,?\s*(?:vol(?:ume)?\.?)\s+\d+.*$/i, "")
+    .trim();
+}
+
 function parseDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -39,18 +48,16 @@ function parseDate(value) {
 // Treat all volumes of a series as one "series key"
 function getSeriesKey(doc) {
   const raw =
-    (doc.seriesKey ||
-      doc.series ||
-      doc.Series ||
-      doc.title ||
-      doc.Title ||
-      "").trim();
-  if (!raw) return "";
-  return raw
-    .replace(/\bvolume\s+\d+.*$/i, "")
-    .replace(/\bvol\.?\s+\d+.*$/i, "")
-    .trim()
-    .toLowerCase();
+    doc.seriesKey ||
+    doc.series ||
+    doc.Series ||
+    doc.title ||
+    doc.Title ||
+    "";
+  const cleaned = stripVolumeInfo(raw) || raw;
+  const normalized = cleaned.trim();
+  if (!normalized) return "";
+  return normalized.toLowerCase();
 }
 
 // Build series-level map: all stats aggregated per series
@@ -60,11 +67,14 @@ function buildSeriesMap(library) {
     const key = getSeriesKey(item) || item.id;
     if (!map.has(key)) {
       const baseTitle =
-        (item.series ||
-          item.Series ||
-          item.title ||
-          item.Title ||
-          "Unknown Series").trim();
+        stripVolumeInfo(
+          item.series ||
+            item.Series ||
+            item.title ||
+            item.Title ||
+            "Unknown Series"
+        ) ||
+        "Unknown Series";
       map.set(key, {
         key,
         title: baseTitle,
@@ -297,14 +307,15 @@ function aggregateBySeries(library) {
   for (const item of library) {
     const key = getSeriesKey(item) || item.id;
     if (!map.has(key)) {
+      const rawTitle =
+        item.series ||
+        item.Series ||
+        item.title ||
+        item.Title ||
+        "Untitled";
       map.set(key, {
         key,
-        title:
-          item.series ||
-          item.Series ||
-          item.title ||
-          item.Title ||
-          "Untitled",
+        title: stripVolumeInfo(rawTitle) || rawTitle.trim() || "Untitled",
         msrp: 0,
         paid: 0,
         collectible: 0,
