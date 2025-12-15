@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAnimeList, fetchAnimeSummary, fetchUserStats } from "../api/malApi.js";
 import "../styles/anime.css";
 import { useAuth } from "../contexts/AuthContext.jsx";
@@ -176,9 +176,15 @@ export default function Anime() {
   }, [items]);
 
   useEffect(() => {
-    setModalSynopsisShown(false);
+    if (!modalItem) {
+      setModalSynopsisShown(false);
+      setModalLoading(false);
+      return;
+    }
+    // Preserve reveal state while updating synopsis for the same item
+    setModalSynopsisShown(Boolean(modalItem.synopsis));
     setModalLoading(false);
-  }, [modalItem]);
+  }, [modalItem?.id]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -496,6 +502,20 @@ export default function Anime() {
 
 function SynopsisSection({ modalItem, modalLoading, modalSynopsisShown, onReveal }) {
   const synopsisText = modalItem?.synopsis?.trim() || "";
+  const [bodyHeight, setBodyHeight] = useState(0);
+  const [ready, setReady] = useState(false);
+  const contentRef = useRef(null);
+
+  useEffect(() => {
+    if (modalSynopsisShown && contentRef.current) {
+      const h = contentRef.current.scrollHeight;
+      setBodyHeight(h);
+      setReady(true);
+    } else {
+      setBodyHeight(0);
+      setReady(false);
+    }
+  }, [modalSynopsisShown, synopsisText]);
 
   return (
     <div className="anime-modal-summary">
@@ -507,14 +527,23 @@ function SynopsisSection({ modalItem, modalLoading, modalSynopsisShown, onReveal
           </button>
         )}
       </div>
-      {modalSynopsisShown ? (
-        <p className="anime-modal-summary-text">
-          {modalLoading && !synopsisText
-            ? "Loading synopsis..."
-            : synopsisText || "No synopsis available."}
-        </p>
-      ) : (
-        <p className="anime-modal-summary-text" style={{ opacity: 0.7 }}>
+      <div
+        className={`anime-modal-summary-body ${modalSynopsisShown ? "is-open" : ""}`}
+        style={{
+          maxHeight: modalSynopsisShown ? `${bodyHeight}px` : 0,
+          opacity: modalSynopsisShown ? 1 : 0,
+        }}
+      >
+        <div ref={contentRef}>
+          <p className="anime-modal-summary-text">
+            {modalLoading && !synopsisText
+              ? "Loading synopsis..."
+              : synopsisText || "No synopsis available."}
+          </p>
+        </div>
+      </div>
+      {!modalSynopsisShown && (
+        <p className="anime-modal-summary-text anime-modal-summary-hint">
           Synopsis hidden. Click reveal to view.
         </p>
       )}

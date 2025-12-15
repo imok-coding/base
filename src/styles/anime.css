@@ -475,11 +475,29 @@
   color: #ffb6c1;
 }
 
+.anime-modal-summary-body {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding-top: 0;
+  transition: max-height 0.4s ease, opacity 0.35s ease, padding 0.3s ease;
+}
+
+.anime-modal-summary-body.is-open {
+  opacity: 1;
+  padding-top: 6px;
+}
+
 .anime-modal-summary-text {
   margin: 0;
   color: var(--anime-text-soft);
   line-height: 1.45;
   white-space: pre-line;
+}
+
+.anime-modal-summary-hint {
+  margin-top: 6px;
+  opacity: 0.7;
 }
 
 @media (max-width: 720px) {
