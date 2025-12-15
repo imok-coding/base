@@ -21,6 +21,8 @@ export default function Anime() {
   const [error, setError] = useState("");
   const [modalItem, setModalItem] = useState(null);
   const [synopsisCache, setSynopsisCache] = useState({});
+  const [synopsisLoading, setSynopsisLoading] = useState({});
+  const [revealedSynopsis, setRevealedSynopsis] = useState({});
   const [modalLoading, setModalLoading] = useState(false);
   const [userStats, setUserStats] = useState(null);
 
@@ -252,6 +254,9 @@ export default function Anime() {
       "https://imgur.com/chUgq4W.png";
     const watched = Number.isFinite(Number(a.watchedEpisodes)) ? Number(a.watchedEpisodes) : 0;
     const total = Number.isFinite(Number(a.episodes)) ? Number(a.episodes) : null;
+    const id = a.id || a.title;
+    const revealed = id ? revealedSynopsis[id] : undefined;
+    const isLoadingSynopsis = id ? synopsisLoading[id] : false;
     const progressLabel = total
       ? `Episode ${Math.min(watched, total)}/${total}`
       : `Episode ${watched}`;
@@ -280,6 +285,46 @@ export default function Anime() {
           </div>
           <div className="anime-progress">{progressLabel}</div>
           <div className="anime-progress">Status: {formatStatus(a.status)}</div>
+          <div className="anime-synopsis-preview">
+            <div className="anime-synopsis-label">Synopsis</div>
+            {revealed !== undefined ? (
+              <p className="anime-synopsis-text">
+                {revealed ? revealed : "No synopsis available."}
+              </p>
+            ) : (
+              <button
+                className="anime-synopsis-btn"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!id) return;
+                  if (revealedSynopsis[id]) return;
+                  if (synopsisCache[id] !== undefined) {
+                    setRevealedSynopsis((prev) => ({ ...prev, [id]: synopsisCache[id] || "" }));
+                    return;
+                  }
+                  setSynopsisLoading((prev) => ({ ...prev, [id]: true }));
+                  fetchAnimeSummary(a.id)
+                    .then((synopsis) => {
+                      setSynopsisCache((prev) => ({ ...prev, [id]: synopsis || "" }));
+                      setRevealedSynopsis((prev) => ({ ...prev, [id]: synopsis || "" }));
+                    })
+                    .catch(() => {
+                      setSynopsisCache((prev) => ({ ...prev, [id]: "" }));
+                      setRevealedSynopsis((prev) => ({ ...prev, [id]: "" }));
+                    })
+                    .finally(() => {
+                      setSynopsisLoading((prev) => {
+                        const { [id]: _, ...rest } = prev;
+                        return rest;
+                      });
+                    });
+                }}
+              >
+                {isLoadingSynopsis ? "Loading..." : "Reveal Synopsis"}
+              </button>
+            )}
+          </div>
         </div>
       </article>
     );
