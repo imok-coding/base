@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchAnimeList } from "../api/malApi.js";
+import { fetchAnimeList, fetchAnimeSummary, fetchUserStats } from "../api/malApi.js";
 import "../styles/anime.css";
 import { useAuth } from "../contexts/AuthContext.jsx";
 
@@ -20,10 +20,30 @@ export default function Anime() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalItem, setModalItem] = useState(null);
+  const [synopsisCache, setSynopsisCache] = useState({});
+  const [modalLoading, setModalLoading] = useState(false);
+  const [userStats, setUserStats] = useState(null);
 
   useEffect(() => {
     document.title = "Anime | Library";
   }, []);
+
+  const formatRelativeTime = (timestamp) => {
+    if (!timestamp) return "";
+    const diff = Date.now() - timestamp;
+    const abs = Math.max(diff, 0);
+    const minutes = Math.floor(abs / 60000);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 48) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 14) return `${days}d ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 8) return `${weeks}w ago`;
+    const months = Math.floor(days / 30);
+    return `${months}mo ago`;
+  };
 
   const slugify = (text, fallback = "image") => {
     const slug = (text || "")
@@ -95,6 +115,14 @@ export default function Anime() {
     load();
   }, []);
 
+  useEffect(() => {
+    fetchUserStats()
+      .then((stats) => {
+        if (stats) setUserStats(stats);
+      })
+      .catch(() => {});
+  }, []);
+
   const getStatusRank = (s) => {
     const key = (s || "unknown").toLowerCase();
     switch (key) {
@@ -111,6 +139,14 @@ export default function Anime() {
       default:
         return 5;
     }
+  };
+
+  const formatProgress = (a) => {
+    const watched = Number.isFinite(Number(a.watchedEpisodes)) ? Number(a.watchedEpisodes) : 0;
+    const total = Number.isFinite(Number(a.episodes)) ? Number(a.episodes) : null;
+    if (total) return `${Math.min(watched, total)}/${total} eps`;
+    if (watched) return `${watched} eps`;
+    return "No progress";
   };
 
   useEffect(() => {
@@ -131,13 +167,58 @@ export default function Anime() {
     setFiltered(cur);
   }, [items, status, term]);
 
+  const recentUpdates = useMemo(() => {
+    return [...items]
+      .filter((a) => Number.isFinite(a.updatedAt))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 6);
+  }, [items]);
+
+  useEffect(() => {
+    if (!modalItem) {
+      setModalLoading(false);
+      return;
+    }
+    const modalId = modalItem.id;
+    if (!modalId) {
+      setModalLoading(false);
+      return;
+    }
+    if (modalItem.synopsis) return;
+    const cached = synopsisCache[modalId];
+    if (cached !== undefined) {
+      setModalItem((prev) => (prev ? { ...prev, synopsis: cached } : prev));
+      return;
+    }
+
+    let cancelled = false;
+    setModalLoading(true);
+    fetchAnimeSummary(modalId)
+      .then((synopsis) => {
+        if (cancelled) return;
+        setSynopsisCache((prev) => ({ ...prev, [modalId]: synopsis || "" }));
+        setModalItem((prev) => (prev ? { ...prev, synopsis: synopsis || "" } : prev));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSynopsisCache((prev) => ({ ...prev, [modalId]: "" }));
+      })
+      .finally(() => {
+        if (!cancelled) setModalLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [modalItem, synopsisCache]);
+
   const stats = useMemo(() => {
     const total = items.length;
-    const totalEpisodes = items.reduce(
-      (sum, a) => sum + (Number.isFinite(a.episodes) ? Number(a.episodes) : 0),
-      0
-    );
-    const totalHours = totalEpisodes * 0.4; // ~24 minutes per episode
+    const totalWatchedEpisodes = items.reduce((sum, a) => {
+      const watched = Number(a.watchedEpisodes);
+      return Number.isFinite(watched) ? sum + watched : sum;
+    }, 0);
+    const totalHours = totalWatchedEpisodes * 0.4; // ~24 minutes per episode watched
     const scoredItems = items.filter((a) => Number.isFinite(a.score) && a.score > 0);
     const scoreSum = scoredItems.reduce((s, a) => s + a.score, 0);
     const byStatus = {
@@ -155,11 +236,15 @@ export default function Anime() {
     });
     return {
       total,
+      totalWatchedEpisodes,
       byStatus,
       avgScore: scoredItems.length ? scoreSum / scoredItems.length : 0,
       totalHours,
     };
   }, [items]);
+
+  const displayDays = userStats?.daysWatched ?? (stats.totalHours || 0) / 24;
+  const displayEpisodesWatched = userStats?.episodesWatched ?? stats.totalWatchedEpisodes;
 
   const renderCard = (a) => {
     const cover =
@@ -175,8 +260,8 @@ export default function Anime() {
       <article
         key={a.id || a.title}
         className="anime-card"
-        onClick={() => setModalItem(a)}
-        >
+        onClick={() => setModalItem(a.synopsis ? a : { ...a, synopsis: synopsisCache[a.id] })}
+      >
         <div className="anime-cover-wrap">
           <img className="anime-cover" src={cover} alt={a.title} loading="lazy" decoding="async" />
           <div className={`badge-status ${(a.status || 'unknown').toLowerCase()}`}>
@@ -189,13 +274,27 @@ export default function Anime() {
           )}
         </div>
         <div className="anime-meta">
-          <div className="anime-title">{a.title}</div>
+          <div className="anime-title" title={a.title}>{a.title}</div>
           <div className="anime-sub">
             {a.episodes ? `${a.episodes} episodes` : "Episodes: ?"}
           </div>
           <div className="anime-progress">{progressLabel}</div>
           <div className="anime-progress">Status: {formatStatus(a.status)}</div>
         </div>
+      </article>
+    );
+  };
+
+  const renderUpdateCard = (a) => {
+    return (
+      <article key={`update-${a.id || a.title}`} className="anime-update-card">
+        <div className="anime-update-title" title={a.title}>{a.title}</div>
+        <div className="anime-update-meta">
+          <span className="anime-update-progress">{formatProgress(a)}</span>
+          <span className="anime-update-dot" aria-hidden="true">•</span>
+          <span className="anime-update-status">{formatStatus(a.status)}</span>
+        </div>
+        <div className="anime-update-time">{formatRelativeTime(a.updatedAt)}</div>
       </article>
     );
   };
@@ -263,6 +362,12 @@ export default function Anime() {
             <div className="anime-stat-value">{stats.total}</div>
           </div>
           <div className="anime-stat-card">
+            <div className="anime-stat-label">Episodes Watched</div>
+            <div className="anime-stat-value">
+              {displayEpisodesWatched}
+            </div>
+          </div>
+          <div className="anime-stat-card">
             <div className="anime-stat-label">Watching</div>
             <div className="anime-stat-value">{stats.byStatus.watching}</div>
           </div>
@@ -277,13 +382,13 @@ export default function Anime() {
           <div className="anime-stat-card">
             <div className="anime-stat-label">Avg. Score</div>
             <div className="anime-stat-value">
-              {stats.avgScore ? stats.avgScore.toFixed(1) : "—"}
+              {stats.avgScore ? stats.avgScore.toFixed(1) : "0.0"}
             </div>
           </div>
           <div className="anime-stat-card">
-            <div className="anime-stat-label">Hours Watched (est.)</div>
+            <div className="anime-stat-label">Days Watched</div>
             <div className="anime-stat-value">
-              {stats.totalHours ? stats.totalHours.toFixed(1) : "0.0"}
+              {displayDays.toFixed(1)}
             </div>
           </div>
         </div>
@@ -297,18 +402,18 @@ export default function Anime() {
             className="anime-input"
           />
           <select
-        value={status}
-        onChange={(e) => setStatus(e.target.value)}
-        className="anime-select"
-      >
-        <option value="all">All statuses</option>
-        <option value="watching">Watching</option>
-        <option value="completed">Completed</option>
-        <option value="on_hold">On Hold</option>
-        <option value="plan_to_watch">Plan to Watch</option>
-        <option value="dropped">Dropped</option>
-        </select>
-      </section>
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="anime-select"
+          >
+            <option value="all">All statuses</option>
+            <option value="watching">Watching</option>
+            <option value="completed">Completed</option>
+            <option value="on_hold">On Hold</option>
+            <option value="plan_to_watch">Plan to Watch</option>
+            <option value="dropped">Dropped</option>
+          </select>
+        </section>
 
         {loading && <div className="loading">Loading anime list from MAL...</div>}
         {error && <div className="error-state">{error}</div>}
@@ -325,6 +430,18 @@ export default function Anime() {
           </>
         )}
       </div>
+
+      {recentUpdates.length > 0 && (
+        <aside className="anime-updates-float">
+          <div className="anime-updates-header">
+            <h3>Recent Updates</h3>
+            <span className="anime-updates-caption">Last list activity</span>
+          </div>
+          <div className="anime-updates-list">
+            {recentUpdates.map((a) => renderUpdateCard(a))}
+          </div>
+        </aside>
+      )}
 
       {modalItem && (
         <div
@@ -373,6 +490,14 @@ export default function Anime() {
                     ? modalItem.score
                     : "Not rated"}
                 </div>
+              </div>
+              <div className="anime-modal-summary">
+                <h3>Synopsis</h3>
+                <p className="anime-modal-summary-text">
+                  {modalLoading && !modalItem.synopsis
+                    ? "Loading synopsis..."
+                    : modalItem.synopsis?.trim() || "No synopsis available."}
+                </p>
               </div>
             </div>
           </div>
