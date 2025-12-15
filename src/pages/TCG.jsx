@@ -279,7 +279,7 @@ export default function TCG() {
         Tyler&apos;s TCG Collection
       </h1>
       <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
-        Pokemon &amp; One Piece TCG cards with quantities, prices, and collection value.
+        Check out my TCG Collection with all the data of how much I spent (Under construction) and how much my collection is worth in total!
       </p>
       <div style={{ marginTop: "10px" }}>
         <button className="manga-btn secondary" type="button" onClick={exportTcgJson}>

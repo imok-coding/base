@@ -2079,7 +2079,7 @@ export default function Dashboard() {
               Dashboard
             </h1>
           <p className="dashboard-sub" style={{ textAlign: "center", margin: "6px 0 0" }}>
-            Admin-only analytics for your manga library and wishlist.
+            My Entire Statistics dashboard for my Manga. I still use Excel though.
           </p>
         </div>
         {admin && (

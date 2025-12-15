@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
-  const TITLE_EN = "Tyler's Collection Homepage";
-  const TITLE_JP = "\u30bf\u30a4\u30e9\u30fc\u306e\u30b3\u30ec\u30af\u30b7\u30e7\u30f3";
+  const TITLE_EN = "Tyler's Collection's and Hobbies";
+  const TITLE_JP = "\u30bf\u30a4\u30e9\u30fc\u306e\u30b3\u30ec\u30af\u30b7\u30e7\u30f3\u3068\u30b7\u30e5\u30df";
   const [title, setTitle] = useState("");
   const [cursorVisible, setCursorVisible] = useState(true);
   const blinkRef = useRef(null);

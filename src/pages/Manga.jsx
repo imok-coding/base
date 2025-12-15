@@ -1657,8 +1657,7 @@ export default function Manga() {
           Tyler&apos;s Manga Library
         </div>
         <div className="manga-header-sub" style={{ textAlign: "center" }}>
-          Library &amp; Wishlist are managed via Firestore. This React port reuses the
-          same collections as your original index.html.
+          This is my Manga Library and Wishlist. Check and see all the Manga I have in my possession!
         </div>
       </header>
 

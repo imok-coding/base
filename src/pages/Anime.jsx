@@ -337,7 +337,7 @@ export default function Anime() {
               Tyler&apos;s Anime Library
             </h1>
             <p className="anime-sub" style={{ textAlign: "center", margin: "6px 0 0" }}>
-              MAL-synced overview of your shows
+              The Anime I've watched/watching synced directly from MAL (MyAnimeList)
             </p>
           </div>
           {admin && (

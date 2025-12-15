@@ -33,7 +33,7 @@ export default function Steam() {
           Tyler&apos;s Gaming Lounge
         </h1>
         <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
-          Steam profile, recents, and library at a glance.
+          This will be the home to all of my gaming collections, this is still being worked on, but thought it was cool with just steam for now.
         </p>
       </header>
 

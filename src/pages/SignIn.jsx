@@ -30,7 +30,7 @@ export default function SignIn() {
     <div className="signin-page">
       <div className="signin-card">
         <h2 className="signin-title">Welcome Back</h2>
-        <p className="signin-sub">Sign in to access your dashboard & collections.</p>
+        <p className="signin-sub">Sign in to access the dashboard & edit collections.</p>
 
         <button className="google-btn" onClick={googleSignIn}>
           <img
