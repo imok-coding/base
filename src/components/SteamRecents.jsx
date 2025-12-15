@@ -36,7 +36,7 @@ export default function SteamRecents() {
     <div className="steam-panel">
       <h4>Recently played</h4>
       <div className="recent-grid">
-        {recent.map((g) => (
+        {recent.slice(0, 4).map((g) => (
           <RecentCard key={g.appid} game={g} />
         ))}
         {recent.length === 0 && <p className="subtext">No recent playtime.</p>}
