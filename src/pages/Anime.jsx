@@ -21,9 +21,8 @@ export default function Anime() {
   const [error, setError] = useState("");
   const [modalItem, setModalItem] = useState(null);
   const [synopsisCache, setSynopsisCache] = useState({});
-  const [synopsisLoading, setSynopsisLoading] = useState({});
-  const [revealedSynopsis, setRevealedSynopsis] = useState({});
   const [modalLoading, setModalLoading] = useState(false);
+  const [modalSynopsisShown, setModalSynopsisShown] = useState(false);
   const [userStats, setUserStats] = useState(null);
 
   useEffect(() => {
@@ -177,42 +176,9 @@ export default function Anime() {
   }, [items]);
 
   useEffect(() => {
-    if (!modalItem) {
-      setModalLoading(false);
-      return;
-    }
-    const modalId = modalItem.id;
-    if (!modalId) {
-      setModalLoading(false);
-      return;
-    }
-    if (modalItem.synopsis) return;
-    const cached = synopsisCache[modalId];
-    if (cached !== undefined) {
-      setModalItem((prev) => (prev ? { ...prev, synopsis: cached } : prev));
-      return;
-    }
-
-    let cancelled = false;
-    setModalLoading(true);
-    fetchAnimeSummary(modalId)
-      .then((synopsis) => {
-        if (cancelled) return;
-        setSynopsisCache((prev) => ({ ...prev, [modalId]: synopsis || "" }));
-        setModalItem((prev) => (prev ? { ...prev, synopsis: synopsis || "" } : prev));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSynopsisCache((prev) => ({ ...prev, [modalId]: "" }));
-      })
-      .finally(() => {
-        if (!cancelled) setModalLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [modalItem, synopsisCache]);
+    setModalSynopsisShown(false);
+    setModalLoading(false);
+  }, [modalItem]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -254,9 +220,6 @@ export default function Anime() {
       "https://imgur.com/chUgq4W.png";
     const watched = Number.isFinite(Number(a.watchedEpisodes)) ? Number(a.watchedEpisodes) : 0;
     const total = Number.isFinite(Number(a.episodes)) ? Number(a.episodes) : null;
-    const id = a.id || a.title;
-    const revealed = id ? revealedSynopsis[id] : undefined;
-    const isLoadingSynopsis = id ? synopsisLoading[id] : false;
     const progressLabel = total
       ? `Episode ${Math.min(watched, total)}/${total}`
       : `Episode ${watched}`;
@@ -285,46 +248,6 @@ export default function Anime() {
           </div>
           <div className="anime-progress">{progressLabel}</div>
           <div className="anime-progress">Status: {formatStatus(a.status)}</div>
-          <div className="anime-synopsis-preview">
-            <div className="anime-synopsis-label">Synopsis</div>
-            {revealed !== undefined ? (
-              <p className="anime-synopsis-text">
-                {revealed ? revealed : "No synopsis available."}
-              </p>
-            ) : (
-              <button
-                className="anime-synopsis-btn"
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!id) return;
-                  if (revealedSynopsis[id]) return;
-                  if (synopsisCache[id] !== undefined) {
-                    setRevealedSynopsis((prev) => ({ ...prev, [id]: synopsisCache[id] || "" }));
-                    return;
-                  }
-                  setSynopsisLoading((prev) => ({ ...prev, [id]: true }));
-                  fetchAnimeSummary(a.id)
-                    .then((synopsis) => {
-                      setSynopsisCache((prev) => ({ ...prev, [id]: synopsis || "" }));
-                      setRevealedSynopsis((prev) => ({ ...prev, [id]: synopsis || "" }));
-                    })
-                    .catch(() => {
-                      setSynopsisCache((prev) => ({ ...prev, [id]: "" }));
-                      setRevealedSynopsis((prev) => ({ ...prev, [id]: "" }));
-                    })
-                    .finally(() => {
-                      setSynopsisLoading((prev) => {
-                        const { [id]: _, ...rest } = prev;
-                        return rest;
-                      });
-                    });
-                }}
-              >
-                {isLoadingSynopsis ? "Loading..." : "Reveal Synopsis"}
-              </button>
-            )}
-          </div>
         </div>
       </article>
     );
@@ -482,13 +405,13 @@ export default function Anime() {
             <h3>Recent Updates</h3>
             <span className="anime-updates-caption">Last list activity</span>
           </div>
-          <div className="anime-updates-list">
-            {recentUpdates.map((a) => renderUpdateCard(a))}
-          </div>
-        </aside>
-      )}
+      <div className="anime-updates-list">
+        {recentUpdates.map((a) => renderUpdateCard(a))}
+      </div>
+    </aside>
+  )}
 
-      {modalItem && (
+  {modalItem && (
         <div
           className="modal-backdrop visible"
           onClick={(e) => {
@@ -536,18 +459,65 @@ export default function Anime() {
                     : "Not rated"}
                 </div>
               </div>
-              <div className="anime-modal-summary">
-                <h3>Synopsis</h3>
-                <p className="anime-modal-summary-text">
-                  {modalLoading && !modalItem.synopsis
-                    ? "Loading synopsis..."
-                    : modalItem.synopsis?.trim() || "No synopsis available."}
-                </p>
-              </div>
+              <SynopsisSection
+                modalItem={modalItem}
+                modalLoading={modalLoading}
+                modalSynopsisShown={modalSynopsisShown}
+                onReveal={async () => {
+                  if (!modalItem) return;
+                  setModalSynopsisShown(true);
+                  const id = modalItem.id;
+                  if (!id) return;
+                  const cached = synopsisCache[id];
+                  if (cached !== undefined) {
+                    setModalItem((prev) => (prev ? { ...prev, synopsis: cached } : prev));
+                    return;
+                  }
+                  setModalLoading(true);
+                  try {
+                    const synopsis = await fetchAnimeSummary(id);
+                    setSynopsisCache((prev) => ({ ...prev, [id]: synopsis || "" }));
+                    setModalItem((prev) => (prev ? { ...prev, synopsis: synopsis || "" } : prev));
+                  } catch (err) {
+                    setSynopsisCache((prev) => ({ ...prev, [id]: "" }));
+                    setModalItem((prev) => (prev ? { ...prev, synopsis: "" } : prev));
+                  } finally {
+                    setModalLoading(false);
+                  }
+                }}
+              />
             </div>
           </div>
         </div>
       )}
     </main>
+  );
+}
+
+function SynopsisSection({ modalItem, modalLoading, modalSynopsisShown, onReveal }) {
+  const synopsisText = modalItem?.synopsis?.trim() || "";
+
+  return (
+    <div className="anime-modal-summary">
+      <div className="anime-modal-summary-header">
+        <h3>Synopsis</h3>
+        {!modalSynopsisShown && (
+          <button className="anime-synopsis-btn" type="button" onClick={onReveal}>
+            {modalLoading ? "Loading..." : "Reveal Synopsis"}
+          </button>
+        )}
+      </div>
+      {modalSynopsisShown ? (
+        <p className="anime-modal-summary-text">
+          {modalLoading && !synopsisText
+            ? "Loading synopsis..."
+            : synopsisText || "No synopsis available."}
+        </p>
+      ) : (
+        <p className="anime-modal-summary-text" style={{ opacity: 0.7 }}>
+          Synopsis hidden. Click reveal to view.
+        </p>
+      )}
+    </div>
   );
 }
