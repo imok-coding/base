@@ -480,12 +480,14 @@
   overflow: hidden;
   opacity: 0;
   padding-top: 0;
+  padding-bottom: 0;
   transition: max-height 0.4s ease, opacity 0.35s ease, padding 0.3s ease;
 }
 
 .anime-modal-summary-body.is-open {
   opacity: 1;
   padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .anime-modal-summary-text {

@@ -20,7 +20,7 @@ export default function TCG() {
     notes: "",
   };
 
-  const { admin } = useAuth();
+  const { admin, user } = useAuth();
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [term, setTerm] = useState("");
@@ -39,7 +39,25 @@ export default function TCG() {
 
   useEffect(() => {
     let cancelled = false;
+
+    const loadOffline = async () => {
+      if (cancelled) return;
+      try {
+        const base = import.meta.env.BASE_URL || "/";
+        const res = await fetch(`${base}tcg-collection.json`, { cache: "no-cache" });
+        if (!res.ok) throw new Error("fallback fetch failed");
+        const json = await res.json();
+        const rows = Array.isArray(json.tcg) ? json.tcg : [];
+        if (!cancelled) setCards(rows.map((c, idx) => ({ id: c.id || `offline-${idx}`, ...c })));
+      } catch (fbErr) {
+        console.error("TCG offline fallback failed", fbErr);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     async function load() {
+      setLoading(true);
       try {
         const col = collection(db, "tcg");
         const snap = await getDocs(col);
@@ -48,16 +66,7 @@ export default function TCG() {
         if (!cancelled) setCards(rows);
       } catch (err) {
         console.error("Error loading TCG:", err);
-        try {
-          const base = import.meta.env.BASE_URL || "/";
-          const res = await fetch(`${base}tcg-collection.json`, { cache: "no-cache" });
-          if (!res.ok) throw new Error("fallback fetch failed");
-          const json = await res.json();
-          const rows = Array.isArray(json.tcg) ? json.tcg : [];
-          if (!cancelled) setCards(rows.map((c, idx) => ({ id: c.id || `offline-${idx}`, ...c })));
-        } catch (fbErr) {
-          console.error("TCG offline fallback failed", fbErr);
-        }
+        await loadOffline();
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -66,7 +75,7 @@ export default function TCG() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   const filtered = cards.filter((c) => {
     if (gameFilter !== "all" && c.game !== gameFilter) return false;
@@ -1199,4 +1208,3 @@ export default function TCG() {
     </main>
   );
 }
-

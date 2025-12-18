@@ -126,3 +126,120 @@ a {
   border: 1px solid rgba(255, 105, 180, 0.55);
   color: #ffb6c1;
 }
+
+/* Suggestion modal */
+.suggestion-trigger {
+  border: 1px solid rgba(255, 182, 193, 0.5);
+  background: rgba(43, 15, 29, 0.9);
+  color: #ffb6c1;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.suggestion-trigger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+  border-color: #ff69b4;
+}
+.suggestion-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggestion-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 2, 15, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 9999;
+}
+
+.suggestion-modal {
+  background: linear-gradient(135deg, rgba(39, 13, 25, 0.96), rgba(12, 6, 16, 0.96));
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  border-radius: 16px;
+  padding: 16px;
+  max-width: 520px;
+  width: min(520px, 100%);
+  color: #ffe6ed;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.9);
+}
+
+.suggestion-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.suggestion-modal h3 {
+  margin: 0;
+  color: #ffb6c1;
+  font-size: 1.1rem;
+}
+
+.suggestion-close {
+  border: 1px solid rgba(255, 182, 193, 0.5);
+  background: transparent;
+  color: #ffe6ed;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.suggestion-hint {
+  margin: 0 0 8px;
+  color: #f8d1d8;
+  font-size: 0.9rem;
+}
+
+.suggestion-textarea {
+  width: 100%;
+  min-height: 120px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  background: rgba(0, 0, 0, 0.3);
+  color: #ffe6ed;
+  padding: 10px;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.suggestion-status {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: #ffb6c1;
+}
+
+.suggestion-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.suggestion-send {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 182, 193, 0.55);
+  background: linear-gradient(135deg, rgba(255, 105, 180, 0.18), rgba(255, 105, 180, 0.28));
+  color: #ffb6c1;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.suggestion-cancel {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffe6ed;
+  padding: 8px 12px;
+  cursor: pointer;
+}

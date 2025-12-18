@@ -2,9 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAnimeList, fetchAnimeSummary, fetchUserStats } from "../api/malApi.js";
 import "../styles/anime.css";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { db } from "../firebaseConfig";
+import { collection, addDoc } from "firebase/firestore";
+import SuggestionModal from "../components/SuggestionModal.jsx";
+
+const SUGGESTION_LIMIT = 5;
+const SUGGESTION_WINDOW_MS = 60 * 60 * 1000;
+const SUGGESTION_STORAGE_KEY = "animeSuggestionsSent";
 
 export default function Anime() {
-  const { admin } = useAuth();
+  const { admin, user, role } = useAuth();
   const formatStatus = (value) => {
     if (!value) return "Unknown";
     return value
@@ -24,10 +31,18 @@ export default function Anime() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalSynopsisShown, setModalSynopsisShown] = useState(false);
   const [userStats, setUserStats] = useState(null);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
+  const [suggestionText, setSuggestionText] = useState("");
+  const [suggestionStatus, setSuggestionStatus] = useState("");
+  const [suggestionSending, setSuggestionSending] = useState(false);
 
   useEffect(() => {
     document.title = "Anime | Library";
   }, []);
+
+  useEffect(() => {
+    setSuggestionStatus("");
+  }, [user]);
 
   const formatRelativeTime = (timestamp) => {
     if (!timestamp) return "";
@@ -175,6 +190,51 @@ export default function Anime() {
       .slice(0, 6);
   }, [items]);
 
+  const canSuggest = !!user && role === "viewer";
+
+  const submitSuggestion = async () => {
+    const now = Date.now();
+    const persisted = (() => {
+      try {
+        const raw = localStorage.getItem(SUGGESTION_STORAGE_KEY);
+        return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    })();
+    const recent = persisted.filter((t) => now - t < SUGGESTION_WINDOW_MS);
+    if (recent.length >= SUGGESTION_LIMIT) {
+      setSuggestionStatus("Rate limit: please wait a bit (max 5 suggestions per hour).");
+      return;
+    }
+    if (!suggestionText.trim()) {
+      setSuggestionStatus("Please enter a title or note before sending.");
+      return;
+    }
+    setSuggestionSending(true);
+    setSuggestionStatus("");
+    try {
+      const content = `**Anime Suggestion**\n${suggestionText.trim()}\nFrom: ${user?.displayName || user?.email || user?.uid || "anonymous user"}`;
+
+      await addDoc(collection(db, "suggestions"), {
+        content: suggestionText.trim(),
+        type: "anime",
+        from: user?.displayName || user?.email || user?.uid || "anonymous user",
+        createdAt: new Date().toISOString(),
+      });
+
+      setSuggestionStatus("Sent! I'll review your suggestion soon.");
+      setSuggestionText("");
+      const updated = [...recent, now].slice(-SUGGESTION_LIMIT);
+      localStorage.setItem(SUGGESTION_STORAGE_KEY, JSON.stringify(updated));
+    } catch (err) {
+      console.error("Failed to send suggestion", err);
+      setSuggestionStatus("Failed to send suggestion. Please try again later.");
+    } finally {
+      setSuggestionSending(false);
+    }
+  };
+
   useEffect(() => {
     if (!modalItem) {
       setModalSynopsisShown(false);
@@ -314,18 +374,34 @@ export default function Anime() {
               The Anime I've watched/watching synced directly from MAL (MyAnimeList)
             </p>
           </div>
-          {admin && (
+          {(canSuggest || admin) && (
             <div
               style={{
                 position: "absolute",
                 right: 0,
                 top: "50%",
                 transform: "translateY(-50%)",
+                display: "flex",
+                gap: "10px",
               }}
             >
-              <button className="stat-link" type="button" onClick={downloadImagesZip}>
-                Download Images
-              </button>
+              {canSuggest && (
+                <button
+                  className="suggestion-trigger"
+                  type="button"
+                  onClick={() => {
+                    setSuggestionStatus("");
+                    setSuggestionOpen(true);
+                  }}
+                >
+                  + Suggestion
+                </button>
+              )}
+              {admin && (
+                <button className="stat-link" type="button" onClick={downloadImagesZip}>
+                  Download Images
+                </button>
+              )}
             </div>
           )}
         </header>
@@ -417,6 +493,20 @@ export default function Anime() {
     </aside>
   )}
 
+      {canSuggest && (
+        <SuggestionModal
+          open={suggestionOpen}
+          title="Suggest an Anime"
+          placeholder="Type an anime you'd like me to watch..."
+          value={suggestionText}
+          status={suggestionStatus}
+          loading={suggestionSending}
+          onChange={setSuggestionText}
+          onSubmit={submitSuggestion}
+          onClose={() => setSuggestionOpen(false)}
+        />
+      )}
+
   {modalItem && (
         <div
           className="modal-backdrop visible"
@@ -503,17 +593,15 @@ export default function Anime() {
 function SynopsisSection({ modalItem, modalLoading, modalSynopsisShown, onReveal }) {
   const synopsisText = modalItem?.synopsis?.trim() || "";
   const [bodyHeight, setBodyHeight] = useState(0);
-  const [ready, setReady] = useState(false);
   const contentRef = useRef(null);
 
   useEffect(() => {
     if (modalSynopsisShown && contentRef.current) {
-      const h = contentRef.current.scrollHeight;
+      // add a small buffer so the final line isn't clipped
+      const h = contentRef.current.scrollHeight + 12;
       setBodyHeight(h);
-      setReady(true);
     } else {
       setBodyHeight(0);
-      setReady(false);
     }
   }, [modalSynopsisShown, synopsisText]);
 

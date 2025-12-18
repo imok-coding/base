@@ -11,6 +11,11 @@ import {
   doc,
 } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
+import SuggestionModal from "../components/SuggestionModal.jsx";
+
+const SUGGESTION_LIMIT = 5;
+const SUGGESTION_WINDOW_MS = 60 * 60 * 1000;
+const SUGGESTION_STORAGE_KEY = "mangaSuggestionsSent";
 
 // ---- Helpers to match your old index.html logic ----
 
@@ -340,13 +345,59 @@ function MangaDashboard({ library, wishlist }) {
 // ---- Main page ----
 
 export default function Manga() {
-  const { admin } = useAuth();
+  const { admin, user, role } = useAuth();
   const isAdmin = admin;
 
   const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist'
   useEffect(() => {
     document.title = "Manga | Library";
   }, []);
+  useEffect(() => {
+    setSuggestionStatus("");
+  }, [user]);
+
+  const submitSuggestion = async () => {
+    const now = Date.now();
+    const persisted = (() => {
+      try {
+        const raw = localStorage.getItem(SUGGESTION_STORAGE_KEY);
+        return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    })();
+    const recent = persisted.filter((t) => now - t < SUGGESTION_WINDOW_MS);
+    if (recent.length >= SUGGESTION_LIMIT) {
+      setSuggestionStatus("Rate limit: please wait a bit (max 5 suggestions per hour).");
+      return;
+    }
+    if (!suggestionText.trim()) {
+      setSuggestionStatus("Please enter a manga title or note before sending.");
+      return;
+    }
+    setSuggestionSending(true);
+    setSuggestionStatus("");
+    try {
+      const content = `**Manga Suggestion**\n${suggestionText.trim()}\nFrom: ${user?.displayName || user?.email || user?.uid || "anonymous user"}`;
+
+      await addDoc(collection(db, "suggestions"), {
+        content: suggestionText.trim(),
+        type: "manga",
+        from: user?.displayName || user?.email || user?.uid || "anonymous user",
+        createdAt: new Date().toISOString(),
+      });
+
+      setSuggestionStatus("Sent! I'll review your suggestion soon.");
+      setSuggestionText("");
+      const updated = [...recent, now].slice(-SUGGESTION_LIMIT);
+      localStorage.setItem(SUGGESTION_STORAGE_KEY, JSON.stringify(updated));
+    } catch (err) {
+      console.error("Failed to send suggestion", err);
+      setSuggestionStatus("Failed to send suggestion. Please try again later.");
+    } finally {
+      setSuggestionSending(false);
+    }
+  };
 
   const [library, setLibrary] = useState([]);
   const [wishlist, setWishlist] = useState([]);
@@ -403,6 +454,12 @@ export default function Manga() {
     index: 0,
     items: [], // [{id, kind, data}]
   });
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
+  const [suggestionText, setSuggestionText] = useState("");
+  const [suggestionStatus, setSuggestionStatus] = useState("");
+  const [suggestionSending, setSuggestionSending] = useState(false);
+
+  const canSuggest = !!user && role === "viewer";
 
   // ----- Firestore loading -----
 
@@ -526,6 +583,78 @@ export default function Manga() {
   useEffect(() => {
     let cancelled = false;
 
+    const loadOffline = async () => {
+      if (cancelled) return;
+      try {
+        const base = import.meta.env.BASE_URL || "/";
+        const res = await fetch(`${base}manga-library-wishlist.json`, { cache: "no-cache" });
+        if (!res.ok) throw new Error("fallback fetch failed");
+        const json = await res.json();
+        const lib = Array.isArray(json.library) ? json.library : [];
+        const wish = Array.isArray(json.wishlist) ? json.wishlist : [];
+        setLibrary(
+          lib.map((data, idx) => ({
+            id: data.id || `offline-lib-${idx}`,
+            title: data.title || "",
+            authors: data.authors || "Unknown",
+            publisher: data.publisher || "Unknown",
+            demographic: data.demographic || "",
+            genre: data.genre || "",
+            subGenre: data.subGenre || "",
+            date: data.date || "Unknown",
+            cover: data.cover || "",
+            isbn: data.isbn || "",
+            pageCount: data.pageCount ?? "",
+            rating: data.rating ?? "",
+            amountPaid: data.amountPaid ?? "",
+            dateRead: data.dateRead || "",
+            datePurchased: data.datePurchased || "",
+            msrp: data.msrp ?? "",
+            specialType: data.specialType || "",
+            specialVolumes: data.specialVolumes ?? "",
+            collectiblePrice: data.collectiblePrice ?? "",
+            amazonURL: data.amazonURL || "",
+            read: !!data.read,
+            hidden: !!data.hidden,
+            kind: "library",
+          }))
+        );
+        setWishlist(
+          wish.map((data, idx) => ({
+            id: data.id || `offline-wish-${idx}`,
+            title: data.title || "",
+            authors: data.authors || "Unknown",
+            publisher: data.publisher || "Unknown",
+            demographic: data.demographic || "",
+            genre: data.genre || "",
+            subGenre: data.subGenre || "",
+            date: data.date || "Unknown",
+            cover: data.cover || "",
+            isbn: data.isbn || "",
+            pageCount: data.pageCount ?? "",
+            rating: data.rating ?? "",
+            amountPaid: data.amountPaid ?? "",
+            dateRead: data.dateRead || "",
+            datePurchased: data.datePurchased || "",
+            msrp: data.msrp ?? "",
+            specialType: data.specialType || "",
+            specialVolumes: data.specialVolumes ?? "",
+            collectiblePrice: data.collectiblePrice ?? "",
+            amazonURL: data.amazonURL || "",
+            read: !!data.read,
+            hidden: !!data.hidden,
+            kind: "wishlist",
+          }))
+        );
+        setError("");
+      } catch (fallbackErr) {
+        console.error("Offline fallback failed", fallbackErr);
+        setError("Failed to load manga data from Firestore.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     async function loadAll() {
       setLoading(true);
       setError("");
@@ -536,74 +665,7 @@ export default function Manga() {
         console.error(err);
         if (!cancelled) {
           console.warn("Falling back to offline JSON for manga.");
-          try {
-            const base = import.meta.env.BASE_URL || "/";
-            const res = await fetch(`${base}manga-library-wishlist.json`, { cache: "no-cache" });
-            if (!res.ok) throw new Error("fallback fetch failed");
-            const json = await res.json();
-            const lib = Array.isArray(json.library) ? json.library : [];
-            const wish = Array.isArray(json.wishlist) ? json.wishlist : [];
-            setLibrary(
-              lib.map((data, idx) => ({
-                id: data.id || `offline-lib-${idx}`,
-                title: data.title || "",
-                authors: data.authors || "Unknown",
-                publisher: data.publisher || "Unknown",
-                demographic: data.demographic || "",
-                genre: data.genre || "",
-                subGenre: data.subGenre || "",
-                date: data.date || "Unknown",
-                cover: data.cover || "",
-                isbn: data.isbn || "",
-                pageCount: data.pageCount ?? "",
-                rating: data.rating ?? "",
-                amountPaid: data.amountPaid ?? "",
-                dateRead: data.dateRead || "",
-                datePurchased: data.datePurchased || "",
-                msrp: data.msrp ?? "",
-                specialType: data.specialType || "",
-                specialVolumes: data.specialVolumes ?? "",
-                collectiblePrice: data.collectiblePrice ?? "",
-                amazonURL: data.amazonURL || "",
-                read: !!data.read,
-                hidden: !!data.hidden,
-                kind: "library",
-              }))
-            );
-            setWishlist(
-              wish.map((data, idx) => ({
-                id: data.id || `offline-wish-${idx}`,
-                title: data.title || "",
-                authors: data.authors || "Unknown",
-                publisher: data.publisher || "Unknown",
-                demographic: data.demographic || "",
-                genre: data.genre || "",
-                subGenre: data.subGenre || "",
-                date: data.date || "Unknown",
-                cover: data.cover || "",
-                isbn: data.isbn || "",
-                pageCount: data.pageCount ?? "",
-                rating: data.rating ?? "",
-                amountPaid: data.amountPaid ?? "",
-                dateRead: data.dateRead || "",
-                datePurchased: data.datePurchased || "",
-                msrp: data.msrp ?? "",
-                specialType: data.specialType || "",
-                specialVolumes: data.specialVolumes ?? "",
-                collectiblePrice: data.collectiblePrice ?? "",
-                amazonURL: data.amazonURL || "",
-                read: !!data.read,
-                hidden: !!data.hidden,
-                kind: "wishlist",
-              }))
-            );
-            setLoading(false);
-            setError("Loaded offline data (Firestore unavailable).");
-          } catch (fallbackErr) {
-            console.error("Offline fallback failed", fallbackErr);
-            setError("Failed to load manga data from Firestore.");
-            setLoading(false);
-          }
+          await loadOffline();
         }
       }
     }
@@ -612,7 +674,7 @@ export default function Manga() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   // ----- Filtered lists -----
 
@@ -1137,6 +1199,29 @@ export default function Manga() {
       const writes = [];
       for (const entry of entries) {
         const payload = buildPayload(entry.data);
+        // If adding to library and series exists, inherit shared fields
+        if (targetList === "library" && entry.kind !== "edit") {
+          const baseTitle = parseTitleForSort(payload.title).name;
+          const seriesBooks = library.filter(
+            (b) => parseTitleForSort(b.title || b.Title || "").name === baseTitle
+          );
+          const first = seriesBooks[0];
+          if (first) {
+            payload.demographic =
+              payload.demographic || first.demographic || first.Demographic || "";
+            payload.genre = payload.genre || first.genre || first.Genre || "";
+            payload.subGenre = payload.subGenre || first.subGenre || first.SubGenre || "";
+            if (payload.msrp === "") {
+              const msrps = seriesBooks
+                .map((b) => Number(b.msrp ?? b.MSRP))
+                .filter((n) => Number.isFinite(n));
+              if (msrps.length > 0) {
+                const allSame = msrps.every((n) => n === msrps[0]);
+                if (allSame) payload.msrp = msrps[0];
+              }
+            }
+          }
+        }
         if (!payload.title) {
           alert("Title is required for every entry.");
           return;
@@ -1660,6 +1745,21 @@ export default function Manga() {
           This is my Manga Library and Wishlist. Check and see all the Manga I have in my possession!
         </div>
       </header>
+
+      {canSuggest && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "6px" }}>
+          <button
+            className="suggestion-trigger"
+            type="button"
+            onClick={() => {
+              setSuggestionStatus("");
+              setSuggestionOpen(true);
+            }}
+          >
+            + Suggestion
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="manga-tabs">
@@ -2651,6 +2751,20 @@ export default function Manga() {
             </div>
           </div>
         </div>
+      )}
+
+      {canSuggest && (
+        <SuggestionModal
+          open={suggestionOpen}
+          title="Suggest a Manga"
+          placeholder="Type a manga you'd like me to collect/read..."
+          value={suggestionText}
+          status={suggestionStatus}
+          loading={suggestionSending}
+          onChange={setSuggestionText}
+          onSubmit={submitSuggestion}
+          onClose={() => setSuggestionOpen(false)}
+        />
       )}
       <datalist id="adminTitleSuggestions">
         {titleSuggestions.map((t) => (

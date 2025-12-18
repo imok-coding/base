@@ -1,7 +1,7 @@
 // src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -11,6 +11,7 @@ const DEFAULT_RELEASE_WEBHOOK =
   "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
 const DEFAULT_ACTIVITY_WEBHOOK =
   "https://discord.com/api/webhooks/1448329790942613667/wsC8psNZ-Ax2D1O9Gl4sJi6ay7df2cr7IrIdxMPwGZTBnkSUIY2NDpeVd98qW_4plz82";
+const DEFAULT_SUGGESTION_WEBHOOK = "";
 const ACTIVITY_STORAGE_KEY = "mangaLibraryActivityLog";
 
 /* ---------- Helpers ---------- */
@@ -718,6 +719,7 @@ export default function Dashboard() {
     yearly: DEFAULT_YEARLY_WEBHOOK,
     release: DEFAULT_RELEASE_WEBHOOK,
     activity: DEFAULT_ACTIVITY_WEBHOOK,
+    suggestion: DEFAULT_SUGGESTION_WEBHOOK,
   });
   const [managerExpanded, setManagerExpanded] = useState(new Set());
   const [managerSelectedSeries, setManagerSelectedSeries] = useState(null);
@@ -733,13 +735,17 @@ export default function Dashboard() {
   const [adminUidInput, setAdminUidInput] = useState("");
   const [adminsList, setAdminsList] = useState([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsErr, setSuggestionsErr] = useState("");
   const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const [calendarModalDay, setCalendarModalDay] = useState(null);
   const refreshAdmins = async () => {
     if (!admin) return;
     try {
       setAdminsLoading(true);
-      const snap = await getDocs(collection(db, "admins"));
+      const q = query(collection(db, "users"), where("role", "==", "admin"));
+      const snap = await getDocs(q);
       const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
       setAdminsList(rows);
     } catch (e) {
@@ -757,25 +763,14 @@ export default function Dashboard() {
     }
     try {
       await setDoc(
-        doc(db, "admins", uid),
+        doc(db, "users", uid),
         {
-          uid,
           role: "admin",
           grantedBy: user?.uid || "manual",
           grantedAt: new Date().toISOString(),
         },
         { merge: true }
       );
-      // legacy fallback for any rules that still read roles/<uid>
-      try {
-        await setDoc(
-          doc(db, "roles", uid),
-          { admin: true, updatedAt: new Date().toISOString() },
-          { merge: true }
-        );
-      } catch (fallbackErr) {
-        console.warn("Legacy roles write skipped (no permission):", fallbackErr?.message);
-      }
       setAdminUidInput("");
       await refreshAdmins();
     } catch (e) {
@@ -791,8 +786,15 @@ export default function Dashboard() {
       return;
     }
     try {
-      await deleteDoc(doc(db, "admins", target));
-      await deleteDoc(doc(db, "roles", target));
+      await setDoc(
+        doc(db, "users", target),
+        {
+          role: "viewer",
+          revokedBy: user?.uid || "manual",
+          revokedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
       if (!uidOverride) setAdminUidInput("");
       await refreshAdmins();
     } catch (e) {
@@ -848,12 +850,20 @@ export default function Dashboard() {
             yearly: data.yearly || DEFAULT_YEARLY_WEBHOOK,
             release: data.release || DEFAULT_RELEASE_WEBHOOK,
             activity: data.activity || DEFAULT_ACTIVITY_WEBHOOK,
+            suggestion: data.suggestion || DEFAULT_SUGGESTION_WEBHOOK,
           });
         } else {
           await setDoc(ref, {
             yearly: DEFAULT_YEARLY_WEBHOOK,
             release: DEFAULT_RELEASE_WEBHOOK,
             activity: DEFAULT_ACTIVITY_WEBHOOK,
+            suggestion: DEFAULT_SUGGESTION_WEBHOOK,
+          });
+          setWebhooks({
+            yearly: DEFAULT_YEARLY_WEBHOOK,
+            release: DEFAULT_RELEASE_WEBHOOK,
+            activity: DEFAULT_ACTIVITY_WEBHOOK,
+            suggestion: DEFAULT_SUGGESTION_WEBHOOK,
           });
         }
       } catch (e) {
@@ -886,15 +896,71 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!user || !admin) {
+      setSuggestions([]);
+      setSuggestionsErr("");
+      return;
+    }
+    (async () => {
+      try {
+        setSuggestionsLoading(true);
+        const snap = await getDocs(collection(db, "suggestions"));
+        const items = snap.docs.map((d) => {
+          const data = d.data();
+          let created = null;
+          if (data?.createdAt?.toDate) {
+            created = data.createdAt.toDate();
+          } else if (data?.createdAt) {
+            const dt = new Date(data.createdAt);
+            created = isNaN(dt.getTime()) ? null : dt;
+          }
+          return { id: d.id, ...data, createdAt: created };
+        });
+        items.sort(
+          (a, b) =>
+            (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
+        );
+        if (!cancelled) {
+          setSuggestions(items);
+          setSuggestionsErr("");
+        }
+      } catch (e) {
+        console.error("Failed to load suggestions", e);
+        if (!cancelled) {
+          setSuggestionsErr("Failed to load suggestions.");
+          setSuggestions([]);
+        }
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, admin]);
+
+  const deleteSuggestion = async (id) => {
+    if (!admin || !id) return;
+    try {
+      await deleteDoc(doc(db, "suggestions", id));
+      setSuggestions((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      console.error("Failed to delete suggestion", e);
+      setSuggestionsErr("Failed to delete suggestion.");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
 
     async function load() {
-      if (!user || !admin) {
-        setLibrary([]);
-        setWishlist([]);
-        setErr(null);
-        setLoading(false);
-        return;
-      }
+    if (!user || !admin) {
+      setLibrary([]);
+      setWishlist([]);
+      setErr(null);
+      setLoading(false);
+      return;
+    }
       try {
         setLoading(true);
         const [libSnap, wishSnap] = await Promise.all([
@@ -2345,6 +2411,139 @@ export default function Dashboard() {
             </div>
           </div>
 
+          <div className="stat-card wide" style={{ minHeight: "340px", maxHeight: "480px" }}>
+            <h3>Suggestions</h3>
+            {suggestionsErr && (
+              <div className="error" style={{ textAlign: "center" }}>
+                {suggestionsErr}
+              </div>
+            )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+                alignItems: "stretch",
+              }}
+            >
+              {["anime", "manga"].map((bucket) => {
+                const bucketItems = suggestions
+                  .filter((s) => (s.type || "").toLowerCase() === bucket)
+                  .sort(
+                    (a, b) =>
+                      (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
+                  );
+                return (
+                  <div
+                    key={bucket}
+                    style={{
+                      border: "1px solid rgba(255,182,193,0.18)",
+                      borderRadius: "16px",
+                      padding: "10px 12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      background: "rgba(255,182,193,0.04)",
+                      minHeight: "240px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: "8px",
+                        position: "relative",
+                      }}
+                    >
+                      <h4
+                        style={{
+                          margin: 0,
+                          color: "#ffb6c1",
+                          textAlign: "center",
+                          flex: 1,
+                        }}
+                      >
+                        {bucket === "anime" ? "Anime" : "Manga"}
+                      </h4>
+                      <span
+                        className="stat-sub"
+                        style={{ position: "absolute", right: 0 }}
+                      >
+                        {bucketItems.length} suggestion{bucketItems.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div
+                      className="scrollable"
+                      style={{ maxHeight: "280px", height: "280px", paddingRight: "4px", overflowY: "auto" }}
+                    >
+                      {suggestionsLoading ? (
+                        <div className="stat-sub">Loading suggestions...</div>
+                      ) : bucketItems.length ? (
+                        bucketItems.map((s) => {
+                          const created =
+                            s.createdAt instanceof Date
+                              ? s.createdAt
+                              : s.createdAt
+                              ? new Date(s.createdAt)
+                              : null;
+                          return (
+                            <div
+                              key={s.id}
+                              style={{
+                                border: "1px solid rgba(255,182,193,0.25)",
+                                borderRadius: "12px",
+                                padding: "8px 10px",
+                                marginBottom: "8px",
+                                background: "rgba(255,182,193,0.06)",
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                gap: "6px",
+                                alignItems: "center",
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontWeight: 600, color: "#f7d0dc" }}>
+                                  {s.content || "(no content)"}
+                                </div>
+                                <div className="stat-sub" style={{ fontSize: "0.8rem" }}>
+                                  {created
+                                    ? created.toLocaleString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                      })
+                                    : ""}{" "}
+                                  {s.from ? `• ${s.from}` : ""}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                {admin && (
+                                  <button
+                                    type="button"
+                                    className="stat-link"
+                                    onClick={() => deleteSuggestion(s.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="stat-sub">No suggestions yet.</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="stat-sub" style={{ marginTop: "8px", textAlign: "center" }}>
+              Total suggestions: {suggestions.length}
+            </div>
+          </div>
+
           <div className="stat-card wide">
             <h3>Library Manager</h3>
             {!managerGroups.length ? (
@@ -2474,8 +2673,7 @@ export default function Dashboard() {
                                 }}
                               >
                                 <span style={{ flex: 1, minWidth: 0 }}>
-                                  {(book.Title || book.title || "Untitled") +
-                                    (readFlag ? " ?" : "")}
+                                  {book.Title || book.title || "Untitled"}
                                 </span>
                                 {missing && (
                                   <span
@@ -2645,24 +2843,21 @@ export default function Dashboard() {
                           placeholder="Secondary genre / theme"
                         />
                       </div>
-                      <div className={`dash-detail-row${missingSeriesFlags.datePurchased ? " missing-row" : ""}`}>
-                        <span>Date Purchased</span>
-                        <input
-                          type="date"
-                          value={seriesForm.datePurchased}
-                          onChange={(e) =>
-                            setSeriesForm((prev) => ({
-                              ...prev,
-                              datePurchased: e.target.value,
-                            }))
-                          }
-                        />
-                        {seriesForm.dateMixed && (
-                          <span className="stat-sub" style={{ marginTop: 4 }}>
-                            Volumes have different purchase dates. Setting a date will overwrite all.
-                          </span>
-                        )}
-                      </div>
+                      {!seriesForm.dateMixed && (
+                        <div className={`dash-detail-row${missingSeriesFlags.datePurchased ? " missing-row" : ""}`}>
+                          <span>Date Purchased</span>
+                          <input
+                            type="date"
+                            value={seriesForm.datePurchased}
+                            onChange={(e) =>
+                              setSeriesForm((prev) => ({
+                                ...prev,
+                                datePurchased: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
                       <div className={`dash-detail-row${missingSeriesFlags.msrp ? " missing-row" : ""}`}>
                         <span>MSRP (per book)</span>
                         <input
@@ -3147,6 +3342,14 @@ export default function Dashboard() {
                   onChange={(e) => setWebhooks((prev) => ({ ...prev, activity: e.target.value }))}
                 />
               </label>
+              <label className="dashboard-input">
+                <span>Suggestion webhook</span>
+                <input
+                  type="text"
+                  value={webhooks.suggestion}
+                  onChange={(e) => setWebhooks((prev) => ({ ...prev, suggestion: e.target.value }))}
+                />
+              </label>
               <div className="dashboard-input" style={{ borderTop: "1px solid rgba(255,182,193,0.2)", paddingTop: 8 }}>
                 <span>Admin UIDs</span>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -3218,6 +3421,7 @@ export default function Dashboard() {
                       yearly: webhooks.yearly || DEFAULT_YEARLY_WEBHOOK,
                       release: webhooks.release || DEFAULT_RELEASE_WEBHOOK,
                       activity: webhooks.activity || DEFAULT_ACTIVITY_WEBHOOK,
+                      suggestion: webhooks.suggestion || DEFAULT_SUGGESTION_WEBHOOK,
                     });
                     setSettingsOpen(false);
                   } catch (err) {

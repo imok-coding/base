@@ -5,14 +5,45 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [admin, setAdmin] = useState(false);
+  const [role, setRole] = useState("viewer");
   const [loading, setLoading] = useState(true);
+
+  const ensureUserDoc = async (firebaseUser) => {
+    if (!firebaseUser) return null;
+    const ref = doc(db, "users", firebaseUser.uid);
+    let existing = null;
+
+    try {
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        existing = snap.data();
+      }
+    } catch (err) {
+      console.warn("Failed to read user doc", err);
+    }
+
+    const payload = {
+      role: (existing?.role || "viewer").toLowerCase() === "admin" ? "admin" : "viewer",
+      email: firebaseUser.email || existing?.email || "",
+      displayName: firebaseUser.displayName || existing?.displayName || "",
+      createdAt: existing?.createdAt || serverTimestamp(),
+    };
+
+    try {
+      await setDoc(ref, payload, { merge: true });
+    } catch (err) {
+      console.error("Failed to ensure user doc", err);
+    }
+
+    return { ...existing, ...payload };
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -20,29 +51,18 @@ export function AuthProvider({ children }) {
 
       if (firebaseUser) {
         try {
-          // 1) Preferred: admins/<uid> exists
-          const adminRef = doc(db, "admins", firebaseUser.uid);
-          const adminSnap = await getDoc(adminRef);
-
-          if (adminSnap.exists()) {
-            setAdmin(true);
-          } else {
-            // 2) Backwards-compat: roles/<uid> with { admin: true }
-            const roleRef = doc(db, "roles", firebaseUser.uid);
-            const roleSnap = await getDoc(roleRef);
-
-            if (roleSnap.exists() && roleSnap.data().admin === true) {
-              setAdmin(true);
-            } else {
-              setAdmin(false);
-            }
-          }
+          const data = await ensureUserDoc(firebaseUser);
+          const userRole = data?.role || "viewer";
+          setRole(userRole);
+          setAdmin(userRole.toLowerCase() === "admin");
         } catch (err) {
-          console.error("Error checking admin role:", err);
+          console.error("Error checking role:", err);
           setAdmin(false);
+          setRole("viewer");
         }
       } else {
         setAdmin(false);
+        setRole("viewer");
       }
 
       setLoading(false);
@@ -60,7 +80,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, admin, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, admin, role, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
