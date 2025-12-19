@@ -123,9 +123,10 @@ export default function TCG() {
       acc.totalValue += qty * val;
       if (c.game === "pokemon") acc.pokemon += qty;
       if (c.game === "onepiece") acc.onepiece += qty;
+      if (c.game === "mtg") acc.mtg += qty;
       return acc;
     },
-    { totalCards: 0, totalPaid: 0, totalValue: 0, pokemon: 0, onepiece: 0 }
+    { totalCards: 0, totalPaid: 0, totalValue: 0, pokemon: 0, onepiece: 0, mtg: 0 }
   );
   const gain = stats.totalValue - stats.totalPaid;
 
@@ -290,11 +291,13 @@ export default function TCG() {
       <p style={{ margin: "6px 0 0", color: "var(--text-soft)", fontSize: "0.9rem" }}>
         Check out my TCG Collection with all the data of how much I spent (Under construction) and how much my collection is worth in total!
       </p>
-      <div style={{ marginTop: "10px" }}>
-        <button className="manga-btn secondary" type="button" onClick={exportTcgJson}>
-          Export JSON
-        </button>
-      </div>
+      {admin && (
+        <div style={{ marginTop: "10px" }}>
+          <button className="manga-btn secondary" type="button" onClick={exportTcgJson}>
+            Export JSON
+          </button>
+        </div>
+      )}
     </header>
 
       {admin && (
@@ -408,6 +411,7 @@ export default function TCG() {
                   >
                     <option value="pokemon">Pokemon</option>
                     <option value="onepiece">One Piece</option>
+                    <option value="mtg">MTG</option>
                   </select>
                 </label>
                 <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
@@ -733,6 +737,7 @@ export default function TCG() {
                   >
                     <option value="pokemon">Pokemon</option>
                     <option value="onepiece">One Piece</option>
+                    <option value="mtg">MTG</option>
                   </select>
                 </label>
                 <label style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>
@@ -966,25 +971,26 @@ export default function TCG() {
        )}
       <section
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          display: "flex",
+          flexWrap: "wrap",
           gap: "12px",
           marginTop: "18px",
+          justifyContent: "center",
         }}
       >
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total cards</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.totalCards}</div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total paid</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2 )}</div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total value</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2 )}</div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Unrealized gain / loss</div>
           <div
             style={{
@@ -996,13 +1002,17 @@ export default function TCG() {
             {gain >= 0 ? "+" : "-"}${Math.abs(gain).toFixed(2 )}
           </div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Pokemon cards</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.pokemon}</div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center" }}>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>One Piece cards</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.onepiece}</div>
+        </div>
+        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>MTG cards</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.mtg}</div>
         </div>
       </section>
 
@@ -1044,6 +1054,7 @@ export default function TCG() {
           <option value="all">All games</option>
           <option value="pokemon">Pokemon only</option>
           <option value="onepiece">One Piece only</option>
+          <option value="mtg">MTG only</option>
         </select>
         <select
           value={sortBy}
@@ -1158,7 +1169,11 @@ export default function TCG() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {c.game === "pokemon" ? "Pokemon" : "One Piece"}
+                    {{
+                      pokemon: "Pokemon",
+                      onepiece: "One Piece",
+                      mtg: "MTG",
+                    }[c.game] || "Other"}
                   </span>
                   {admin && (
                     <div style={{ display: "flex", gap: "6px", alignItems: "center", marginLeft: "auto" }}>

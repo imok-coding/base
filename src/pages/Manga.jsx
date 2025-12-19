@@ -1915,13 +1915,15 @@ export default function Manga() {
             + {activeTab === "wishlist" ? "Wishlist" : "Library"}
           </button>
           <div className="manga-export-actions">
-            <button
-              className="manga-btn secondary"
-              type="button"
-              onClick={() => downloadJson({ library, wishlist }, "manga-library-wishlist.json")}
-            >
-              Export JSON
-            </button>
+            {admin && (
+              <button
+                className="manga-btn secondary"
+                type="button"
+                onClick={() => downloadJson({ library, wishlist }, "manga-library-wishlist.json")}
+              >
+                Export JSON
+              </button>
+            )}
             <button
               className="manga-btn secondary"
               type="button"
