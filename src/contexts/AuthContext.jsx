@@ -10,6 +10,9 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const DISCORD_SIGNUP_WEBHOOK =
+    "https://discord.com/api/webhooks/1451655828078723156/EA8QhLeiTT-7jOVQ6jFpV2he2zxVpAddAhlu8CiC6RtGFu9wTAOLdRjKeYHIV1OhVbmm";
+
   const [user, setUser] = useState(null);
   const [admin, setAdmin] = useState(false);
   const [role, setRole] = useState("viewer");
@@ -38,6 +41,22 @@ export function AuthProvider({ children }) {
 
     try {
       await setDoc(ref, payload, { merge: true });
+
+      // If this is a brand-new user doc (no existing data), send a Discord webhook notification
+      if (!existing && DISCORD_SIGNUP_WEBHOOK) {
+        try {
+          const display = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
+          await fetch(DISCORD_SIGNUP_WEBHOOK, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: `New signup: ${display}`,
+            }),
+          });
+        } catch (e) {
+          console.warn("Failed to send signup webhook", e);
+        }
+      }
     } catch (err) {
       console.error("Failed to ensure user doc", err);
     }
