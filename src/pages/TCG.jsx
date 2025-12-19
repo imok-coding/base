@@ -982,10 +982,12 @@ export default function TCG() {
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total cards</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.totalCards}</div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
-          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total paid</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2 )}</div>
-        </div>
+        {stats.totalPaid > 0 && (
+          <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total paid</div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2)}</div>
+          </div>
+        )}
         <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total value</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2 )}</div>
