@@ -136,9 +136,13 @@ export default function Home() {
           }}
         >
           {lang === "jp" ? (
-            <span style={{ letterSpacing: "0.06em" }}>{"\u30de\u30f3\u30ac \u30fb \u30a2\u30cb\u30e1 \u30fb TCG"}</span>
+            <span style={{ letterSpacing: "0.06em" }}>
+              📚 マンガ ・ 🎬 アニメ ・ 🎵 音楽 ・ 🃏 TCG
+            </span>
           ) : (
-            <span style={{ letterSpacing: "0.06em" }}>Manga · Anime · TCG</span>
+            <span style={{ letterSpacing: "0.06em" }}>
+              📚 Manga · 🎬 Anime · 🎵 Music · 🃏 TCG
+            </span>
           )}
         </div>
       </header>
