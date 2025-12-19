@@ -11,7 +11,6 @@ const DEFAULT_RELEASE_WEBHOOK =
   "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
 const DEFAULT_ACTIVITY_WEBHOOK =
   "https://discord.com/api/webhooks/1448329790942613667/wsC8psNZ-Ax2D1O9Gl4sJi6ay7df2cr7IrIdxMPwGZTBnkSUIY2NDpeVd98qW_4plz82";
-const DEFAULT_SUGGESTION_WEBHOOK = "";
 const ACTIVITY_STORAGE_KEY = "mangaLibraryActivityLog";
 
 /* ---------- Helpers ---------- */
@@ -719,7 +718,6 @@ export default function Dashboard() {
     yearly: DEFAULT_YEARLY_WEBHOOK,
     release: DEFAULT_RELEASE_WEBHOOK,
     activity: DEFAULT_ACTIVITY_WEBHOOK,
-    suggestion: DEFAULT_SUGGESTION_WEBHOOK,
   });
   const [managerExpanded, setManagerExpanded] = useState(new Set());
   const [managerSelectedSeries, setManagerSelectedSeries] = useState(null);
@@ -732,74 +730,47 @@ export default function Dashboard() {
   const [bookForm, setBookForm] = useState(() => getBookFormDefaults());
   const [activityLog, setActivityLog] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [adminUidInput, setAdminUidInput] = useState("");
-  const [adminsList, setAdminsList] = useState([]);
-  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [usersList, setUsersList] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsErr, setSuggestionsErr] = useState("");
   const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const [calendarModalDay, setCalendarModalDay] = useState(null);
-  const refreshAdmins = async () => {
+  const refreshUsers = async () => {
     if (!admin) return;
     try {
-      setAdminsLoading(true);
-      const q = query(collection(db, "users"), where("role", "==", "admin"));
-      const snap = await getDocs(q);
+      setUsersLoading(true);
+      const snap = await getDocs(collection(db, "users"));
       const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
-      setAdminsList(rows);
+      setUsersList(rows);
     } catch (e) {
-      console.error("Failed to refresh admins", e);
+      console.error("Failed to load users", e);
     } finally {
-      setAdminsLoading(false);
+      setUsersLoading(false);
     }
   };
 
-  const handleGrantAdmin = async () => {
-    const uid = adminUidInput.trim();
-    if (!uid) {
-      alert("Enter a UID to grant admin.");
-      return;
-    }
-    try {
-      await setDoc(
-        doc(db, "users", uid),
-        {
-          role: "admin",
-          grantedBy: user?.uid || "manual",
-          grantedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-      setAdminUidInput("");
-      await refreshAdmins();
-    } catch (e) {
-      console.error("Grant admin failed", e);
-      alert("Failed to grant admin.");
-    }
-  };
-
-  const handleRevokeAdmin = async (uidOverride) => {
-    const target = (uidOverride || adminUidInput).trim();
+  const updateUserRole = async (uid, newRole) => {
+    const target = (uid || "").trim();
     if (!target) {
-      alert("Enter a UID to revoke admin.");
+      alert("UID is required.");
       return;
     }
     try {
       await setDoc(
         doc(db, "users", target),
         {
-          role: "viewer",
-          revokedBy: user?.uid || "manual",
-          revokedAt: new Date().toISOString(),
+          role: newRole,
+          updatedBy: user?.uid || "manual",
+          updatedAt: new Date().toISOString(),
         },
         { merge: true }
       );
-      if (!uidOverride) setAdminUidInput("");
-      await refreshAdmins();
+      await refreshUsers();
     } catch (e) {
-      console.error("Revoke admin failed", e);
-      alert("Failed to revoke admin.");
+      console.error("Failed to update role", e);
+      alert("Failed to update role.");
     }
   };
 
@@ -850,20 +821,17 @@ export default function Dashboard() {
             yearly: data.yearly || DEFAULT_YEARLY_WEBHOOK,
             release: data.release || DEFAULT_RELEASE_WEBHOOK,
             activity: data.activity || DEFAULT_ACTIVITY_WEBHOOK,
-            suggestion: data.suggestion || DEFAULT_SUGGESTION_WEBHOOK,
           });
         } else {
           await setDoc(ref, {
             yearly: DEFAULT_YEARLY_WEBHOOK,
             release: DEFAULT_RELEASE_WEBHOOK,
             activity: DEFAULT_ACTIVITY_WEBHOOK,
-            suggestion: DEFAULT_SUGGESTION_WEBHOOK,
           });
           setWebhooks({
             yearly: DEFAULT_YEARLY_WEBHOOK,
             release: DEFAULT_RELEASE_WEBHOOK,
             activity: DEFAULT_ACTIVITY_WEBHOOK,
-            suggestion: DEFAULT_SUGGESTION_WEBHOOK,
           });
         }
       } catch (e) {
@@ -872,22 +840,13 @@ export default function Dashboard() {
     })();
   }, [admin]);
 
-  // Load current admins for the admin settings modal
+  // Load users/roles for the admin settings modal
   useEffect(() => {
     if (!admin) return;
     let cancelled = false;
     (async () => {
-      try {
-        setAdminsLoading(true);
-        const snap = await getDocs(collection(db, "admins"));
-        if (cancelled) return;
-        const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
-        setAdminsList(rows);
-      } catch (e) {
-        console.error("Failed to load admins", e);
-      } finally {
-        if (!cancelled) setAdminsLoading(false);
-      }
+      await refreshUsers();
+      if (cancelled) return;
     })();
     return () => {
       cancelled = true;
@@ -3342,48 +3301,27 @@ export default function Dashboard() {
                   onChange={(e) => setWebhooks((prev) => ({ ...prev, activity: e.target.value }))}
                 />
               </label>
-              <label className="dashboard-input">
-                <span>Suggestion webhook</span>
-                <input
-                  type="text"
-                  value={webhooks.suggestion}
-                  onChange={(e) => setWebhooks((prev) => ({ ...prev, suggestion: e.target.value }))}
-                />
-              </label>
               <div className="dashboard-input" style={{ borderTop: "1px solid rgba(255,182,193,0.2)", paddingTop: 8 }}>
-                <span>Admin UIDs</span>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <input
-                    type="text"
-                    placeholder="Enter UID"
-                    value={adminUidInput}
-                    onChange={(e) => setAdminUidInput(e.target.value)}
-                    style={{
-                      flex: "1 1 220px",
-                      padding: "8px 10px",
-                      borderRadius: "10px",
-                      border: "1px solid rgba(255,182,193,0.35)",
-                      background: "rgba(43,15,29,0.75)",
-                      color: "#ffffff",
-                    }}
-                  />
-                  <button className="stat-link" type="button" onClick={handleGrantAdmin}>
-                    Grant
-                  </button>
-                  <button className="stat-link danger" type="button" onClick={() => handleRevokeAdmin()}>
-                    Revoke
-                  </button>
-                </div>
+                <span>User roles</span>
                 <div style={{ marginTop: 8, fontSize: "0.85rem", color: "var(--text-soft)" }}>
-                  {adminsLoading ? (
-                    <span>Loading admins…</span>
-                  ) : adminsList.length === 0 ? (
-                    <span>No admins found.</span>
+                  {usersLoading ? (
+                    <span>Loading users…</span>
+                  ) : usersList.length === 0 ? (
+                    <span>No users found.</span>
                   ) : (
-                    <ul style={{ listStyle: "none", margin: "6px 0 0", padding: 0, display: "flex", gap: 6, flexDirection: "column" }}>
-                      {adminsList.map((a) => (
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        margin: "6px 0 0",
+                        padding: 0,
+                        display: "flex",
+                        gap: 6,
+                        flexDirection: "column",
+                      }}
+                    >
+                      {usersList.map((u) => (
                         <li
-                          key={a.uid}
+                          key={u.uid}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -3393,17 +3331,35 @@ export default function Dashboard() {
                             border: "1px solid rgba(255,182,193,0.18)",
                             borderRadius: 10,
                             padding: "6px 8px",
+                            flexWrap: "wrap",
                           }}
                         >
-                          <span style={{ wordBreak: "break-all" }}>{a.uid}</span>
-                          <button
-                            className="dashboard-close"
-                            type="button"
-                            onClick={() => handleRevokeAdmin(a.uid)}
-                            style={{ padding: "4px 10px" }}
-                          >
-                            Revoke
-                          </button>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <strong>{u.displayName || u.email || u.uid}</strong>
+                            <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>{u.email || u.uid}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="role-pill">{u.role || "viewer"}</span>
+                            {u.role === "admin" ? (
+                              <button
+                                className="dashboard-close"
+                                type="button"
+                                onClick={() => updateUserRole(u.uid, "viewer")}
+                                style={{ padding: "4px 10px" }}
+                              >
+                                Make viewer
+                              </button>
+                            ) : (
+                              <button
+                                className="stat-link"
+                                type="button"
+                                onClick={() => updateUserRole(u.uid, "admin")}
+                                style={{ padding: "4px 10px" }}
+                              >
+                                Make admin
+                              </button>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -3415,19 +3371,18 @@ export default function Dashboard() {
               <button
                 className="stat-link"
                 type="button"
-                onClick={async () => {
-                  try {
-                    await setDoc(doc(db, "settings", "webhooks"), {
-                      yearly: webhooks.yearly || DEFAULT_YEARLY_WEBHOOK,
-                      release: webhooks.release || DEFAULT_RELEASE_WEBHOOK,
-                      activity: webhooks.activity || DEFAULT_ACTIVITY_WEBHOOK,
-                      suggestion: webhooks.suggestion || DEFAULT_SUGGESTION_WEBHOOK,
-                    });
-                    setSettingsOpen(false);
-                  } catch (err) {
-                    console.error("Failed to save webhooks", err);
-                    alert("Failed to save webhooks.");
-                  }
+              onClick={async () => {
+                try {
+                  await setDoc(doc(db, "settings", "webhooks"), {
+                    yearly: webhooks.yearly || DEFAULT_YEARLY_WEBHOOK,
+                    release: webhooks.release || DEFAULT_RELEASE_WEBHOOK,
+                    activity: webhooks.activity || DEFAULT_ACTIVITY_WEBHOOK,
+                  });
+                  setSettingsOpen(false);
+                } catch (err) {
+                  console.error("Failed to save webhooks", err);
+                  alert("Failed to save webhooks.");
+                }
                 }}
               >
                 Save

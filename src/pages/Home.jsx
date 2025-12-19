@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
   const TITLE_EN = "Tyler's Collection's and Hobbies";
-  const TITLE_JP = "\u30bf\u30a4\u30e9\u30fc\u306e\u30b3\u30ec\u30af\u30b7\u30e7\u30f3\u3068\u30b7\u30e5\u30df";
+  const TITLE_JP = "\u30bf\u30a4\u30e9\u30fc\u306e\u30b3\u30ec\u30af\u30b7\u30e7\u30f3\u3068\u8da3\u5473";
   const [title, setTitle] = useState("");
   const [cursorVisible, setCursorVisible] = useState(true);
   const blinkRef = useRef(null);
@@ -112,7 +112,7 @@ export default function Home() {
           }}
         >
           {lang === "jp"
-            ? "\u81ea\u5206\u306e\u66f8\u68b6\u3001\u30a6\u30a3\u30c3\u30b7\u30e5\u30ea\u30b9\u30c8\u3001TCG\u3092\u307e\u3068\u3081\u3066\u78ba\u8a8d\u3067\u304d\u308b\u30de\u30a4\u30da\u30fc\u30b8\u3067\u3059\u3002"
+            ? "\u81ea\u5206\u306e\u672c\u68da\u3001\u30a6\u30a3\u30c3\u30b7\u30e5\u30ea\u30b9\u30c8\u3001TCG\u3092\u307e\u3068\u3081\u3066\u898b\u3089\u308c\u308b\u30de\u30a4\u30da\u30fc\u30b8\u3067\u3059\u3002"
             : "This is my personal webpage to see what is on my shelves, wishlists, and TCG collections."}
         </p>
         <div
@@ -136,21 +136,9 @@ export default function Home() {
           }}
         >
           {lang === "jp" ? (
-            <>
-              <span role="img" aria-label="manga">📚</span> マンガ
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
-              <span role="img" aria-label="anime">🎬</span> アニメ
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
-              <span role="img" aria-label="tcg">🃏</span> TCG
-            </>
+            <span style={{ letterSpacing: "0.06em" }}>{"\u30de\u30f3\u30ac \u30fb \u30a2\u30cb\u30e1 \u30fb TCG"}</span>
           ) : (
-            <>
-              <span role="img" aria-label="manga">📚</span> Manga
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
-              <span role="img" aria-label="anime">🎬</span> Anime
-              <span style={{ color: "rgba(255,182,193,0.6)" }}>•</span>
-              <span role="img" aria-label="tcg">🃏</span> TCG
-            </>
+            <span style={{ letterSpacing: "0.06em" }}>Manga · Anime · TCG</span>
           )}
         </div>
       </header>
@@ -216,7 +204,7 @@ export default function Home() {
         <article className="card">
           <h2 style={{ marginTop: 0, marginBottom: "8px", fontSize: "1.2rem", color: "#ffb6c1" }}>
             <span style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
-              {lang === "jp" ? "\u5404\u30da\u30fc\u30b8\u3092\u63a2\u7d22" : "Explore these pages"}
+              {lang === "jp" ? "\u5404\u30da\u30fc\u30b8\u3078" : "Explore these pages"}
             </span>
           </h2>
 
@@ -241,18 +229,17 @@ export default function Home() {
                 </span>
               </div>
             </a>
-
-            <a
+                        <a
               href="/base/music"
               className="section-card"
               style={{ justifySelf: "end", alignSelf: "end", order: 99 }}
             >
               <h3 style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
-                {lang === "jp" ? "ミュージック" : "Music"}
+                {lang === "jp" ? "音楽" : "Music"}
               </h3>
               <p style={{ opacity: contentOpacity, transition: "opacity 0.25s ease" }}>
                 {lang === "jp"
-                  ? "音楽を聴きに来たなら、このページへ。最新リリースをまとめてチェック。"
+                  ? "音楽を聴く方はこちら。最新のリリースをまとめています。"
                   : "If you are here for my music, this is the page for you! Catch all the latest releases."}
               </p>
               <div className="section-chip-row">

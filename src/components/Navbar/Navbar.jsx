@@ -1,20 +1,35 @@
-﻿import "./Navbar.css";
+import "./Navbar.css";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import AuthModal from "../AuthModal/AuthModal";
 
-import { signOut, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import {
+  GoogleAuthProvider,
+  OAuthProvider,
+  linkWithPopup,
+  signOut,
+  unlink,
+  updateProfile,
+} from "firebase/auth";
+import { deleteField, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 
 export default function Navbar() {
+  const GOOGLE_PROVIDER_ID = "google.com";
+  const DISCORD_PROVIDER_ID = "oidc.discord";
+
   const [open, setOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [profileNameEdit, setProfileNameEdit] = useState("");
   const [profileSaveStatus, setProfileSaveStatus] = useState("");
+  const [connectionStatus, setConnectionStatus] = useState("");
+  const [connectionsLoading, setConnectionsLoading] = useState({
+    google: false,
+    discord: false,
+  });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
   const nameInputRef = useRef(null);
@@ -22,20 +37,18 @@ export default function Navbar() {
   const { user, admin, role } = useAuth();
   const navigate = useNavigate();
 
-  // Close profile menu whenever auth state changes
   useEffect(() => {
     setProfileMenuOpen(false);
     setProfileEditOpen(false);
     setProfileSaveStatus("");
+    setConnectionStatus("");
     setProfileEditing(false);
     setProfileNameEdit(user?.displayName || user?.email?.split("@")[0] || "");
   }, [user]);
 
-  // --- AUTH HANDLER: LOGOUT ---
   async function handleLogoutClick() {
     try {
       await signOut(auth);
-
       setOpen(false);
       setProfileMenuOpen(false);
       navigate("/");
@@ -53,6 +66,7 @@ export default function Navbar() {
     }
     setProfileMenuOpen(false);
     setProfileSaveStatus("");
+    setConnectionStatus("");
     setProfileEditing(false);
     setProfileEditOpen(true);
   };
@@ -81,6 +95,120 @@ export default function Navbar() {
       setProfileSaveStatus("Failed to update profile.");
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const isLinked = (providerId) =>
+    !!user?.providerData?.some((p) => p.providerId === providerId);
+
+  const handleLinkGoogle = async () => {
+    if (!user) {
+      setOpen(false);
+      setShowAuth(true);
+      return;
+    }
+    if (isLinked(GOOGLE_PROVIDER_ID)) {
+      setConnectionStatus("Google is already connected.");
+      return;
+    }
+    setConnectionsLoading((p) => ({ ...p, google: true }));
+    setConnectionStatus("");
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await linkWithPopup(auth.currentUser, provider);
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          connections: {
+            [GOOGLE_PROVIDER_ID]: {
+              email: result.user.email || "",
+              connectedAt: serverTimestamp(),
+            },
+          },
+        },
+        { merge: true }
+      );
+      setConnectionStatus("Google connected.");
+    } catch (err) {
+      console.error("Failed to link Google", err);
+      const msg =
+        err?.code === "auth/credential-already-in-use"
+          ? "That Google account is already linked elsewhere. Sign in with it instead."
+          : "Could not connect Google.";
+      setConnectionStatus(msg);
+    } finally {
+      setConnectionsLoading((p) => ({ ...p, google: false }));
+    }
+  };
+
+  const handleLinkDiscord = async () => {
+    if (!user) {
+      setOpen(false);
+      setShowAuth(true);
+      return;
+    }
+    if (isLinked(DISCORD_PROVIDER_ID)) {
+      setConnectionStatus("Discord is already connected.");
+      return;
+    }
+    setConnectionsLoading((p) => ({ ...p, discord: true }));
+    setConnectionStatus("");
+    try {
+      const provider = new OAuthProvider(DISCORD_PROVIDER_ID);
+      provider.addScope("identify");
+      provider.addScope("email");
+      const result = await linkWithPopup(auth.currentUser, provider);
+      const linkedProfile = result.user.providerData.find(
+        (p) => p.providerId === DISCORD_PROVIDER_ID
+      );
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          connections: {
+            [DISCORD_PROVIDER_ID]: {
+              username: linkedProfile?.displayName || linkedProfile?.uid || "Discord",
+              email: linkedProfile?.email || "",
+              connectedAt: serverTimestamp(),
+            },
+          },
+        },
+        { merge: true }
+      );
+      setConnectionStatus("Discord connected.");
+    } catch (err) {
+      console.error("Failed to link Discord", err);
+      const msg =
+        err?.code === "auth/credential-already-in-use"
+          ? "That Discord account is already linked elsewhere. Sign in with it instead."
+          : "Could not connect Discord.";
+      setConnectionStatus(msg);
+    } finally {
+      setConnectionsLoading((p) => ({ ...p, discord: false }));
+    }
+  };
+
+  const handleUnlink = async (providerId) => {
+    if (!user) return;
+    if (user.providerData.length <= 1) {
+      setConnectionStatus("You need at least one sign-in method.");
+      return;
+    }
+    const key = providerId === GOOGLE_PROVIDER_ID ? "google" : "discord";
+    setConnectionStatus("");
+    setConnectionsLoading((p) => ({ ...p, [key]: true }));
+    try {
+      await unlink(auth.currentUser, providerId);
+      await setDoc(
+        doc(db, "users", user.uid),
+        { connections: { [providerId]: deleteField() } },
+        { merge: true }
+      );
+      setConnectionStatus("Connection removed.");
+    } catch (err) {
+      console.error("Failed to unlink", err);
+      setConnectionStatus("Could not remove connection.");
+    } finally {
+      setConnectionsLoading((p) => ({ ...p, [key]: false }));
     }
   };
 
@@ -125,7 +253,6 @@ export default function Navbar() {
           Gaming
         </Link>
 
-        {/* ADMIN-ONLY DASHBOARD */}
         {admin && (
           <Link
             to="/dashboard"
@@ -136,7 +263,6 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Footer: divider + profile summary */}
         <div className="menu-footer">
           <div className="profile-divider" />
           <div
@@ -179,7 +305,7 @@ export default function Navbar() {
                 {user?.displayName || user?.email || "Guest"}
               </div>
               <div className="profile-role">
-                {user ? (admin ? "admin" : (role || "viewer")) : "Not signed in"}
+                {user ? (admin ? "admin" : role || "viewer") : "Not signed in"}
               </div>
             </div>
             {user && profileMenuOpen && (
@@ -200,7 +326,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Auth modal with Google + email/password */}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
 
       {profileEditOpen && (
@@ -214,10 +339,11 @@ export default function Navbar() {
                 onClick={() => {
                   setProfileEditOpen(false);
                   setProfileSaveStatus("");
+                  setConnectionStatus("");
                   setProfileEditing(false);
                 }}
               >
-                ×
+                &times;
               </button>
             </div>
             <div className="profile-edit-body">
@@ -229,7 +355,7 @@ export default function Navbar() {
                       "?").toUpperCase()
                   : "?"}
               </div>
-                            <div className="profile-edit-field">
+              <div className="profile-edit-field">
                 <label className="profile-edit-label" htmlFor="displayName">
                   Display name
                 </label>
@@ -264,7 +390,7 @@ export default function Navbar() {
                     }}
                     aria-label="Edit display name"
                   >
-                    ✎
+                    {"\u270e"}
                   </button>
                 </div>
                 <div className="profile-edit-hint">
@@ -272,6 +398,76 @@ export default function Navbar() {
                 </div>
               </div>
             </div>
+
+            <div className="profile-connections">
+              <div className="profile-connections-header">
+                <span>Connections</span>
+                {connectionStatus && (
+                  <span className="profile-connection-status">{connectionStatus}</span>
+                )}
+              </div>
+
+              <div className="profile-connection-row">
+                <div className="profile-connection-meta">
+                  <div className="profile-connection-title">Google</div>
+                  <div className="profile-connection-sub">
+                    {isLinked(GOOGLE_PROVIDER_ID) ? "Connected" : "Not connected"}
+                  </div>
+                </div>
+                <div className="profile-connection-actions">
+                  {isLinked(GOOGLE_PROVIDER_ID) ? (
+                    <button
+                      type="button"
+                      className="profile-connection-btn secondary"
+                      onClick={() => handleUnlink(GOOGLE_PROVIDER_ID)}
+                      disabled={connectionsLoading.google}
+                    >
+                      {connectionsLoading.google ? "Removing..." : "Remove"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="profile-connection-btn"
+                      onClick={handleLinkGoogle}
+                      disabled={connectionsLoading.google}
+                    >
+                      {connectionsLoading.google ? "Connecting..." : "Connect"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-connection-row">
+                <div className="profile-connection-meta">
+                  <div className="profile-connection-title">Discord</div>
+                  <div className="profile-connection-sub">
+                    {isLinked(DISCORD_PROVIDER_ID) ? "Connected" : "Not connected"}
+                  </div>
+                </div>
+                <div className="profile-connection-actions">
+                  {isLinked(DISCORD_PROVIDER_ID) ? (
+                    <button
+                      type="button"
+                      className="profile-connection-btn secondary"
+                      onClick={() => handleUnlink(DISCORD_PROVIDER_ID)}
+                      disabled={connectionsLoading.discord}
+                    >
+                      {connectionsLoading.discord ? "Removing..." : "Remove"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="profile-connection-btn"
+                      onClick={handleLinkDiscord}
+                      disabled={connectionsLoading.discord}
+                    >
+                      {connectionsLoading.discord ? "Connecting..." : "Connect"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {profileSaveStatus && (
               <div className="profile-edit-status">{profileSaveStatus}</div>
             )}
@@ -284,13 +480,3 @@ export default function Navbar() {
     </>
   );
 }
-
-
-
-
-
-
-
-
-
-
