@@ -16,6 +16,7 @@ import SuggestionModal from "../components/SuggestionModal.jsx";
 const SUGGESTION_LIMIT = 5;
 const SUGGESTION_WINDOW_MS = 60 * 60 * 1000;
 const SUGGESTION_STORAGE_KEY = "mangaSuggestionsSent";
+const VIEW_MODE_STORAGE_KEY = "mangaViewMode";
 
 // ---- Helpers to match your old index.html logic ----
 
@@ -349,12 +350,24 @@ export default function Manga() {
   const isAdmin = admin;
 
   const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist'
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === "undefined") return "series";
+    const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return stored === "individual" ? "individual" : "series";
+  }); // 'series' | 'individual'
   useEffect(() => {
     document.title = "Manga | Library";
   }, []);
   useEffect(() => {
     setSuggestionStatus("");
   }, [user]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    } catch (err) {
+      console.warn("Failed to persist manga view mode", err);
+    }
+  }, [viewMode]);
 
   const submitSuggestion = async () => {
     const now = Date.now();
@@ -413,8 +426,13 @@ export default function Manga() {
 
   const [multiMode, setMultiMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  useEffect(() => {
+    if (viewMode === "series" && multiMode) {
+      setMultiMode(false);
+      setSelectedIds(new Set());
+    }
+  }, [viewMode, multiMode]);
 
-  const [modalBook, setModalBook] = useState(null);
   const [adminForm, setAdminForm] = useState({
     open: false,
     mode: "add",
@@ -458,6 +476,22 @@ export default function Manga() {
   const [suggestionText, setSuggestionText] = useState("");
   const [suggestionStatus, setSuggestionStatus] = useState("");
   const [suggestionSending, setSuggestionSending] = useState(false);
+  const [modalBook, setModalBook] = useState(null);
+  const [seriesModal, setSeriesModal] = useState(null); // { series, volumes[] }
+
+  // Lock page scroll when any modal is open
+  useEffect(() => {
+    const hasModal =
+      !!modalBook || !!seriesModal || adminForm.open || bulkEdit.open || suggestionOpen;
+    if (hasModal) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+    return undefined;
+  }, [modalBook, seriesModal, adminForm.open, bulkEdit.open, suggestionOpen]);
 
   const canSuggest = !!user && role === "viewer";
 
@@ -724,6 +758,13 @@ export default function Manga() {
     return filteredWishlist.filter((b) => !b.hidden);
   }, [filteredWishlist, isAdmin, showHidden]);
 
+  const changeViewMode = (mode) => {
+    const next = mode === "individual" ? "individual" : "series";
+    setViewMode(next);
+    setSelectedIds(new Set());
+    setMultiMode(false);
+  };
+
   // ----- Multi-select -----
 
   function toggleMultiMode() {
@@ -855,6 +896,21 @@ export default function Manga() {
 
   function closeModal() {
     setModalBook(null);
+  }
+
+  function openSeriesModal(series) {
+    const vols = currentList
+      .filter((item) => {
+        const parsed = parseTitleForSort(item.title || "");
+        const key = parsed.name || (item.title || "").toLowerCase() || item.id;
+        return key === series.key;
+      })
+      .sort((a, b) => parseTitleForSort(a.title).vol - parseTitleForSort(b.title).vol);
+    setSeriesModal({ series, volumes: vols });
+  }
+
+  function closeSeriesModal() {
+    setSeriesModal(null);
   }
 
   // ----- Rendering helpers -----
@@ -1428,6 +1484,58 @@ export default function Manga() {
     }
   }
 
+  const buildSeriesGroups = (list) => {
+    const groups = new Map();
+    list.forEach((item) => {
+      const parsed = parseTitleForSort(item.title || "");
+      const key = parsed.name || (item.title || "").toLowerCase() || item.id;
+      const meta = seriesInfoMap.get(parsed.name) || null;
+      const baseTitle =
+        meta?.display ||
+        (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
+        item.title ||
+        "Untitled";
+      const volNumber = Number.isFinite(parsed.vol) ? parsed.vol : 0;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          id: `series-${key}`,
+          key,
+          title: baseTitle,
+          authors:
+            item.authors && item.authors !== "Unknown"
+              ? item.authors
+              : meta?.authors || "",
+          publisher:
+            item.publisher && item.publisher !== "Unknown"
+              ? item.publisher
+              : meta?.publisher || "",
+        demographic: meta?.demographic || item.demographic || "",
+        cover: item.cover || "",
+        count: 1,
+        readCount: item.read ? 1 : 0,
+        minVol: volNumber,
+        maxVol: volNumber,
+        representative: item,
+      });
+    } else {
+      const existing = groups.get(key);
+      existing.count += 1;
+      if (item.read) existing.readCount += 1;
+      existing.minVol = Math.min(existing.minVol, volNumber);
+      existing.maxVol = Math.max(existing.maxVol, volNumber);
+      if (!existing.cover && item.cover) existing.cover = item.cover;
+      if (!existing.authors && item.authors && item.authors !== "Unknown") {
+        existing.authors = item.authors;
+        }
+        if (!existing.publisher && item.publisher && item.publisher !== "Unknown") {
+          existing.publisher = item.publisher;
+        }
+      }
+    });
+    return Array.from(groups.values());
+  };
+
   function renderCard(book) {
     const selected = selectedIds.has(book.id);
     const isLibraryCard = book.kind === "library";
@@ -1510,6 +1618,63 @@ export default function Manga() {
     );
   }
 
+  function renderSeriesCard(series) {
+    const volumeLabel =
+      series.maxVol > 0 && series.minVol > 0
+        ? series.minVol === series.maxVol
+          ? `Vol. ${series.maxVol}`
+          : `Vol. ${series.minVol} - ${series.maxVol}`
+        : null;
+    const countLabel = `${series.count} volume${series.count === 1 ? "" : "s"}`;
+    const readLabel =
+      series.readCount >= series.count && series.count > 0
+        ? "Read"
+        : `Read ${series.readCount}/${series.count}`;
+    const isComplete = series.readCount >= series.count && series.count > 0;
+    const metaLines = [
+      series.authors && series.authors !== "Unknown" ? series.authors : null,
+      series.publisher && series.publisher !== "Unknown" ? series.publisher : null,
+      volumeLabel ? `${countLabel} • ${volumeLabel}` : countLabel,
+    ].filter(Boolean);
+
+    return (
+      <div
+        key={series.id}
+        className={
+          "manga-card series-view" + (isComplete ? " read" : "")
+        }
+        onClick={() => openSeriesModal(series)}
+      >
+        <div className="manga-card-cover-wrap">
+          <img
+            src={
+              series.cover ||
+              series.representative?.cover ||
+              "https://imgur.com/chUgq4W.png"
+            }
+            alt="Cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div className="manga-card-body">
+          <div className="manga-card-title">
+            {series.title || "Untitled Series"}
+          </div>
+          <div className="manga-card-meta">
+            {metaLines.map((line, idx) => (
+              <React.Fragment key={line + idx}>
+                {line}
+                <br />
+              </React.Fragment>
+            ))}
+          </div>
+          <div className="manga-card-series-count">{countLabel}</div>
+        </div>
+      </div>
+    );
+  }
+
   const StarPicker = ({ value, onChange }) => {
     const [hoverVal, setHoverVal] = useState(null);
     const baseVal = Math.max(0, Math.min(5, Number(value) || 0));
@@ -1568,6 +1733,20 @@ export default function Manga() {
   };
 
   const currentList = activeTab === "library" ? visibleLibrary : visibleWishlist;
+  const fullList = activeTab === "library" ? library : wishlist;
+
+  const currentSeriesList = useMemo(
+    () => buildSeriesGroups(currentList),
+    [currentList, seriesInfoMap]
+  );
+  const totalSeriesList = useMemo(
+    () => buildSeriesGroups(fullList),
+    [fullList, seriesInfoMap]
+  );
+
+  const displayList = viewMode === "series" ? currentSeriesList : currentList;
+  const displayCount = viewMode === "series" ? currentSeriesList.length : currentList.length;
+  const totalDisplayCount = viewMode === "series" ? totalSeriesList.length : fullList.length;
 
   const exportCSV = (rows, filename) => {
     if (!rows.length) return;
@@ -1812,19 +1991,42 @@ export default function Manga() {
                 }
               />
               <div className="manga-counter">
-                {activeTab === "library" ? (
-                  <>
-                    Library: {filteredLibrary.length} / {library.length}
-                  </>
-                ) : (
-                  <>
-                    Wishlist: {filteredWishlist.length} / {wishlist.length}
-                  </>
-                )}
+                {(() => {
+                  const isLib = activeTab === "library";
+                  const searchVal = (isLib ? searchLibrary : searchWishlist).trim();
+                  const total = isLib ? library.length : wishlist.length; // include hidden
+                  const filtered = isLib ? filteredLibrary.length : filteredWishlist.length;
+                  if (searchVal) {
+                    return `${filtered} / ${total} Volumes`;
+                  }
+                  return `${total} Volumes`;
+                })()}
               </div>
             </div>
 
             <div className="manga-toolbar-right">
+              <div className="manga-view-toggle">
+                <button
+                  className={"manga-btn secondary" + (viewMode === "series" ? " active" : "")}
+                  type="button"
+                  aria-pressed={viewMode === "series"}
+                  aria-label="Series view"
+                  title="Series View"
+                  onClick={() => changeViewMode("series")}
+                >
+                  ◻
+                </button>
+                <button
+                  className={"manga-btn secondary" + (viewMode === "individual" ? " active" : "")}
+                  type="button"
+                  aria-pressed={viewMode === "individual"}
+                  aria-label="Volume view"
+                  title="Volume View"
+                  onClick={() => changeViewMode("individual")}
+                >
+                  ▦
+                </button>
+              </div>
               {isAdmin && (
                 <button
                   className="manga-btn secondary"
@@ -1839,6 +2041,7 @@ export default function Manga() {
                   className={
                     "manga-btn secondary" + (multiMode ? " active" : "")
                   }
+                  disabled={viewMode === "series"}
                   onClick={toggleMultiMode}
                 >
                   {multiMode ? "Exit Multi-select" : "Multi-select"}
@@ -1848,7 +2051,7 @@ export default function Manga() {
           </div>
 
           {/* Multi-select toolbar */}
-          {isAdmin && multiMode && (
+          {isAdmin && multiMode && viewMode === "individual" && (
             <div className="manga-multiselect-bar">
               <span>
                 Selected: <strong>{selectedIds.size}</strong>
@@ -1894,13 +2097,80 @@ export default function Manga() {
         <div className="manga-empty-state">Loading manga from Firestore...</div>
       ) : error ? (
         <div className="manga-empty-state">{error}</div>
-      ) : currentList.length === 0 ? (
+      ) : displayList.length === 0 ? (
         <div className="manga-empty-state">
           No manga found. Try changing your search.
         </div>
       ) : (
         <div className="manga-grid">
-          {currentList.map((b) => renderCard(b))}
+          {displayList.map((b) =>
+            viewMode === "series" ? renderSeriesCard(b) : renderCard(b)
+          )}
+        </div>
+      )}
+
+      {/* Series modal (shows volumes inside a series) */}
+      {seriesModal && (
+        <div
+          className="manga-modal-backdrop visible"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeSeriesModal();
+          }}
+        >
+          <div className="manga-modal series">
+            <div className="manga-modal-body">
+              <div className="manga-modal-header">
+                <div className="manga-modal-title">
+                  {seriesModal.series.title || "Series"}
+                </div>
+                <button className="manga-modal-close" onClick={closeSeriesModal} type="button">
+                  Close
+                </button>
+              </div>
+              <div className="manga-modal-subtitle">
+                {seriesModal.series.count} volume{seriesModal.series.count === 1 ? "" : "s"} in this series
+              </div>
+              <div className="manga-series-modal-grid">
+                {seriesModal.volumes.map((vol) => (
+                  <div
+                    key={vol.id}
+                    className={"manga-card mini-card" + (vol.read ? " read" : "")}
+                    onClick={() => {
+                      closeSeriesModal();
+                      openModal(vol);
+                    }}
+                  >
+                    <div className="manga-card-cover-wrap">
+                      <img
+                        src={vol.cover || "https://imgur.com/chUgq4W.png"}
+                        alt={vol.title || "Cover"}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                    <div className="manga-card-body">
+                      <div className="manga-card-title">{vol.title || "Untitled"}</div>
+                      <div className="manga-card-meta">
+                        {vol.authors && vol.authors !== "Unknown" && (
+                          <>
+                            {vol.authors}
+                            <br />
+                          </>
+                        )}
+                        {vol.publisher && vol.publisher !== "Unknown" && (
+                          <>
+                            {vol.publisher}
+                            <br />
+                          </>
+                        )}
+                        {vol.date && vol.date !== "Unknown" && vol.date}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1962,6 +2232,9 @@ export default function Manga() {
         >
           <div className="manga-modal">
             <div className="manga-modal-cover-wrap">
+              {modalBook.kind === "library" && modalBook.read && (
+                <div className="manga-modal-read-pill">Read</div>
+              )}
               <img
                 src={
                   modalBook.cover ||
