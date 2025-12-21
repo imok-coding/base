@@ -1,0 +1,56 @@
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAdminEdit(book);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="manga-btn mini danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteSingle(book.id, book.kind === "wishlist" ? "wishlist" : "library");
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderSeriesCard(series) {
+    const uniqVolumes = Array.from(
+      new Set((series.volumes || []).filter((v) => Number.isFinite(v) && v > 0))
+    ).sort((a, b) => a - b);
+    let volumeLabel = null;
+    if (uniqVolumes.length === 1) {
+      volumeLabel = `Vol. ${uniqVolumes[0]}`;
+    } else if (uniqVolumes.length > 1) {
+      const first = uniqVolumes[0];
+      const last = uniqVolumes[uniqVolumes.length - 1];
+      const isContiguous = uniqVolumes.every(
+        (v, idx) => idx === 0 || v - uniqVolumes[idx - 1] === 1
+      );
+      volumeLabel = isContiguous
+        ? `Vol. ${first}-${last}`
+        : `Vols. ${uniqVolumes.join(", ")}`;
+    }
+    const countLabel = `${series.count} volume${series.count === 1 ? "" : "s"}`;
+    const readLabel =
+      series.readCount >= series.count && series.count > 0
+        ? "Read"
+        : `Read ${series.readCount}/${series.count}`;
+    const isComplete = series.readCount >= series.count && series.count > 0;
+    const metaLines = [
+      series.authors && series.authors !== "Unknown" ? series.authors : null,
+      series.publisher && series.publisher !== "Unknown" ? series.publisher : null,
+      volumeLabel ? `${countLabel} • ${volumeLabel}` : countLabel,
+    ].filter(Boolean);
+
+    return (
+      <div
+        key={series.id}

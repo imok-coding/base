@@ -50,6 +50,20 @@ function parseIntSafe(val) {
   return Number.isFinite(num) ? num : 0;
 }
 
+// Extract volume numbers from titles, expanding ranges like "Vol. 1-2" -> [1,2]
+function extractVolumesFromTitle(title) {
+  const text = title || "";
+  const match = text.match(/vol(?:ume)?\.?\s*(\d+)(?:\s*[-–—]\s*(\d+))?/i);
+  if (!match) return [];
+  const start = parseInt(match[1], 10);
+  const end = match[2] ? parseInt(match[2], 10) : start;
+  if (!Number.isFinite(start)) return [];
+  const safeEnd = Number.isFinite(end) && end >= start ? end : start;
+  const vols = [];
+  for (let v = start; v <= safeEnd; v += 1) vols.push(v);
+  return vols;
+}
+
 // ---- Stats computation (React version of your old dashboard) ----
 
 function computeMangaStats(library, wishlist) {
@@ -1495,7 +1509,15 @@ export default function Manga() {
         (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
         item.title ||
         "Untitled";
-      const volNumber = Number.isFinite(parsed.vol) ? parsed.vol : 0;
+      const volumesForItem = extractVolumesFromTitle(item.title || "");
+      const fallbackVol = Number.isFinite(parsed.vol) ? parsed.vol : 0;
+      const volumeNumbers =
+        volumesForItem.length > 0
+          ? volumesForItem
+          : fallbackVol > 0
+            ? [fallbackVol]
+            : [];
+      const volNumber = volumeNumbers.length ? volumeNumbers[0] : 0;
 
       if (!groups.has(key)) {
         groups.set(key, {
@@ -1510,23 +1532,29 @@ export default function Manga() {
             item.publisher && item.publisher !== "Unknown"
               ? item.publisher
               : meta?.publisher || "",
-        demographic: meta?.demographic || item.demographic || "",
-        cover: item.cover || "",
-        count: 1,
-        readCount: item.read ? 1 : 0,
-        minVol: volNumber,
-        maxVol: volNumber,
-        representative: item,
-      });
-    } else {
-      const existing = groups.get(key);
-      existing.count += 1;
-      if (item.read) existing.readCount += 1;
-      existing.minVol = Math.min(existing.minVol, volNumber);
-      existing.maxVol = Math.max(existing.maxVol, volNumber);
-      if (!existing.cover && item.cover) existing.cover = item.cover;
-      if (!existing.authors && item.authors && item.authors !== "Unknown") {
-        existing.authors = item.authors;
+          demographic: meta?.demographic || item.demographic || "",
+          cover: item.cover || "",
+          count: 1,
+          readCount: item.read ? 1 : 0,
+          minVol: volNumber,
+          maxVol: volNumber,
+          representative: item,
+          volumes: [...volumeNumbers],
+        });
+      } else {
+        const existing = groups.get(key);
+        existing.count += 1;
+        if (item.read) existing.readCount += 1;
+        if (volumeNumbers.length) {
+          const vMin = Math.min(...volumeNumbers);
+          const vMax = Math.max(...volumeNumbers);
+          existing.minVol = Math.min(existing.minVol, vMin);
+          existing.maxVol = Math.max(existing.maxVol, vMax);
+          existing.volumes.push(...volumeNumbers);
+        }
+        if (!existing.cover && item.cover) existing.cover = item.cover;
+        if (!existing.authors && item.authors && item.authors !== "Unknown") {
+          existing.authors = item.authors;
         }
         if (!existing.publisher && item.publisher && item.publisher !== "Unknown") {
           existing.publisher = item.publisher;
@@ -1534,6 +1562,37 @@ export default function Manga() {
       }
     });
     return Array.from(groups.values());
+  };
+
+  const formatVolumeLabel = (volumes) => {
+    const uniq = Array.from(
+      new Set((volumes || []).filter((v) => Number.isFinite(v) && v > 0))
+    ).sort((a, b) => a - b);
+    if (!uniq.length) return null;
+
+    const ranges = [];
+    let start = uniq[0];
+    let prev = uniq[0];
+
+    for (let i = 1; i < uniq.length; i += 1) {
+      const cur = uniq[i];
+      if (cur === prev + 1) {
+        prev = cur;
+        continue;
+      }
+      ranges.push([start, prev]);
+      start = cur;
+      prev = cur;
+    }
+    ranges.push([start, prev]);
+
+    if (ranges.length === 1) {
+      const [s, e] = ranges[0];
+      return s === e ? `Vol. ${s}` : `Vol. ${s}-${e}`;
+    }
+
+    const rangeText = ranges.map(([s, e]) => (s === e ? `${s}` : `${s}-${e}`)).join(", ");
+    return `Vols. ${rangeText}`;
   };
 
   function renderCard(book) {
@@ -1619,12 +1678,7 @@ export default function Manga() {
   }
 
   function renderSeriesCard(series) {
-    const volumeLabel =
-      series.maxVol > 0 && series.minVol > 0
-        ? series.minVol === series.maxVol
-          ? `Vol. ${series.maxVol}`
-          : `Vol. ${series.minVol} - ${series.maxVol}`
-        : null;
+    const volumeLabel = formatVolumeLabel(series.volumes);
     const countLabel = `${series.count} volume${series.count === 1 ? "" : "s"}`;
     const readLabel =
       series.readCount >= series.count && series.count > 0
@@ -1634,7 +1688,7 @@ export default function Manga() {
     const metaLines = [
       series.authors && series.authors !== "Unknown" ? series.authors : null,
       series.publisher && series.publisher !== "Unknown" ? series.publisher : null,
-      volumeLabel ? `${countLabel} • ${volumeLabel}` : countLabel,
+      volumeLabel ? `${countLabel} - ${volumeLabel}` : countLabel,
     ].filter(Boolean);
 
     return (
@@ -2136,7 +2190,6 @@ export default function Manga() {
                     key={vol.id}
                     className={"manga-card mini-card" + (vol.read ? " read" : "")}
                     onClick={() => {
-                      closeSeriesModal();
                       openModal(vol);
                     }}
                   >
@@ -2342,6 +2395,15 @@ export default function Manga() {
                     : "Wishlist item - not in library yet."}
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {isAdmin && (
+                    <button
+                      className="manga-btn mini secondary"
+                      type="button"
+                      onClick={() => openAdminEdit(modalBook)}
+                    >
+                      Edit
+                    </button>
+                  )}
                   {modalBook.kind === "library" && (
                     <>
                       {!modalBook.read ? (
