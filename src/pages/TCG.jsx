@@ -21,6 +21,10 @@ export default function TCG() {
   };
 
   const { admin, user } = useAuth();
+  const [lastGame, setLastGame] = useState(() => {
+    const saved = localStorage.getItem("tcgLastGame");
+    return saved || initialForm.game;
+  });
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [term, setTerm] = useState("");
@@ -31,7 +35,7 @@ export default function TCG() {
   const [searchError, setSearchError] = useState("");
   const [editCard, setEditCard] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => ({ ...initialForm, game: lastGame }));
 
   useEffect(() => {
     document.title = "TCG | Collection";
@@ -121,16 +125,54 @@ export default function TCG() {
       acc.totalCards += qty;
       acc.totalPaid += qty * paid;
       acc.totalValue += qty * val;
-      if (c.game === "pokemon") acc.pokemon += qty;
-      if (c.game === "onepiece") acc.onepiece += qty;
-      if (c.game === "mtg") acc.mtg += qty;
+      const gameKey = (c.game || "").toLowerCase();
+      const valueDelta = qty * val;
+      if (gameKey === "pokemon") {
+        acc.pokemon += qty;
+        acc.valueByGame.pokemon += valueDelta;
+      } else if (gameKey === "onepiece") {
+        acc.onepiece += qty;
+        acc.valueByGame.onepiece += valueDelta;
+      } else if (gameKey === "mtg") {
+        acc.mtg += qty;
+        acc.valueByGame.mtg += valueDelta;
+      } else {
+        acc.valueByGame.other += valueDelta;
+      }
       return acc;
     },
-    { totalCards: 0, totalPaid: 0, totalValue: 0, pokemon: 0, onepiece: 0, mtg: 0 }
+    {
+      totalCards: 0,
+      totalPaid: 0,
+      totalValue: 0,
+      pokemon: 0,
+      onepiece: 0,
+      mtg: 0,
+      valueByGame: { pokemon: 0, onepiece: 0, mtg: 0, other: 0 },
+    }
   );
   const gain = stats.totalValue - stats.totalPaid;
+  const valueTooltipLines = [
+    ["Pokemon", stats.valueByGame.pokemon],
+    ["One Piece", stats.valueByGame.onepiece],
+    ["MTG", stats.valueByGame.mtg],
+    ["Other", stats.valueByGame.other],
+  ]
+    .filter(([, v]) => v > 0)
+    .map(([label, v]) => `${label}: $${v.toFixed(2)}`);
+  const totalValueTooltip = valueTooltipLines.length
+    ? valueTooltipLines.join("\n")
+    : "No value data yet";
 
   const handleFormChange = (field, value) => {
+    if (field === "game") {
+      setLastGame(value);
+      try {
+        localStorage.setItem("tcgLastGame", value);
+      } catch (e) {
+        // ignore storage errors
+      }
+    }
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -199,7 +241,7 @@ export default function TCG() {
         snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
         setCards(rows);
       }
-      setForm(initialForm);
+      setForm({ ...initialForm, game: lastGame });
       setAddModalOpen(false);
     } catch (err) {
       console.error("Error adding card:", err);
@@ -988,7 +1030,11 @@ export default function TCG() {
             <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalPaid.toFixed(2)}</div>
           </div>
         )}
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
+        <div
+          className="card"
+          style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}
+          title={totalValueTooltip}
+        >
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total value</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2 )}</div>
         </div>

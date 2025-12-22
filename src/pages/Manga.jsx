@@ -1901,49 +1901,88 @@ export default function Manga() {
     URL.revokeObjectURL(url);
   };
 
+  const buildMovePayload = (book) => ({
+    title: book.title || "",
+    authors: book.authors || "",
+    publisher: book.publisher || "",
+    demographic: book.demographic || "",
+    genre: book.genre || "",
+    subGenre: book.subGenre || "",
+    date: book.date || "",
+    pageCount: book.pageCount ?? "",
+    cover: book.cover || "",
+    amountPaid: book.amountPaid ?? "",
+    read: !!book.read,
+    rating: book.rating ?? "",
+    dateRead: book.dateRead || "",
+    datePurchased: book.datePurchased || "",
+    msrp: book.msrp ?? "",
+    collectiblePrice: book.collectiblePrice ?? "",
+    specialType: book.specialType || "",
+    specialVolumes: book.specialVolumes ?? "",
+    isbn: book.isbn || "",
+    amazonURL: book.amazonURL || "",
+    hidden: !!book.hidden,
+  });
+
+  const getSeriesMsrp = (book) => {
+    const parsed = parseTitleForSort(book.title || "");
+    const key = parsed.name;
+    if (!key) return "";
+    const source = [...library, ...wishlist];
+    const match = source.find((b) => {
+      const p = parseTitleForSort(b.title || "");
+      const sameSeries = p.name === key;
+      const hasMsrp = b.msrp !== undefined && b.msrp !== null && b.msrp !== "";
+      return sameSeries && hasMsrp;
+    });
+    return match ? match.msrp : "";
+  };
+
+  const getSeriesDemographics = (book) => {
+    const parsed = parseTitleForSort(book.title || "");
+    const key = parsed.name;
+    if (!key) return { demographic: "", genre: "", subGenre: "" };
+    const source = [...library, ...wishlist];
+    const match = source.find((b) => {
+      const p = parseTitleForSort(b.title || "");
+      return p.name === key && (b.demographic || b.genre || b.subGenre);
+    });
+    return {
+      demographic: match?.demographic || "",
+      genre: match?.genre || "",
+      subGenre: match?.subGenre || "",
+    };
+  };
+
   const moveSingle = async (book) => {
     if (!isAdmin || !book?.id) return;
     const from = book.kind === "wishlist" ? "wishlist" : "library";
     const to = from === "library" ? "wishlist" : "library";
     try {
-      if (from === "library") {
-        const payload = {
-          title: book.title,
-          authors: book.authors,
-          publisher: book.publisher,
-          date: book.date,
-          pageCount: book.pageCount || "",
-          cover: book.cover || "",
-          amazonURL: book.amazonURL || "",
-          hidden: !!book.hidden,
-        };
-        await addDoc(collection(db, to), payload);
-      } else {
-        const payload = {
-          title: book.title,
-          authors: book.authors,
-          publisher: book.publisher,
-          date: book.date,
-          pageCount: book.pageCount || "",
-          cover: book.cover || "",
-          amountPaid: "",
-          read: false,
-          rating: "",
-          msrp: "",
-          collectiblePrice: "",
-          specialType: "",
-          specialVolumes: "",
-          isbn: "",
-          demographic: "",
-          genre: "",
-          subGenre: "",
-          amazonURL: book.amazonURL || "",
-          hidden: !!book.hidden,
-        };
-        await addDoc(collection(db, to), payload);
+      const payload = buildMovePayload(book);
+      if (to === "library") {
+        const inheritedMsrp = getSeriesMsrp(book);
+        if (payload.msrp === "" || payload.msrp === null || payload.msrp === undefined) {
+          payload.msrp = inheritedMsrp;
+        }
+        const inheritedDemo = getSeriesDemographics(book);
+        if (!payload.demographic) payload.demographic = inheritedDemo.demographic;
+        if (!payload.genre) payload.genre = inheritedDemo.genre;
+        if (!payload.subGenre) payload.subGenre = inheritedDemo.subGenre;
       }
+      await addDoc(collection(db, to), payload);
       await deleteDoc(doc(db, from, book.id));
       await Promise.all([loadLibrary(), loadWishlist()]);
+      // Remove the moved book from the series modal view if it's open
+      setSeriesModal((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          volumes: prev.volumes.filter((v) => v.id !== book.id),
+        };
+      });
+      // Close the detail modal since the item has moved lists
       closeModal();
     } catch (err) {
       console.error("Move failed", err);
