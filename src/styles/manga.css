@@ -405,6 +405,185 @@
   color: var(--manga-text-mute);
 }
 
+.series-bulk-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.mini-select-indicator {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+.mini-select-indicator.selected {
+  background: #4ae0a5;
+  color: #0b1020;
+  border-color: #4ae0a5;
+}
+
+.purchase-calendar-modal {
+  width: min(1000px, 95vw);
+  max-height: 90vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(43, 15, 29, 0.96), rgba(12, 6, 16, 0.95));
+  border: 1px solid rgba(255, 182, 193, 0.35);
+  border-radius: 16px;
+  padding: 14px;
+  color: var(--manga-text);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.purchase-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.purchase-calendar-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fef;
+}
+
+.purchase-calendar-sub {
+  color: var(--manga-text-soft);
+  font-size: 0.9rem;
+}
+
+.purchase-calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.purchase-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .purchase-calendar-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+.purchase-day {
+  border: 1px dashed rgba(255, 182, 193, 0.25);
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 90px;
+  background: rgba(24, 8, 18, 0.8);
+  color: var(--manga-text);
+  position: relative;
+}
+
+.purchase-day.pad {
+  border: none;
+  background: transparent;
+}
+
+.purchase-day.has-items {
+  border-color: rgba(74, 224, 165, 0.55);
+  background: linear-gradient(140deg, rgba(10, 36, 26, 0.9), rgba(34, 14, 28, 0.9));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.purchase-day-num {
+  font-weight: 700;
+  color: var(--manga-text-soft);
+  margin-bottom: 4px;
+}
+
+.purchase-day-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.purchase-chip {
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  background: rgba(74, 224, 165, 0.16);
+  border: 1px solid rgba(74, 224, 165, 0.6);
+  color: #caffed;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.purchase-chip.more {
+  text-align: center;
+  border-style: dashed;
+}
+
+.purchase-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--manga-text-soft);
+  padding: 10px;
+}
+
+.purchase-day-modal {
+  width: min(520px, 90vw);
+  background: linear-gradient(135deg, rgba(39, 13, 25, 0.98), rgba(12, 6, 16, 0.98));
+  border: 1px solid rgba(74, 224, 165, 0.55);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.95);
+}
+
+.purchase-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.purchase-day-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #caffed;
+}
+
+.purchase-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.purchase-day-item {
+  border: 1px solid rgba(74, 224, 165, 0.55);
+  background: rgba(8, 24, 18, 0.8);
+  border-radius: 12px;
+  padding: 8px 10px;
+  color: #caffed;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 /* MULTI-SELECT TOOLBAR */
 
 .manga-multiselect-bar {
@@ -632,12 +811,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 320px;
+  min-height: 200px;
 }
 
 .admin-cover-frame img {
   width: 100%;
-  max-width: 220px;
+  max-width: 160px;
   height: auto;
   border-radius: 10px;
   border: 1px solid rgba(255, 182, 193, 0.25);

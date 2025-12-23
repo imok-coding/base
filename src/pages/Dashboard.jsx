@@ -370,20 +370,28 @@ function buildTopSeriesBars(seriesMap, limit = 8) {
   }));
 }
 
-// Wishlist releases: array of { date, title }
-function buildWishlistReleases(wishlist) {
-  const releases = [];
-  for (const item of wishlist) {
-    const date =
-      parseDate(item.releaseDate || item.ReleaseDate || item.date || item.Date) ||
-      null;
-    if (!date) continue;
-    const title =
-      (item.title || item.series || item.Title || "Unknown Title").trim();
-    releases.push({ date, title });
-  }
-  releases.sort((a, b) => a.date - b.date);
-  return releases;
+// Releases across wishlist + library: array of { date, title, purchased, source }
+function buildReleaseEntries(library, wishlist) {
+  const collect = (item, source) => {
+    const date = parseDate(item.releaseDate || item.ReleaseDate || item.date || item.Date);
+    if (!date) return null;
+    const title = (item.title || item.series || item.Title || "Unknown Title").trim();
+    const purchased = !!(item.datePurchased || item.DatePurchased || "").trim();
+    return { date, title, purchased, source };
+  };
+
+  const merged = [];
+  (wishlist || []).forEach((item) => {
+    const entry = collect(item, "wishlist");
+    if (entry) merged.push(entry);
+  });
+  (library || []).forEach((item) => {
+    const entry = collect(item, "library");
+    if (entry) merged.push(entry);
+  });
+
+  merged.sort((a, b) => a.date - b.date);
+  return merged;
 }
 
 function getNextRelease(releases) {
@@ -776,6 +784,12 @@ export default function Dashboard() {
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [purchaseCalendarOpen, setPurchaseCalendarOpen] = useState(false);
+  const [purchaseMonth, setPurchaseMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
+  const [purchaseDayModal, setPurchaseDayModal] = useState(null); // { date, items[] }
 
   const [detailModal, setDetailModal] = useState({
     open: false,
@@ -791,7 +805,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     const hasOpenModal =
-      calendarOpen || detailModal.open || settingsOpen || !!calendarModalDay;
+      calendarOpen ||
+      detailModal.open ||
+      settingsOpen ||
+      !!calendarModalDay ||
+      purchaseCalendarOpen ||
+      !!purchaseDayModal;
     if (hasOpenModal) {
       document.body.style.overflow = "hidden";
     } else {
@@ -965,7 +984,7 @@ export default function Dashboard() {
     );
     const weekdayBreakdown = buildWeekdayBreakdown(library);
     const topSeriesBars = buildTopSeriesBars(seriesMap);
-    const releases = buildWishlistReleases(wishlist);
+    const releases = buildReleaseEntries(library, wishlist);
     const nextRelease = getNextRelease(releases);
 
     const avgDays = computeAvgPurchaseToRead(library);
@@ -1031,6 +1050,43 @@ export default function Dashboard() {
 
   const nextDate = nextRelease ? nextRelease.date : null;
   const hasError = Boolean(err);
+
+  const purchasesByDate = useMemo(() => {
+    const map = new Map();
+    const items = [...library, ...wishlist];
+    items.forEach((item) => {
+      const dp = parseDate(item.datePurchased || item.DatePurchased);
+      if (!dp) return;
+      const key = formatDateKey(dp);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push({
+        id: item.id || item.Title || item.title || key,
+        title: item.title || item.Title || "Untitled",
+      });
+    });
+    map.forEach((list) => list.sort((a, b) => (a.title || "").localeCompare(b.title || "")));
+    return map;
+  }, [library, wishlist]);
+
+  const purchaseCalendarCells = useMemo(() => {
+    const { year, month } = purchaseMonth;
+    const firstDay = new Date(year, month, 1);
+    const startPad = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let hasItems = false;
+    const cells = [];
+    for (let i = 0; i < startPad; i += 1) cells.push({ type: "pad" });
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const date = new Date(year, month, day);
+      const dateKey = formatDateKey(date);
+      const items = purchasesByDate.get(dateKey) || [];
+      if (items.length) hasItems = true;
+      cells.push({ type: "day", day, dateKey, items });
+    }
+    const totalCells = Math.ceil(cells.length / 7) * 7;
+    while (cells.length < totalCells) cells.push({ type: "pad" });
+    return { cells, hasItems };
+  }, [purchaseMonth, purchasesByDate]);
 
   const managerGroups = useMemo(() => {
     if (!library || !library.length) return [];
@@ -1706,6 +1762,33 @@ export default function Dashboard() {
   const todayKey = formatDateKey(new Date());
   const calendarCells = buildCalendarGrid(calendarMonth, releases, todayKey);
 
+  const changePurchaseMonth = (delta) => {
+    setPurchaseMonth((prev) => {
+      const d = new Date(prev.year, prev.month + delta, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  };
+
+  const closePurchaseCalendar = () => {
+    setPurchaseCalendarOpen(false);
+    setPurchaseDayModal(null);
+  };
+
+  const openPurchaseCalendar = () => {
+    // Jump to most recent purchase month if available
+    const keys = Array.from(purchasesByDate.keys()).sort();
+    if (keys.length) {
+      const latest = keys[keys.length - 1];
+      const [y, m] = latest.split("-");
+      const year = Number(y);
+      const month = Number(m) - 1;
+      if (!Number.isNaN(year) && !Number.isNaN(month)) {
+        setPurchaseMonth({ year, month });
+      }
+    }
+    setPurchaseCalendarOpen(true);
+  };
+
   // ---------- Detail modal body ----------
   function renderDetailBody() {
     const t = detailModal.type;
@@ -2032,7 +2115,7 @@ export default function Dashboard() {
     if (t === "releases") {
       return (
         <>
-          <h3>Wishlist Releases</h3>
+          <h3>Library & Wishlist Releases</h3>
           {releases.length === 0 ? (
             <p>No wishlist releases found.</p>
           ) : (
@@ -2126,7 +2209,7 @@ export default function Dashboard() {
       <section id="dashboardSection" className="page-section active">
         <div className="dashboard-grid">
           <div className="stat-stack">
-            <div className="stat-card mini">
+            <div className="stat-card mini clickable" onClick={openPurchaseCalendar}>
               <h3>Total Library Books</h3>
               <div className="stat-value">{totalLibrary}</div>
               <div className="stat-sub">Volumes in your library.</div>
@@ -3075,6 +3158,125 @@ export default function Dashboard() {
         </div>
       </section>
 
+      {/* Purchase calendar (opens from Total Library Books) */}
+      {purchaseCalendarOpen && (
+        <div
+          className="purchase-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closePurchaseCalendar();
+          }}
+        >
+          <div className="purchase-calendar-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="purchase-calendar-header">
+              <div>
+                <div className="purchase-calendar-title">
+                  {new Date(purchaseMonth.year, purchaseMonth.month).toLocaleString(undefined, {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </div>
+                <div className="purchase-calendar-sub">Purchased volumes by date</div>
+              </div>
+              <div className="purchase-calendar-controls">
+                <button
+                  type="button"
+                  className="manga-btn secondary mini"
+                  onClick={() => changePurchaseMonth(-1)}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="manga-btn secondary mini"
+                  onClick={() => changePurchaseMonth(1)}
+                >
+                  ›
+                </button>
+                <button
+                  type="button"
+                  className="manga-btn secondary"
+                  onClick={closePurchaseCalendar}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="purchase-calendar-grid">
+              {purchaseCalendarCells.cells.map((cell, idx) => {
+                if (cell.type === "pad") return <div key={`pad-${idx}`} className="purchase-day pad" />;
+                const { day, dateKey, items } = cell;
+                return (
+                  <div
+                    key={dateKey}
+                    className={"purchase-day" + (items.length ? " has-items" : "")}
+                    onClick={() => {
+                      if (!items.length) return;
+                      setPurchaseDayModal({ date: dateKey, items });
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (!items.length) return;
+                        setPurchaseDayModal({ date: dateKey, items });
+                      }
+                    }}
+                  >
+                    <div className="purchase-day-num">{day}</div>
+                    <div className="purchase-day-chips">
+                      {items.slice(0, 2).map((item) => (
+                        <div key={item.id} className="purchase-chip">
+                          {item.title || "Untitled"}
+                        </div>
+                      ))}
+                      {items.length > 2 && (
+                        <div className="purchase-chip more">+{items.length - 2} more</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {!purchaseCalendarCells.hasItems && (
+                <div className="purchase-empty">No purchases for this month.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {purchaseDayModal && (
+        <div
+          className="purchase-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPurchaseDayModal(null);
+          }}
+        >
+          <div className="purchase-day-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="purchase-day-header">
+              <div className="purchase-day-title">
+                {new Date(purchaseDayModal.date).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </div>
+              <button className="manga-btn secondary" onClick={() => setPurchaseDayModal(null)} type="button">
+                Close
+              </button>
+            </div>
+            <div className="purchase-day-list">
+              {purchaseDayModal.items.map((item) => (
+                <div key={item.id} className="purchase-day-item">
+                  {item.title || "Untitled"}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Calendar Overlay */}
       {calendarOpen && (
         <div
@@ -3150,7 +3352,7 @@ export default function Dashboard() {
                         : cell.releases.slice(0, 2)
                       ).map((r, i) => (
                         <div
-                          className="calendar-release"
+                          className={"calendar-release" + (r.purchased ? " purchased" : "")}
                           key={i}
                           title={r.title}
                         >
@@ -3223,7 +3425,7 @@ export default function Dashboard() {
               {detailModal.type === "pages" &&
                 "Pages Read vs Total"}
               {detailModal.type === "ratings" && "Ratings"}
-              {detailModal.type === "releases" && "Wishlist Releases"}
+              {detailModal.type === "releases" && "Library & Wishlist Releases"}
             </h2>
             <div id="statDetailBody">{renderDetailBody()}</div>
           </div>
@@ -3253,7 +3455,11 @@ export default function Dashboard() {
             </div>
             <div className="calendar-releases">
               {calendarModalDay.releases.map((r, idx) => (
-                <div className="calendar-release" key={idx} title={r.title}>
+                <div
+                  className={"calendar-release" + (r.purchased ? " purchased" : "")}
+                  key={idx}
+                  title={r.title}
+                >
                   {r.title}
                 </div>
               ))}
