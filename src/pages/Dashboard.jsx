@@ -1,17 +1,20 @@
-// src/pages/Dashboard.jsx
+﻿// src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
 import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  ACTIVITY_STORAGE_KEY,
+  DEFAULT_ACTIVITY_WEBHOOK,
+  persistActivityEntries,
+  recordActivity,
+} from "../utils/activity";
 
 const DEFAULT_YEARLY_WEBHOOK =
   "https://discord.com/api/webhooks/1448287168845054004/cGWGPoH5LaTFlBZ1vxtgMjOfV9au6qyQ_9ZRnOWN9-AX0MNfwxKNWVcZYQHz0ESA7_4k";
 const DEFAULT_RELEASE_WEBHOOK =
   "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
-const DEFAULT_ACTIVITY_WEBHOOK =
-  "https://discord.com/api/webhooks/1448329790942613667/wsC8psNZ-Ax2D1O9Gl4sJi6ay7df2cr7IrIdxMPwGZTBnkSUIY2NDpeVd98qW_4plz82";
-const ACTIVITY_STORAGE_KEY = "mangaLibraryActivityLog";
 
 /* ---------- Helpers ---------- */
 
@@ -73,7 +76,7 @@ function getSeriesDisplayName(doc) {
 
 function parseTitleForSort(t) {
   const text = (t || "").trim();
-  const match = text.match(/^(.*?)(?:,?\s*(?:vol\.|volume)\s*(\d+)(?:\s*[-–]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i);
+  const match = text.match(/^(.*?)(?:,?\s*(?:vol\.|volume)\s*(\d+)(?:\s*[-â€“]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i);
   const base = match ? match[1].trim().toLowerCase() : text.toLowerCase();
   const volNum = match && match[2] ? parseInt(match[2], 10) : 0;
   return {
@@ -784,6 +787,9 @@ export default function Dashboard() {
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [readCalendarOpen, setReadCalendarOpen] = useState(false);
+  const [readCalendarMonth, setReadCalendarMonth] = useState(() => new Date());
+  const [readCalendarModalDay, setReadCalendarModalDay] = useState(null);
   const [purchaseCalendarOpen, setPurchaseCalendarOpen] = useState(false);
   const [purchaseMonth, setPurchaseMonth] = useState(() => {
     const now = new Date();
@@ -809,6 +815,8 @@ export default function Dashboard() {
       detailModal.open ||
       settingsOpen ||
       !!calendarModalDay ||
+      readCalendarOpen ||
+      !!readCalendarModalDay ||
       purchaseCalendarOpen ||
       !!purchaseDayModal;
     if (hasOpenModal) {
@@ -819,7 +827,16 @@ export default function Dashboard() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [calendarOpen, detailModal.open, settingsOpen, calendarModalDay]);
+  }, [
+    calendarOpen,
+    detailModal.open,
+    settingsOpen,
+    calendarModalDay,
+    readCalendarOpen,
+    readCalendarModalDay,
+    purchaseCalendarOpen,
+    purchaseDayModal,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1050,6 +1067,21 @@ export default function Dashboard() {
 
   const nextDate = nextRelease ? nextRelease.date : null;
   const hasError = Boolean(err);
+  const todayKey = formatDateKey(new Date());
+  const readEntries = useMemo(() => {
+    return library
+      .map((item) => {
+        const dt = parseDate(item.dateRead || item.DateRead);
+        if (!dt || !(item.read || item.status === "Read" || item.Read === true)) return null;
+        return { date: dt, title: item.title || item.Title || "Untitled" };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.date - b.date);
+  }, [library]);
+  const readCalendarCells = useMemo(
+    () => buildCalendarGrid(readCalendarMonth, readEntries, todayKey),
+    [readCalendarMonth, readEntries, todayKey]
+  );
 
   const purchasesByDate = useMemo(() => {
     const map = new Map();
@@ -1081,12 +1113,12 @@ export default function Dashboard() {
       const dateKey = formatDateKey(date);
       const items = purchasesByDate.get(dateKey) || [];
       if (items.length) hasItems = true;
-      cells.push({ type: "day", day, dateKey, items });
+      cells.push({ type: "day", day, dateKey, items, releases: items, isToday: dateKey === todayKey });
     }
     const totalCells = Math.ceil(cells.length / 7) * 7;
     while (cells.length < totalCells) cells.push({ type: "pad" });
     return { cells, hasItems };
-  }, [purchaseMonth, purchasesByDate]);
+  }, [purchaseMonth, purchasesByDate, todayKey]);
 
   const managerGroups = useMemo(() => {
     if (!library || !library.length) return [];
@@ -1289,9 +1321,8 @@ export default function Dashboard() {
     );
     if (!todays.length) return;
 
-    const content = `Wishlist releases for ${releaseKey}:\n${todays
-      .map((r) => `- ${r.title}`)
-      .join("\n")}`;
+    const content = `Wishlist releases for ${releaseKey}:
+${todays.map((r) => `- ${r.title}`).join("\n")}`;
 
     postWebhook(webhooks.release, content).then(() => {
       releasePostedRef.current = releaseKey;
@@ -1374,33 +1405,20 @@ export default function Dashboard() {
     return Number.isFinite(num) ? num : "";
   };
 
-  const persistActivityLog = (entries) => {
-    try {
-      const payload = entries.slice(0, 100).map((entry) => ({
-        message: entry.message,
-        ts: entry.ts instanceof Date ? entry.ts.toISOString() : entry.ts,
-      }));
-      if (typeof window !== "undefined") {
-        localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(payload));
-      }
-    } catch (err) {
-      console.warn("Failed to persist activity log", err);
-    }
-  };
-
   const addActivity = (message) => {
     if (!message) return;
     const entry = { message, ts: new Date() };
     setActivityLog((prev) => {
       const next = [entry, ...prev].slice(0, 100);
-      persistActivityLog(next);
+      persistActivityEntries(next);
       return next;
     });
-    const email = user?.email || "anonymous";
-    const content = `Activity: ${message}\nUser: ${email}\nTime: ${new Date().toLocaleString()}`;
-    postWebhook(webhooks.activity, content).catch((err) =>
-      console.warn("Activity webhook failed", err)
-    );
+    recordActivity(message, {
+      email: user?.email || "anonymous",
+      name: user?.displayName || "",
+      webhookOverride: webhooks.activity,
+      persistLocal: false,
+    });
   };
 
   const handleSeriesHeaderClick = (seriesKey) => {
@@ -1759,13 +1777,19 @@ export default function Dashboard() {
     setDetailModal({ open: false, type: null });
   }
 
-  const todayKey = formatDateKey(new Date());
   const calendarCells = buildCalendarGrid(calendarMonth, releases, todayKey);
 
   const changePurchaseMonth = (delta) => {
     setPurchaseMonth((prev) => {
       const d = new Date(prev.year, prev.month + delta, 1);
       return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  };
+
+  const changeReadCalendarMonth = (delta) => {
+    setReadCalendarMonth((prev) => {
+      const d = new Date(prev.getFullYear(), prev.getMonth() + delta, 1);
+      return d;
     });
   };
 
@@ -1787,6 +1811,16 @@ export default function Dashboard() {
       }
     }
     setPurchaseCalendarOpen(true);
+  };
+
+  const openReadCalendar = () => {
+    if (readEntries.length) {
+      const latest = readEntries[readEntries.length - 1].date;
+      setReadCalendarMonth(new Date(latest.getFullYear(), latest.getMonth(), 1));
+    } else {
+      setReadCalendarMonth(new Date());
+    }
+    setReadCalendarOpen(true);
   };
 
   // ---------- Detail modal body ----------
@@ -2221,7 +2255,18 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="stat-card">
+          <div
+            className="stat-card clickable"
+            onClick={openReadCalendar}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openReadCalendar();
+              }
+            }}
+          >
             <h3>Read / Unread</h3>
             <div
               className="pie"
@@ -2385,7 +2430,7 @@ export default function Dashboard() {
               ${collectionValue.collectibleTotal.toFixed(2)}
             </div>
             <div className="stat-sub">
-              MSRP • Paid • Collectible overrides
+              MSRP â€¢ Paid â€¢ Collectible overrides
             </div>
           </div>
 
@@ -2556,7 +2601,7 @@ export default function Dashboard() {
                                         minute: "2-digit",
                                       })
                                     : ""}{" "}
-                                  {s.from ? `• ${s.from}` : ""}
+                                  {s.from ? `â€¢ ${s.from}` : ""}
                                 </div>
                               </div>
                               <div style={{ display: "flex", gap: "6px" }}>
@@ -2646,7 +2691,7 @@ export default function Dashboard() {
                           <span style={{ flex: 1 }}>{group.displayName}</span>
                           <span style={{ fontSize: "11px", color: "#f8d1d8" }}>
                             {group.books.length} book{group.books.length === 1 ? "" : "s"}
-                            {group.books.length ? ` • ${readCount} read` : ""}
+                            {group.books.length ? ` | ${readCount} read` : ""}
                           </span>
                           {bookMissing && (
                             <span
@@ -3161,55 +3206,63 @@ export default function Dashboard() {
       {/* Purchase calendar (opens from Total Library Books) */}
       {purchaseCalendarOpen && (
         <div
-          className="purchase-overlay"
+          id="calendarOverlay"
           onClick={(e) => {
             if (e.target === e.currentTarget) closePurchaseCalendar();
           }}
         >
-          <div className="purchase-calendar-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="purchase-calendar-header">
-              <div>
-                <div className="purchase-calendar-title">
-                  {new Date(purchaseMonth.year, purchaseMonth.month).toLocaleString(undefined, {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </div>
-                <div className="purchase-calendar-sub">Purchased volumes by date</div>
+          <div
+            id="calendarCard"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="calendar-header">
+              <div className="calendar-title">
+                {new Date(purchaseMonth.year, purchaseMonth.month).toLocaleString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}
               </div>
-              <div className="purchase-calendar-controls">
+              <div className="calendar-nav">
                 <button
-                  type="button"
-                  className="manga-btn secondary mini"
+                  className="calendar-nav-btn"
                   onClick={() => changePurchaseMonth(-1)}
+                  type="button"
                 >
-                  ‹
+                  {"<"}
                 </button>
                 <button
-                  type="button"
-                  className="manga-btn secondary mini"
+                  className="calendar-nav-btn"
                   onClick={() => changePurchaseMonth(1)}
-                >
-                  ›
-                </button>
-                <button
                   type="button"
-                  className="manga-btn secondary"
-                  onClick={closePurchaseCalendar}
                 >
-                  Close
+                  {">"}
                 </button>
               </div>
+              {/* Close handled by top-right X */}
             </div>
 
-            <div className="purchase-calendar-grid">
+            <div className="calendar-weekdays">
+              <div>Sun</div>
+              <div>Mon</div>
+              <div>Tue</div>
+              <div>Wed</div>
+              <div>Thu</div>
+              <div>Fri</div>
+              <div>Sat</div>
+            </div>
+
+            <div className="calendar-grid">
               {purchaseCalendarCells.cells.map((cell, idx) => {
-                if (cell.type === "pad") return <div key={`pad-${idx}`} className="purchase-day pad" />;
-                const { day, dateKey, items } = cell;
+                if (cell.type === "pad") return <div key={`pad-${idx}`} className="calendar-day pad" />;
+                const { day, dateKey, items, isToday } = cell;
                 return (
                   <div
                     key={dateKey}
-                    className={"purchase-day" + (items.length ? " has-items" : "")}
+                    className={
+                      "calendar-day" +
+                      (items.length ? " has-releases" : "") +
+                      (isToday ? " today" : "")
+                    }
                     onClick={() => {
                       if (!items.length) return;
                       setPurchaseDayModal({ date: dateKey, items });
@@ -3224,24 +3277,31 @@ export default function Dashboard() {
                       }
                     }}
                   >
-                    <div className="purchase-day-num">{day}</div>
-                    <div className="purchase-day-chips">
+                    <div className="day-num">{day}</div>
+                    <div className="calendar-releases">
                       {items.slice(0, 2).map((item) => (
-                        <div key={item.id} className="purchase-chip">
+                        <div key={item.id} className="calendar-release purchased">
                           {item.title || "Untitled"}
                         </div>
                       ))}
                       {items.length > 2 && (
-                        <div className="purchase-chip more">+{items.length - 2} more</div>
+                        <div className="calendar-release more">+{items.length - 2} more</div>
                       )}
                     </div>
                   </div>
                 );
               })}
               {!purchaseCalendarCells.hasItems && (
-                <div className="purchase-empty">No purchases for this month.</div>
+                <div className="calendar-empty">No purchases for this month.</div>
               )}
             </div>
+            <button
+              id="calendarClose"
+              onClick={closePurchaseCalendar}
+              type="button"
+            >
+              x
+            </button>
           </div>
         </div>
       )}
@@ -3263,13 +3323,175 @@ export default function Dashboard() {
                 })}
               </div>
               <button className="manga-btn secondary" onClick={() => setPurchaseDayModal(null)} type="button">
-                Close
+                x
               </button>
             </div>
             <div className="purchase-day-list">
               {purchaseDayModal.items.map((item) => (
                 <div key={item.id} className="purchase-day-item">
                   {item.title || "Untitled"}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read calendar (from Read/Unread stat) */}
+      {readCalendarOpen && (
+        <div
+          id="calendarOverlay"
+          onClick={() => setReadCalendarOpen(false)}
+          style={{ zIndex: 10060 }}
+        >
+          <div
+            id="calendarCard"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="calendar-header">
+              <div className="calendar-title">
+                {readCalendarMonth.toLocaleString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </div>
+              <div className="calendar-nav">
+                <button
+                  className="calendar-nav-btn"
+                  onClick={() => changeReadCalendarMonth(-1)}
+                  type="button"
+                >
+                  {"<"}
+                </button>
+                <button
+                  className="calendar-nav-btn"
+                  onClick={() => changeReadCalendarMonth(1)}
+                  type="button"
+                >
+                  {">"}
+                </button>
+              </div>
+              {/* Close handled by top-right X */}
+            </div>
+
+            <div className="calendar-weekdays">
+              <div>Sun</div>
+              <div>Mon</div>
+              <div>Tue</div>
+              <div>Wed</div>
+              <div>Thu</div>
+              <div>Fri</div>
+              <div>Sat</div>
+            </div>
+
+            <div className="calendar-grid">
+              {readCalendarCells.map((cell, idx) =>
+                cell.type === "pad" ? (
+                  <div key={idx} className="calendar-day pad" />
+                ) : (
+                  <div
+                    key={cell.dateKey || idx}
+                    className={
+                      "calendar-day" +
+                      (cell.isToday ? " today" : "") +
+                      (cell.releases?.length ? " has-releases" : "")
+                    }
+                    onClick={() => {
+                      if (!cell.releases?.length) return;
+                      const fullDate = new Date(
+                        readCalendarMonth.getFullYear(),
+                        readCalendarMonth.getMonth(),
+                        cell.day
+                      );
+                      setReadCalendarModalDay({
+                        dateLabel: fullDate.toLocaleDateString(undefined, {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        }),
+                        releases: cell.releases,
+                      });
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (!cell.releases?.length) return;
+                        const fullDate = new Date(
+                          readCalendarMonth.getFullYear(),
+                          readCalendarMonth.getMonth(),
+                          cell.day
+                        );
+                        setReadCalendarModalDay({
+                          dateLabel: fullDate.toLocaleDateString(undefined, {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          }),
+                          releases: cell.releases,
+                        });
+                      }
+                    }}
+                  >
+                    <div className="day-num">{cell.day}</div>
+                    <div className="calendar-releases">
+                      {(cell.releases || []).slice(0, 2).map((r, i) => (
+                        <div className="calendar-release purchased" key={i} title={r.title}>
+                          {r.title}
+                        </div>
+                      ))}
+                      {(cell.releases || []).length > 2 && (
+                        <div className="calendar-release more">
+                          +{(cell.releases || []).length - 2} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+
+            {!readEntries.length && (
+              <div className="calendar-empty">No reads recorded yet.</div>
+            )}
+
+            <button
+              id="calendarClose"
+              onClick={() => setReadCalendarOpen(false)}
+              type="button"
+            >
+              x
+            </button>
+          </div>
+        </div>
+      )}
+
+      {readCalendarModalDay && (
+        <div
+          id="calendarOverlay"
+          onClick={() => setReadCalendarModalDay(null)}
+          style={{ zIndex: 10080 }}
+        >
+          <div
+            id="calendarCard"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "520px" }}
+          >
+            <div className="calendar-header">
+              <div className="calendar-title">{readCalendarModalDay.dateLabel}</div>
+              <button
+                className="calendar-close-btn"
+                onClick={() => setReadCalendarModalDay(null)}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+            <div className="calendar-releases">
+              {readCalendarModalDay.releases.map((r, idx) => (
+                <div className="calendar-release purchased" key={idx} title={r.title}>
+                  {r.title}
                 </div>
               ))}
             </div>
@@ -3450,7 +3672,7 @@ export default function Dashboard() {
                 onClick={() => setCalendarModalDay(null)}
                 type="button"
               >
-                Close
+                x
               </button>
             </div>
             <div className="calendar-releases">
@@ -3479,7 +3701,7 @@ export default function Dashboard() {
             <div className="dashboard-modal-header">
               <h3>Webhook Settings</h3>
               <button className="dashboard-close" onClick={() => setSettingsOpen(false)} type="button">
-                Close
+                X
               </button>
             </div>
             <div className="dashboard-modal-body">
@@ -3511,7 +3733,7 @@ export default function Dashboard() {
                 <span>User roles</span>
                 <div style={{ marginTop: 8, fontSize: "0.85rem", color: "var(--text-soft)" }}>
                   {usersLoading ? (
-                    <span>Loading users…</span>
+                    <span>Loading usersâ€¦</span>
                   ) : usersList.length === 0 ? (
                     <span>No users found.</span>
                   ) : (
@@ -3607,3 +3829,6 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
+

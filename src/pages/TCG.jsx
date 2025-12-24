@@ -396,8 +396,8 @@ export default function TCG() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0, color: "#ffb6c1" }}>Add card</h2>
-              <button className="dashboard-close" onClick={() => setAddModalOpen(false )} type="button">
-                Close
+              <button className="dashboard-close" onClick={() => setAddModalOpen(false )} type="button" aria-label="Close">
+                X
               </button>
             </div>
             <div
@@ -722,8 +722,8 @@ export default function TCG() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0, color: "#ffb6c1" }}>Edit card</h2>
-              <button className="dashboard-close" onClick={() => setEditCard(null )} type="button">
-                Close
+              <button className="dashboard-close" onClick={() => setEditCard(null )} type="button" aria-label="Close">
+                X
               </button>
             </div>
             <div

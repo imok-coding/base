@@ -1,5 +1,24 @@
 /* src/styles/dashboard.css */
 
+:root {
+  --cursor-pink: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%23ff69b4' fill-opacity='0.75' stroke='%23ffb6c1' stroke-width='2'/></svg>") 8 8, auto;
+}
+
+body,
+.dashboard-page {
+  cursor: var(--cursor-pink, auto);
+}
+
+button,
+a,
+.clickable,
+[role="button"],
+.calendar-day,
+.calendar-nav-btn,
+.calendar-close-btn {
+  cursor: var(--cursor-pink, pointer);
+}
+
 .dashboard-page {
   max-width: 1200px;
   margin: 0 auto;
@@ -778,6 +797,7 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-template-rows: repeat(6, minmax(90px, 1fr));
   gap: 6px;
+  min-height: 560px; /* keep card height stable across months */
 }
 
 .calendar-day {
@@ -1022,6 +1042,20 @@
   cursor: pointer;
 }
 
+.purchase-day.today {
+  border-color: rgba(255, 182, 193, 0.7);
+  box-shadow: 0 0 0 2px rgba(255, 182, 193, 0.35), 0 0 22px rgba(255, 105, 180, 0.55);
+}
+
+.purchase-day.has-items.today {
+  box-shadow: 0 0 0 2px rgba(255, 182, 193, 0.35), 0 0 26px rgba(255, 105, 180, 0.7), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.purchase-day.today .purchase-day-num {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 105, 180, 0.8);
+}
+
 .purchase-day-num {
   font-weight: 700;
   color: #f8d1d8;
@@ -1096,4 +1130,61 @@
   padding: 8px 10px;
   color: #caffed;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ===== Custom Cursor (pink dot + pointer) ===== */
+:root {
+  --cursor-pink-base: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><circle cx='9' cy='9' r='5' fill='%23ff69b4' fill-opacity='0.75' stroke='%23ffb6c1' stroke-width='2'/></svg>") 9 9, auto;
+  --cursor-pink-pointer: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><circle cx='10' cy='10' r='6' fill='%23ff69b4' fill-opacity='0.9' stroke='%23ffd8e6' stroke-width='2'/></svg>") 10 10, pointer;
+}
+
+html,
+body {
+  cursor: var(--cursor-pink-base);
+}
+
+a,
+button,
+[role="button"],
+.clickable,
+.stat-card.clickable,
+.stat-link,
+.pie,
+.calendar-day,
+.calendar-nav-btn,
+.calendar-close-btn,
+.calendar-release,
+.calendar-more-btn,
+.purchase-day,
+.purchase-day.has-items,
+.purchase-day-modal button {
+  cursor: var(--cursor-pink-pointer);
+}
+
+/* Custom cursor to match site aesthetic */
+:root {
+  --cursor-pink: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%23ff69b4' fill-opacity='0.75' stroke='%23ffb6c1' stroke-width='2'/></svg>") 8 8, auto;
+}
+
+html,
+body,
+* {
+  cursor: var(--cursor-pink, auto);
+}
+
+a,
+button,
+[role="button"],
+.clickable,
+.stat-card.clickable,
+.stat-link,
+.pie,
+.calendar-day,
+.calendar-nav-btn,
+.calendar-close-btn,
+.calendar-release,
+.calendar-more-btn,
+.purchase-day,
+.purchase-day.has-items {
+  cursor: var(--cursor-pink, pointer);
 }

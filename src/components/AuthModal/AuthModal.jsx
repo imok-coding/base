@@ -106,8 +106,8 @@ export default function AuthModal({ onClose }) {
           )}
         </div>
 
-        <button className="auth-close" onClick={onClose}>
-          Close
+        <button className="auth-close" onClick={onClose} aria-label="Close">
+          X
         </button>
       </div>
     </div>

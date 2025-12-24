@@ -4125,7 +4125,7 @@ max-height: 90vh;
 
             const metaSpan = document.createElement('span');
             metaSpan.className = 'dash-series-meta';
-            metaSpan.textContent = `${group.books.length} book${group.books.length !== 1 ? 's' : ''}${group.books.length ? ' • ' + readCount + ' read' : ''}`;
+            metaSpan.textContent = `${group.books.length} book${group.books.length !== 1 ? 's' : ''}${group.books.length ? ' | ' + readCount + ' read' : ''}`;
 
             header.appendChild(chevron);
             header.appendChild(titleSpan);

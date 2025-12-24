@@ -284,6 +284,50 @@
   transform: translateY(-3px) scale(1.01);
 }
 
+.manga-card.missing-page {
+  border-color: rgba(255, 204, 0, 0.65);
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.35), 0 14px 40px rgba(255, 164, 44, 0.55);
+}
+
+.manga-card.missing-page:hover {
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.5), 0 20px 60px rgba(255, 164, 44, 0.65);
+}
+
+.manga-card.missing-meta {
+  border-color: rgba(255, 204, 0, 0.65);
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.4), 0 14px 40px rgba(255, 179, 71, 0.55);
+}
+
+.missing-field {
+  color: #ffe7a3 !important;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.8);
+}
+
+.missing-field-input input,
+.missing-field-input select {
+  border-color: rgba(255, 204, 0, 0.85) !important;
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.5), 0 0 18px rgba(255, 179, 71, 0.6);
+  background: rgba(255, 204, 0, 0.08);
+}
+
+.missing-page-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: radial-gradient(circle at 20% 20%, #fff3cc, #ff9f43);
+  color: #2b0f1d;
+  border-radius: 999px;
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(43, 15, 29, 0.85);
+  z-index: 3;
+}
+
 .manga-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.95);
@@ -1075,4 +1119,69 @@
 .manga-btn.mini {
   padding: 4px 8px;
   font-size: 12px;
+}
+
+/* ===== Custom Cursor (pink dot + pointer) ===== */
+:root {
+  --cursor-pink-base: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><circle cx='9' cy='9' r='5' fill='%23ff69b4' fill-opacity='0.75' stroke='%23ffb6c1' stroke-width='2'/></svg>") 9 9, auto;
+  --cursor-pink-pointer: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><circle cx='10' cy='10' r='6' fill='%23ff69b4' fill-opacity='0.9' stroke='%23ffd8e6' stroke-width='2'/></svg>") 10 10, pointer;
+}
+
+html,
+body {
+  cursor: var(--cursor-pink-base);
+}
+
+a,
+button,
+[role="button"],
+.manga-btn,
+.manga-tab-btn,
+.manga-card,
+.manga-card-cover-wrap img,
+.manga-modal-close,
+.manga-modal-backdrop.visible,
+.manga-view-toggle button {
+  cursor: var(--cursor-pink-pointer);
+}
+
+/* Force card/popup edges to keep the custom pointer */
+.manga-card,
+.manga-card * {
+  cursor: var(--cursor-pink-pointer) !important;
+}
+.manga-modal,
+.manga-modal * {
+  cursor: var(--cursor-pink-pointer) !important;
+}
+
+/* Custom cursor to match site aesthetic */
+:root {
+  --cursor-pink: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%23ff69b4' fill-opacity='0.75' stroke='%23ffb6c1' stroke-width='2'/></svg>") 8 8, auto;
+}
+
+html,
+body,
+* {
+  cursor: var(--cursor-pink, auto);
+}
+
+a,
+button,
+[role="button"],
+.manga-btn,
+.manga-tab-btn,
+.manga-card,
+.manga-card-cover-wrap img {
+  cursor: var(--cursor-pink, pointer);
+}
+
+a,
+button,
+[role="button"],
+.manga-btn,
+.manga-tab-btn,
+.manga-card,
+.manga-card-cover-wrap img {
+  cursor: var(--cursor-pink, pointer);
 }

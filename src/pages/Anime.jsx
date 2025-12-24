@@ -517,8 +517,8 @@ export default function Anime() {
           <div className="anime-modal">
             <div className="anime-modal-header">
               <h2 style={{ color: "#ffb6c1", margin: 0 }}>{modalItem.title}</h2>
-              <button className="anime-modal-close" onClick={() => setModalItem(null)} type="button">
-                Close
+              <button className="anime-modal-close" onClick={() => setModalItem(null)} type="button" aria-label="Close">
+                X
               </button>
             </div>
             <div className="anime-modal-body">

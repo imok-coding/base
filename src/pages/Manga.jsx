@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import SuggestionModal from "../components/SuggestionModal.jsx";
+import { recordActivity } from "../utils/activity";
 
 const SUGGESTION_LIMIT = 5;
 const SUGGESTION_WINDOW_MS = 60 * 60 * 1000;
@@ -49,6 +50,41 @@ function parseIntSafe(val) {
   if (val == null || val === "") return 0;
   const num = parseInt(val, 10);
   return Number.isFinite(num) ? num : 0;
+}
+
+function getLocalDateISO() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function isMissingPageCount(book) {
+  const raw = book?.pageCount ?? book?.PageCount ?? "";
+  const str = String(raw ?? "").trim();
+  if (!str) return true;
+  const num = parseIntSafe(str);
+  return !Number.isFinite(num) || num <= 0;
+}
+
+function isMissingValue(val, allowUnknown = false) {
+  const str = (val ?? "").toString().trim();
+  if (!str) return true;
+  if (!allowUnknown && str.toLowerCase() === "unknown") return true;
+  return false;
+}
+
+function isMissingCoreMeta(book) {
+  const authorMissing = isMissingValue(book?.authors);
+  const publisherMissing = isMissingValue(book?.publisher);
+  const dateMissing = isMissingValue(book?.date);
+  return {
+    authorMissing,
+    publisherMissing,
+    dateMissing,
+    any: authorMissing || publisherMissing || dateMissing,
+  };
 }
 
 function normalizeDateString(value) {
@@ -389,6 +425,13 @@ function MangaDashboard({ library, wishlist }) {
 export default function Manga() {
   const { admin, user, role } = useAuth();
   const isAdmin = admin;
+  const logActivity = (message) => {
+    if (!message) return;
+    recordActivity(message, {
+      email: user?.email || "anonymous",
+      name: user?.displayName || "",
+    });
+  };
 
   const [activeTab, setActiveTab] = useState("library"); // 'library' | 'wishlist'
   const [viewMode, setViewMode] = useState(() => {
@@ -513,6 +556,15 @@ export default function Manga() {
   });
   const [volumeEntries, setVolumeEntries] = useState([]);
   const [volumeIndex, setVolumeIndex] = useState(0);
+  const adminMissing = useMemo(
+    () => ({
+      author: isMissingValue(adminForm.data.authors),
+      publisher: isMissingValue(adminForm.data.publisher),
+      date: isMissingValue(adminForm.data.date),
+      page: isMissingPageCount({ pageCount: adminForm.data.pageCount }),
+    }),
+    [adminForm.data]
+  );
   const [bulkEdit, setBulkEdit] = useState({
     open: false,
     index: 0,
@@ -1102,13 +1154,19 @@ export default function Manga() {
           await addDoc(collection(db, destination), payload);
           await deleteDoc(doc(db, source, id));
         }
+        logActivity(
+          `Moved ${ids.length} item${ids.length === 1 ? "" : "s"} from ${
+            source === "library" ? "Library" : "Wishlist"
+          } to ${destination === "library" ? "Library" : "Wishlist"}`
+        );
       } else if (action === "markRead" && isLibraryTab) {
         for (const id of ids) {
           await updateDoc(doc(db, "library", id), {
             read: true,
-            dateRead: new Date().toISOString().slice(0, 10),
+            dateRead: getLocalDateISO(),
           });
         }
+        logActivity(`Marked ${ids.length} library book${ids.length === 1 ? "" : "s"} as read`);
       } else if (action === "markUnread" && isLibraryTab) {
         for (const id of ids) {
           await updateDoc(doc(db, "library", id), {
@@ -1117,6 +1175,7 @@ export default function Manga() {
             rating: "",
           });
         }
+        logActivity(`Marked ${ids.length} library book${ids.length === 1 ? "" : "s"} as unread`);
       } else if (action === "delete") {
         const colName = isLibraryTab ? "library" : "wishlist";
         if (
@@ -1128,6 +1187,11 @@ export default function Manga() {
         for (const id of ids) {
           await deleteDoc(doc(db, colName, id));
         }
+        logActivity(
+          `Deleted ${ids.length} item${ids.length === 1 ? "" : "s"} from ${
+            colName === "library" ? "Library" : "Wishlist"
+          }`
+        );
       }
 
       // Reload after any action
@@ -1391,13 +1455,25 @@ export default function Manga() {
       alert("Provide a title with a volume number first (e.g., Series, Vol. 1).");
       return;
     }
+    const currentEntry = {
+      kind: adminForm.mode,
+      id: adminForm.editingId,
+      data: { ...adminForm.data },
+    };
+    const workingEntries = volumeEntries.length ? [...volumeEntries] : [];
+    if (!workingEntries.length) {
+      workingEntries.push(currentEntry);
+    } else {
+      workingEntries[volumeIndex] = currentEntry;
+    }
+
     const baseDisplay =
       currentTitle.replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() || currentTitle;
 
     let maxVol = parsed.vol || 0;
     const seriesMeta = seriesInfoMap.get(parsed.name);
     if (seriesMeta && seriesMeta.maxVol > maxVol) maxVol = seriesMeta.maxVol;
-    volumeEntries.forEach((v) => {
+    workingEntries.forEach((v) => {
       const p = parseTitleForSort(v.data.title || "");
       if (p.name === parsed.name) {
         maxVol = Math.max(maxVol, p.vol || 0);
@@ -1431,11 +1507,9 @@ export default function Manga() {
       read: false,
     };
 
-    setVolumeEntries((prev) => {
-      const next = [...prev, { kind: "new", id: null, data: newData }];
-      setVolumeIndex(next.length - 1);
-      return next;
-    });
+    workingEntries.push({ kind: "new", id: null, data: newData });
+    setVolumeEntries(workingEntries);
+    setVolumeIndex(workingEntries.length - 1);
     setAdminForm((prev) => ({ ...prev, mode: "add", data: newData }));
   };
 
@@ -1452,56 +1526,67 @@ export default function Manga() {
             data: adminForm.data,
           }];
 
-    const buildPayload = (d) => ({
-      title: (d.title || "").trim(),
-      authors: (d.authors || "").trim(),
-      publisher: (d.publisher || "").trim(),
-      demographic: (d.demographic || "").trim(),
-      genre: (d.genre || "").trim(),
-      subGenre: (d.subGenre || "").trim(),
-      date: normalizeDateString(d.date || ""),
-      cover: (d.cover || "").trim(),
-      isbn: targetList === "wishlist" ? "" : (d.isbn || "").trim(),
-      pageCount: d.pageCount === "" ? "" : Number(d.pageCount),
-      rating:
-        targetList === "wishlist"
-          ? ""
-          : d.rating === ""
-          ? ""
-          : Math.max(0.5, Math.min(5, Number(d.rating))),
-      amountPaid: d.amountPaid === "" ? "" : Number(d.amountPaid),
-      dateRead: normalizeDateString(d.dateRead || ""),
-      datePurchased: normalizeDateString(d.datePurchased || ""),
-      msrp: targetList === "wishlist" ? "" : d.msrp === "" ? "" : Number(d.msrp),
-      special:
-        targetList === "wishlist"
-          ? false
-          : !!(d.special && (d.specialType || "").trim()),
-      specialType:
-        targetList === "wishlist" || !(d.special && (d.specialType || "").trim())
-          ? ""
-          : (d.specialType || "").trim(),
-      specialVolumes:
-        targetList === "wishlist"
-          ? ""
-          : d.special && d.specialType === "specialEdition"
-          ? d.specialVolumes === ""
+    const buildPayload = (d) => {
+      const titleTrim = (d.title || "").trim();
+      const parsed = parseTitleForSort(titleTrim);
+      const meta = seriesInfoMap.get(parsed.name) || {};
+      const authorVal = (d.authors || "").trim() || meta.authors || "";
+      const publisherVal = (d.publisher || "").trim() || meta.publisher || "";
+      const demoVal = (d.demographic || "").trim() || meta.demographic || "";
+      const genreVal = (d.genre || "").trim() || meta.genre || "";
+      const subVal = (d.subGenre || "").trim() || meta.subGenre || "";
+
+      return {
+        title: titleTrim,
+        authors: authorVal,
+        publisher: publisherVal,
+        demographic: demoVal,
+        genre: genreVal,
+        subGenre: subVal,
+        date: normalizeDateString(d.date || ""),
+        cover: (d.cover || "").trim(),
+        isbn: targetList === "wishlist" ? "" : (d.isbn || "").trim(),
+        pageCount: d.pageCount === "" ? "" : Number(d.pageCount),
+        rating:
+          targetList === "wishlist"
             ? ""
-            : Number(d.specialVolumes)
-          : "",
-      collectiblePrice:
-        targetList === "wishlist"
-          ? ""
-          : d.special && d.specialType === "collectible"
-          ? d.collectiblePrice === ""
+            : d.rating === ""
             ? ""
-            : Number(d.collectiblePrice)
-          : "",
-      amazonURL: (d.amazonURL || "").trim(),
-      read: targetList === "wishlist" ? false : !!d.read,
-      hidden: !!d.hidden,
-      kind: list,
-    });
+            : Math.max(0.5, Math.min(5, Number(d.rating))),
+        amountPaid: d.amountPaid === "" ? "" : Number(d.amountPaid),
+        dateRead: normalizeDateString(d.dateRead || ""),
+        datePurchased: normalizeDateString(d.datePurchased || ""),
+        msrp: targetList === "wishlist" ? "" : d.msrp === "" ? "" : Number(d.msrp),
+        special:
+          targetList === "wishlist"
+            ? false
+            : !!(d.special && (d.specialType || "").trim()),
+        specialType:
+          targetList === "wishlist" || !(d.special && (d.specialType || "").trim())
+            ? ""
+            : (d.specialType || "").trim(),
+        specialVolumes:
+          targetList === "wishlist"
+            ? ""
+            : d.special && d.specialType === "specialEdition"
+            ? d.specialVolumes === ""
+              ? ""
+              : Number(d.specialVolumes)
+            : "",
+        collectiblePrice:
+          targetList === "wishlist"
+            ? ""
+            : d.special && d.specialType === "collectible"
+            ? d.collectiblePrice === ""
+              ? ""
+              : Number(d.collectiblePrice)
+            : "",
+        amazonURL: (d.amazonURL || "").trim(),
+        read: targetList === "wishlist" ? false : !!d.read,
+        hidden: !!d.hidden,
+        kind: list,
+      };
+    };
 
     try {
       const results = await Promise.all(entries.map(async (entry) => {
@@ -1543,6 +1628,11 @@ export default function Manga() {
       }));
       applyWriteResults(results.filter(Boolean));
       await Promise.all([loadLibrary(), loadWishlist()]);
+      logActivity(
+        `${adminForm.mode === "add" ? "Added" : "Saved"} ${entries.length} item${
+          entries.length === 1 ? "" : "s"
+        } in ${targetList === "library" ? "Library" : "Wishlist"}`
+      );
       resetAdminForm();
     } catch (err) {
       console.error(err);
@@ -1553,9 +1643,14 @@ export default function Manga() {
   async function deleteSingle(bookId, kind) {
     if (!isAdmin) return;
     if (!window.confirm("Delete this entry?")) return;
+    const sourceList = kind === "wishlist" ? wishlist : library;
+    const target = sourceList.find((b) => b.id === bookId);
     try {
       await deleteDoc(doc(db, kind, bookId));
       await Promise.all([loadLibrary(), loadWishlist()]);
+      logActivity(
+        `Deleted "${target?.title || "Untitled"}" from ${kind === "library" ? "Library" : "Wishlist"}`
+      );
     } catch (err) {
       console.error(err);
       alert("Failed to delete entry.");
@@ -1579,6 +1674,9 @@ export default function Manga() {
       await updateDoc(doc(db, col, book.id), payload);
       applyWriteResults([{ target: col, id: book.id, payload }]);
       await Promise.all([loadLibrary(), loadWishlist()]);
+      logActivity(
+        `Updated "${book.title || "Untitled"}" in ${col === "library" ? "Library" : "Wishlist"}`
+      );
       setModalBook((prev) => (prev && prev.id === book.id ? { ...prev, ...payload } : prev));
     } catch (err) {
       console.error(err);
@@ -1596,7 +1694,7 @@ export default function Manga() {
   const handleInlineRead = (book, readState) => {
     if (!book) return;
     const payload = readState
-      ? { read: true, dateRead: new Date().toISOString().slice(0, 10) }
+      ? { read: true, dateRead: getLocalDateISO() }
       : { read: false, dateRead: "" };
     saveInline(book, payload);
   };
@@ -1733,6 +1831,7 @@ export default function Manga() {
       await Promise.all([loadLibrary(), loadWishlist()]);
       setSelectedIds(new Set());
       setMultiMode(false);
+      logActivity(`Bulk edited ${updates.length} item${updates.length === 1 ? "" : "s"} in Library/Wishlist`);
       resetBulkEdit();
     } catch (err) {
       console.error(err);
@@ -1751,6 +1850,7 @@ export default function Manga() {
         (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
         item.title ||
         "Untitled";
+      const metaMissing = isMissingCoreMeta(item);
       const volumesForItem = extractVolumesFromTitle(item.title || "");
       const fallbackVol = Number.isFinite(parsed.vol) ? parsed.vol : 0;
       const volumeNumbers =
@@ -1760,6 +1860,7 @@ export default function Manga() {
             ? [fallbackVol]
             : [];
       const volNumber = volumeNumbers.length ? volumeNumbers[0] : 0;
+      const missingPage = isMissingPageCount(item);
 
       if (!groups.has(key)) {
         groups.set(key, {
@@ -1782,11 +1883,17 @@ export default function Manga() {
           maxVol: volNumber,
           representative: item,
           volumes: [...volumeNumbers],
+          missingPageCount: missingPage ? 1 : 0,
+          missingMetaCount: metaMissing.any ? 1 : 0,
+          missingVolumeCount: missingPage || metaMissing.any ? 1 : 0,
         });
       } else {
         const existing = groups.get(key);
         existing.count += 1;
         if (item.read) existing.readCount += 1;
+        if (missingPage) existing.missingPageCount += 1;
+        if (metaMissing.any) existing.missingMetaCount += 1;
+        if (missingPage || metaMissing.any) existing.missingVolumeCount += 1;
         if (volumeNumbers.length) {
           const vMin = Math.min(...volumeNumbers);
           const vMax = Math.max(...volumeNumbers);
@@ -1808,7 +1915,7 @@ export default function Manga() {
 
   const formatVolumeLabel = (volumes) => {
     const uniq = Array.from(
-      new Set((volumes || []).filter((v) => Number.isFinite(v) && v > 0))
+      new Set((volumes || []).filter((v) => Number.isFinite(v) && v >= 0))
     ).sort((a, b) => a - b);
     if (!uniq.length) return null;
 
@@ -1840,6 +1947,8 @@ export default function Manga() {
   function renderCard(book) {
     const selected = selectedIds.has(book.id);
     const isLibraryCard = book.kind === "library";
+    const missingPage = isAdmin && isMissingPageCount(book);
+    const missingMeta = isAdmin ? isMissingCoreMeta(book) : { any: false, authorMissing: false, publisherMissing: false, dateMissing: false };
 
     const handleClick = () => {
       if (multiMode && isAdmin) {
@@ -1852,13 +1961,15 @@ export default function Manga() {
     return (
       <div
         key={book.id}
-        className={
-          "manga-card" +
-          (book.read && isLibraryCard ? " read" : "") +
-          (selected ? " multiselect-selected" : "")
-        }
-        onClick={handleClick}
-      >
+                  className={
+                    "manga-card" +
+                    (book.read && isLibraryCard ? " read" : "") +
+                    (selected ? " multiselect-selected" : "") +
+                    (missingPage ? " missing-page" : "") +
+                    (missingMeta.any ? " missing-meta" : "")
+                  }
+                  onClick={handleClick}
+                >
         <div className="manga-card-cover-wrap">
           <img
             src={
@@ -1873,19 +1984,17 @@ export default function Manga() {
         <div className="manga-card-body">
           <div className="manga-card-title">{book.title || "Untitled"}</div>
           <div className="manga-card-meta">
-            {book.authors && book.authors !== "Unknown" && (
-              <>
-                {book.authors}
-                <br />
-              </>
-            )}
-            {book.publisher && book.publisher !== "Unknown" && (
-              <>
-                {book.publisher}
-                <br />
-              </>
-            )}
-            {book.date && book.date !== "Unknown" && book.date}
+            <span className={missingMeta.authorMissing ? "missing-field" : ""}>
+              {book.authors && book.authors !== "Unknown" ? book.authors : missingMeta.authorMissing ? "Missing author" : ""}
+            </span>
+            <br />
+            <span className={missingMeta.publisherMissing ? "missing-field" : ""}>
+              {book.publisher && book.publisher !== "Unknown" ? book.publisher : missingMeta.publisherMissing ? "Missing publisher" : ""}
+            </span>
+            <br />
+            <span className={missingMeta.dateMissing ? "missing-field" : ""}>
+              {book.date && book.date !== "Unknown" ? book.date : missingMeta.dateMissing ? "Missing date" : ""}
+            </span>
           </div>
           {book.isbn && (
             <div className="manga-card-isbn">ISBN: {book.isbn}</div>
@@ -1927,6 +2036,8 @@ export default function Manga() {
         ? "Read"
         : `Read ${series.readCount}/${series.count}`;
     const isComplete = series.readCount >= series.count && series.count > 0;
+    const missingCount = isAdmin ? series.missingVolumeCount || 0 : 0;
+    const hasMissing = missingCount > 0;
     const metaLines = [
       series.authors && series.authors !== "Unknown" ? series.authors : null,
       series.publisher && series.publisher !== "Unknown" ? series.publisher : null,
@@ -1937,10 +2048,17 @@ export default function Manga() {
       <div
         key={series.id}
         className={
-          "manga-card series-view" + (isComplete ? " read" : "")
+          "manga-card series-view" +
+          (isComplete ? " read" : "") +
+          (hasMissing ? " missing-page missing-meta" : "")
         }
         onClick={() => openSeriesModal(series)}
       >
+        {hasMissing && (
+          <div className="missing-page-badge" title="Volumes missing required data">
+            {missingCount}
+          </div>
+        )}
         <div className="manga-card-cover-wrap">
           <img
             src={
@@ -2544,8 +2662,8 @@ export default function Manga() {
                 <div className="manga-modal-title">
                   {seriesModal.series.title || "Series"}
                 </div>
-                <button className="manga-modal-close" onClick={closeSeriesModal} type="button">
-                  Close
+                <button className="manga-modal-close" onClick={closeSeriesModal} type="button" aria-label="Close">
+                  X
                 </button>
               </div>
               <div className="manga-modal-subtitle">
@@ -2625,14 +2743,19 @@ export default function Manga() {
               )}
               <div className="manga-series-modal-grid">
                 {seriesModal.volumes.map((vol) => (
-                  <div
-                    key={vol.id}
-                    className={"manga-card mini-card" + (vol.read ? " read" : "")}
-                    onClick={() => {
-                      if (!isAdmin) {
-                        openModal(vol);
-                        return;
-                      }
+              <div
+                key={vol.id}
+                className={
+                  "manga-card mini-card" +
+                  (vol.read ? " read" : "") +
+                  (isAdmin && isMissingPageCount(vol) ? " missing-page" : "") +
+                  (isAdmin && isMissingCoreMeta(vol).any ? " missing-meta" : "")
+                }
+                onClick={() => {
+                  if (!isAdmin) {
+                    openModal(vol);
+                    return;
+                  }
                       if (multiMode) {
                         toggleCardSelection(vol.id);
                         return;
@@ -2648,7 +2771,7 @@ export default function Manga() {
                             (selectedIds.has(vol.id) ? " selected" : "")
                           }
                         >
-                          {selectedIds.has(vol.id) ? "✓" : ""}
+                          {selectedIds.has(vol.id) ? "X" : ""}
                         </div>
                       )}
                       <img
@@ -2658,23 +2781,21 @@ export default function Manga() {
                         decoding="async"
                       />
                     </div>
-                    <div className="manga-card-body">
-                      <div className="manga-card-title">{vol.title || "Untitled"}</div>
-                      <div className="manga-card-meta">
-                        {vol.authors && vol.authors !== "Unknown" && (
-                          <>
-                            {vol.authors}
-                            <br />
-                          </>
-                        )}
-                        {vol.publisher && vol.publisher !== "Unknown" && (
-                          <>
-                            {vol.publisher}
-                            <br />
-                          </>
-                        )}
-                        {vol.date && vol.date !== "Unknown" && vol.date}
-                      </div>
+        <div className="manga-card-body">
+          <div className="manga-card-title">{vol.title || "Untitled"}</div>
+          <div className="manga-card-meta">
+            <span className={isMissingCoreMeta(vol).authorMissing ? "missing-field" : ""}>
+              {vol.authors && vol.authors !== "Unknown" ? vol.authors : "Missing author"}
+            </span>
+            <br />
+            <span className={isMissingCoreMeta(vol).publisherMissing ? "missing-field" : ""}>
+              {vol.publisher && vol.publisher !== "Unknown" ? vol.publisher : "Missing publisher"}
+            </span>
+            <br />
+            <span className={isMissingCoreMeta(vol).dateMissing ? "missing-field" : ""}>
+              {vol.date && vol.date !== "Unknown" ? vol.date : "Missing date"}
+            </span>
+          </div>
                       {vol.isbn && (
                         <div className="manga-card-isbn">ISBN: {vol.isbn}</div>
                       )}
@@ -2765,8 +2886,9 @@ export default function Manga() {
                   className="manga-modal-close"
                   onClick={closeModal}
                   type="button"
+                  aria-label="Close"
                 >
-                  Close
+                  X
                 </button>
               </div>
               <div className="manga-modal-meta">
@@ -2896,6 +3018,15 @@ export default function Manga() {
                       Move to {modalBook.kind === "library" ? "Wishlist" : "Library"}
                     </button>
                   )}
+                  {isAdmin && (
+                    <button
+                      className="manga-btn mini danger"
+                      type="button"
+                      onClick={() => deleteSingle(modalBook.id, modalBook.kind === "library" ? "library" : "wishlist")}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2921,8 +3052,9 @@ export default function Manga() {
                   className="manga-modal-close"
                   onClick={resetAdminForm}
                   type="button"
+                  aria-label="Close"
                 >
-                  Close
+                  X
                 </button>
               </div>
 
@@ -3004,7 +3136,7 @@ export default function Manga() {
                   </div>
 
                   <div className="admin-row">
-                    <label>
+                    <label className={adminMissing.author ? "missing-field-input" : ""}>
                       Authors
                       <input
                         type="text"
@@ -3015,7 +3147,7 @@ export default function Manga() {
                   </div>
 
                   <div className="admin-row">
-                    <label>
+                    <label className={adminMissing.publisher ? "missing-field-input" : ""}>
                       Publisher
                       <input
                         type="text"
@@ -3026,7 +3158,7 @@ export default function Manga() {
                   </div>
 
                   <div className="admin-row three">
-                    <label>
+                    <label className={adminMissing.date ? "missing-field-input" : ""}>
                       Release Date
                       <input
                         type="date"
@@ -3055,7 +3187,7 @@ export default function Manga() {
                   </div>
 
                   <div className="admin-row two">
-                    <label>
+                    <label className={adminMissing.page ? "missing-field-input" : ""}>
                       Page Count
                       <input
                         type="number"
@@ -3270,8 +3402,9 @@ export default function Manga() {
                   className="manga-modal-close"
                   onClick={resetBulkEdit}
                   type="button"
+                  aria-label="Close"
                 >
-                  Close
+                  X
                 </button>
               </div>
 

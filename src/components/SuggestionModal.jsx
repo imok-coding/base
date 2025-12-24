@@ -28,8 +28,8 @@ export default function SuggestionModal({
       <div className="suggestion-modal">
         <div className="suggestion-modal-header">
           <h3>{title}</h3>
-          <button className="suggestion-close" type="button" onClick={onClose}>
-            Close
+          <button className="suggestion-close" type="button" onClick={onClose} aria-label="Close">
+            X
           </button>
         </div>
         <p className="suggestion-hint">
