@@ -1057,7 +1057,7 @@
   color: var(--manga-text-soft);
   font-size: 0.8rem;
   padding: 4px 10px;
-  cursor: pointer;
+  cursor: var(--cursor-pink-pointer, pointer);
 }
 
 .manga-modal-meta {

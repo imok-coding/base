@@ -122,5 +122,5 @@
   background: none;
   color: #ffb6c1;
   border: none;
-  cursor: pointer;
+  cursor: var(--cursor-pink-pointer, pointer);
 }

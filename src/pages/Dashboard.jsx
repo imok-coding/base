@@ -2430,7 +2430,7 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
               ${collectionValue.collectibleTotal.toFixed(2)}
             </div>
             <div className="stat-sub">
-              MSRP â€¢ Paid â€¢ Collectible overrides
+              MSRP | Paid | Collectible overrides
             </div>
           </div>
 
@@ -2601,7 +2601,7 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
                                         minute: "2-digit",
                                       })
                                     : ""}{" "}
-                                  {s.from ? `â€¢ ${s.from}` : ""}
+                                  {s.from ? `| ${s.from}` : ""}
                                 </div>
                               </div>
                               <div style={{ display: "flex", gap: "6px" }}>

@@ -425,11 +425,13 @@ function MangaDashboard({ library, wishlist }) {
 export default function Manga() {
   const { admin, user, role } = useAuth();
   const isAdmin = admin;
-  const logActivity = (message) => {
+  const logActivity = (message, extra = {}) => {
     if (!message) return;
     recordActivity(message, {
       email: user?.email || "anonymous",
       name: user?.displayName || "",
+      context: "Manga",
+      ...extra,
     });
   };
 
@@ -1157,7 +1159,12 @@ export default function Manga() {
         logActivity(
           `Moved ${ids.length} item${ids.length === 1 ? "" : "s"} from ${
             source === "library" ? "Library" : "Wishlist"
-          } to ${destination === "library" ? "Library" : "Wishlist"}`
+          } to ${destination === "library" ? "Library" : "Wishlist"}`,
+          {
+            action: "move",
+            list: source === "library" ? "Library" : "Wishlist",
+            details: { count: ids.length, from: source, to: destination },
+          }
         );
       } else if (action === "markRead" && isLibraryTab) {
         for (const id of ids) {
@@ -1166,7 +1173,11 @@ export default function Manga() {
             dateRead: getLocalDateISO(),
           });
         }
-        logActivity(`Marked ${ids.length} library book${ids.length === 1 ? "" : "s"} as read`);
+        logActivity(`Marked ${ids.length} library book${ids.length === 1 ? "" : "s"} as read`, {
+          action: "markRead",
+          list: "Library",
+          details: { count: ids.length },
+        });
       } else if (action === "markUnread" && isLibraryTab) {
         for (const id of ids) {
           await updateDoc(doc(db, "library", id), {
@@ -1175,7 +1186,11 @@ export default function Manga() {
             rating: "",
           });
         }
-        logActivity(`Marked ${ids.length} library book${ids.length === 1 ? "" : "s"} as unread`);
+        logActivity(`Marked ${ids.length} library book${ids.length === 1 ? "" : "s"} as unread`, {
+          action: "markUnread",
+          list: "Library",
+          details: { count: ids.length },
+        });
       } else if (action === "delete") {
         const colName = isLibraryTab ? "library" : "wishlist";
         if (
@@ -1190,7 +1205,12 @@ export default function Manga() {
         logActivity(
           `Deleted ${ids.length} item${ids.length === 1 ? "" : "s"} from ${
             colName === "library" ? "Library" : "Wishlist"
-          }`
+          }`,
+          {
+            action: "delete-multi",
+            list: colName === "library" ? "Library" : "Wishlist",
+            details: { count: ids.length },
+          }
         );
       }
 
@@ -1631,7 +1651,12 @@ export default function Manga() {
       logActivity(
         `${adminForm.mode === "add" ? "Added" : "Saved"} ${entries.length} item${
           entries.length === 1 ? "" : "s"
-        } in ${targetList === "library" ? "Library" : "Wishlist"}`
+        } in ${targetList === "library" ? "Library" : "Wishlist"}`,
+        {
+          action: adminForm.mode === "add" ? "create" : "update",
+          list: targetList === "library" ? "Library" : "Wishlist",
+          details: { entries: entries.length, mode: adminForm.mode },
+        }
       );
       resetAdminForm();
     } catch (err) {
@@ -1649,7 +1674,12 @@ export default function Manga() {
       await deleteDoc(doc(db, kind, bookId));
       await Promise.all([loadLibrary(), loadWishlist()]);
       logActivity(
-        `Deleted "${target?.title || "Untitled"}" from ${kind === "library" ? "Library" : "Wishlist"}`
+        `Deleted "${target?.title || "Untitled"}" from ${kind === "library" ? "Library" : "Wishlist"}`,
+        {
+          action: "delete-single",
+          list: kind === "library" ? "Library" : "Wishlist",
+          details: { title: target?.title || "Untitled" },
+        }
       );
     } catch (err) {
       console.error(err);
@@ -1666,7 +1696,7 @@ export default function Manga() {
       items: [],
     });
 
-  async function saveInline(book, payload) {
+  async function saveInline(book, payload, meta = {}) {
     if (!book?.id) return;
     const col = book.kind === "wishlist" ? "wishlist" : "library";
     setModalSaving(true);
@@ -1675,7 +1705,16 @@ export default function Manga() {
       applyWriteResults([{ target: col, id: book.id, payload }]);
       await Promise.all([loadLibrary(), loadWishlist()]);
       logActivity(
-        `Updated "${book.title || "Untitled"}" in ${col === "library" ? "Library" : "Wishlist"}`
+        `Updated "${book.title || "Untitled"}" in ${col === "library" ? "Library" : "Wishlist"}`,
+        {
+          action: meta.action || "inline-update",
+          list: col === "library" ? "Library" : "Wishlist",
+          details: meta.details || {
+            title: book.title || "Untitled",
+            fields: Object.keys(payload || {}).join(", "),
+            rating: payload.rating ?? undefined,
+          },
+        }
       );
       setModalBook((prev) => (prev && prev.id === book.id ? { ...prev, ...payload } : prev));
     } catch (err) {
@@ -1688,15 +1727,25 @@ export default function Manga() {
 
   const handleInlineRating = (book, value) => {
     const ratingValue = value === "" ? "" : Math.max(0.5, Math.min(5, Number(value)));
-    saveInline(book, { rating: ratingValue });
+    saveInline(book, { rating: ratingValue }, {
+      action: "rating",
+      details: { title: book.title || "Untitled", rating: ratingValue },
+    });
   };
 
   const handleInlineRead = (book, readState) => {
     if (!book) return;
     const payload = readState
-      ? { read: true, dateRead: getLocalDateISO() }
-      : { read: false, dateRead: "" };
-    saveInline(book, payload);
+      ? { read: true, dateRead: getLocalDateISO(), rating: book.rating ?? "" }
+      : { read: false, dateRead: "", rating: "" };
+    saveInline(book, payload, {
+      action: readState ? "mark-read" : "mark-unread",
+      details: {
+        title: book.title || "Untitled",
+        dateRead: readState ? payload.dateRead : "cleared",
+        rating: book.rating || "not set",
+      },
+    });
   };
 
   const openBulkEdit = () => {
@@ -1831,7 +1880,14 @@ export default function Manga() {
       await Promise.all([loadLibrary(), loadWishlist()]);
       setSelectedIds(new Set());
       setMultiMode(false);
-      logActivity(`Bulk edited ${updates.length} item${updates.length === 1 ? "" : "s"} in Library/Wishlist`);
+      logActivity(
+        `Bulk edited ${updates.length} item${updates.length === 1 ? "" : "s"} in Library/Wishlist`,
+        {
+          action: "bulk-edit",
+          list: "Library/Wishlist",
+          details: { count: updates.length },
+        }
+      );
       resetBulkEdit();
     } catch (err) {
       console.error(err);

@@ -191,7 +191,7 @@ a {
   color: #ffe6ed;
   border-radius: 999px;
   padding: 4px 10px;
-  cursor: pointer;
+  cursor: var(--cursor-pink-pointer, pointer);
 }
 
 .suggestion-hint {
