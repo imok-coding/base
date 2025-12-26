@@ -398,6 +398,7 @@
   max-height: 85vh;
   overflow-y: auto;
   padding: 18px 16px 18px 16px;
+  overflow-x: visible;
 }
 
 .manga-modal.series {
@@ -405,6 +406,7 @@
   max-height: 90vh;
   width: min(1100px, 96vw);
   grid-template-columns: 1fr;
+  overflow: visible;
 }
 
 .manga-series-modal-grid {
@@ -1153,6 +1155,23 @@ button,
 .manga-modal,
 .manga-modal * {
   cursor: var(--cursor-pink-pointer) !important;
+}
+
+/* GPU hint for hover transforms on desktops/TVs */
+@media (pointer: fine) {
+  .manga-card,
+  .manga-card.mini-card,
+  .manga-card.series-view {
+    will-change: transform;
+  }
+}
+
+/* Skip rendering work offscreen on small screens / TVs */
+@media (max-width: 900px), (min-width: 1600px) {
+  .manga-grid {
+    content-visibility: auto;
+    contain: layout paint style;
+  }
 }
 
 /* Custom cursor to match site aesthetic */

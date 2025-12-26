@@ -79,6 +79,7 @@
               box-shadow 0.3s ease;
 
   overflow-y: auto;
+  contain: layout paint style;
 }
 
 .menu-panel.open {
