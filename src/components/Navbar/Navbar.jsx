@@ -12,7 +12,18 @@ import {
   unlink,
   updateProfile,
 } from "firebase/auth";
-import { deleteField, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteField,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  limit,
+} from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 
 export default function Navbar() {
@@ -32,6 +43,7 @@ export default function Navbar() {
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
+  const [blogAlert, setBlogAlert] = useState(null);
   const nameInputRef = useRef(null);
 
   const { user, admin, role } = useAuth();
@@ -45,6 +57,79 @@ export default function Navbar() {
     setProfileEditing(false);
     setProfileNameEdit(user?.displayName || user?.email?.split("@")[0] || "");
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchBlogAlert = async () => {
+      try {
+        const postsQuery = query(
+          collection(db, "blogPosts"),
+          where("status", "==", "published"),
+          orderBy("publishedAt", "desc"),
+          limit(1)
+        );
+        const snap = await getDocs(postsQuery);
+        if (cancelled) return;
+        if (snap.empty) {
+          setBlogAlert(null);
+          return;
+        }
+        const docSnap = snap.docs[0];
+        const data = docSnap.data();
+        const publishedAt = data.publishedAt?.toDate ? data.publishedAt.toDate() : null;
+        if (!publishedAt) {
+          setBlogAlert(null);
+          return;
+        }
+        const title = data.title || "New blog post";
+        const publishedKey = publishedAt.toISOString().slice(0, 10);
+        const alertKey = `blog-alert-${docSnap.id}-${publishedKey}`;
+        const now = Date.now();
+        const isRecent = now - publishedAt.getTime() <= 24 * 60 * 60 * 1000; // last 24h
+        if (!isRecent) {
+          setBlogAlert(null);
+          return;
+        }
+        if (typeof localStorage !== "undefined" && localStorage.getItem(alertKey) === "dismissed") {
+          return;
+        }
+        setBlogAlert({
+          id: docSnap.id,
+          title,
+          alertKey,
+          publishedAt,
+        });
+      } catch (err) {
+        if (err?.code !== "permission-denied") {
+          console.error("Failed to load blog alert", err);
+        }
+      }
+    };
+
+    fetchBlogAlert();
+    const interval = setInterval(fetchBlogAlert, 60000); // refresh every 60s
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleBlogAlertNavigate = (id) => {
+    if (blogAlert?.alertKey && typeof localStorage !== "undefined") {
+      localStorage.setItem(blogAlert.alertKey, "dismissed");
+    }
+    setBlogAlert(null);
+    navigate(id ? `/blog?post=${id}` : "/blog");
+  };
+
+  const handleDismissBlogAlert = (e) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    if (blogAlert?.alertKey && typeof localStorage !== "undefined") {
+      localStorage.setItem(blogAlert.alertKey, "dismissed");
+    }
+    setBlogAlert(null);
+  };
 
   async function handleLogoutClick() {
     try {
@@ -214,6 +299,45 @@ export default function Navbar() {
 
   return (
     <>
+      {blogAlert && (
+        <div
+          className="blog-alert-banner"
+          onClick={() => handleBlogAlertNavigate(blogAlert.id)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleBlogAlertNavigate(blogAlert.id);
+            }
+          }}
+        >
+          <div className="blog-alert-dot" />
+          <div className="blog-alert-text">
+            New blog post today: <strong>{blogAlert.title}</strong>
+          </div>
+          <div className="blog-alert-actions">
+            <button
+              type="button"
+              className="blog-alert-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleBlogAlertNavigate(blogAlert.id);
+              }}
+            >
+              Read now
+            </button>
+            <button
+              type="button"
+              className="blog-alert-dismiss"
+              onClick={handleDismissBlogAlert}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hamburger Button */}
       <button
         className={`menu-toggle ${open ? "active" : ""}`}
@@ -252,6 +376,16 @@ export default function Navbar() {
         <Link to="/steam" className="menu-item" onClick={() => setOpen(false)}>
           Gaming
         </Link>
+
+        {admin && (
+          <Link
+            to="/blog"
+            className="menu-item"
+            onClick={() => setOpen(false)}
+          >
+            Blog
+          </Link>
+        )}
 
         {admin && (
           <Link

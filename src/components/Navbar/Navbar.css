@@ -2,6 +2,79 @@
    NAVBAR LAYOUT (HAMBURGER + PANEL)
 --------------------------------- */
 
+.blog-alert-banner {
+  position: fixed;
+  top: 12px;
+  left: 76px;
+  right: 20px;
+  z-index: 10005;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(43, 15, 29, 0.95);
+  border: 1px solid rgba(255, 182, 193, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  cursor: var(--cursor-pink-pointer, pointer);
+}
+
+.blog-alert-text {
+  color: #ffe6ed;
+  font-size: 0.95rem;
+}
+
+.blog-alert-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blog-alert-btn,
+.blog-alert-dismiss {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 182, 193, 0.45);
+  padding: 8px 12px;
+  background: rgba(255, 182, 193, 0.12);
+  color: #ffe6ed;
+  cursor: pointer;
+  font-weight: 700;
+  transition: 0.15s ease;
+}
+
+.blog-alert-btn:hover,
+.blog-alert-dismiss:hover {
+  background: rgba(255, 182, 193, 0.22);
+}
+
+.blog-alert-btn {
+  background: linear-gradient(135deg, rgba(255, 105, 180, 0.28), rgba(255, 182, 193, 0.18));
+  border-color: rgba(255, 182, 193, 0.65);
+}
+
+.blog-alert-dot {
+  width: 10px;
+  height: 10px;
+  background: #ff69b4;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255, 105, 180, 0.8);
+}
+
+@media (max-width: 640px) {
+  .blog-alert-banner {
+    left: 12px;
+    right: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .blog-alert-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 /* Hamburger button (top-left) */
 .menu-toggle {
   position: fixed;

@@ -9,6 +9,7 @@ import Music from './pages/Music.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import SignIn from "./pages/SignIn";
 import Steam from "./pages/Steam.jsx";
+import Blog from "./pages/Blog.jsx";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/anime" element={<Anime />} />
         <Route path="/tcg" element={<TCG />} />
         <Route path="/music" element={<Music />} />
+        <Route path="/blog" element={<Blog />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/steam" element={<Steam />} />
