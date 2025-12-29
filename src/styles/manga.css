@@ -975,6 +975,15 @@
   background: transparent;
 }
 
+.star-shell.read-only .star-hit {
+  display: none;
+  pointer-events: none;
+}
+
+.star-shell.read-only {
+  cursor: default;
+}
+
 .star-value {
   font-weight: 700;
   color: #ffb6c1;

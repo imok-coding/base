@@ -2145,19 +2145,20 @@ export default function Manga() {
     );
   }
 
-  const StarPicker = ({ value, onChange }) => {
+  const StarPicker = ({ value, onChange, interactive = true }) => {
     const [hoverVal, setHoverVal] = useState(null);
     const baseVal = Math.max(0, Math.min(5, Number(value) || 0));
-    const displayVal = hoverVal != null ? hoverVal : baseVal;
+    const displayVal = interactive && hoverVal != null ? hoverVal : baseVal;
     const steps = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.5);
     const starCount = 5;
     const stars = Array.from({ length: starCount }, (_, i) => {
       const frac = Math.max(0, Math.min(1, displayVal - i));
       return frac;
     });
+    const canInteract = interactive && typeof onChange === "function";
 
     return (
-      <div className="star-shell" role="group" aria-label="Rating">
+      <div className={`star-shell${canInteract ? "" : " read-only"}`} role="group" aria-label="Rating">
         <div className="star-visual" style={{ "--star-count": starCount }}>
           <div className="star-row">
             {stars.map((frac, idx) => (
@@ -2176,28 +2177,32 @@ export default function Manga() {
               </div>
             ))}
           </div>
-          <div className="star-hit">
-            {steps.map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-label={`${v} stars`}
-                onMouseEnter={() => setHoverVal(v)}
-                onMouseLeave={() => setHoverVal(null)}
-                onClick={() => onChange(v)}
-              />
-            ))}
-          </div>
+          {canInteract && (
+            <div className="star-hit">
+              {steps.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-label={`${v} stars`}
+                  onMouseEnter={() => setHoverVal(v)}
+                  onMouseLeave={() => setHoverVal(null)}
+                  onClick={() => onChange(v)}
+                />
+              ))}
+            </div>
+          )}
         </div>
         <div className="star-value">{displayVal ? displayVal.toFixed(1) : "--"}</div>
-        <button
-          type="button"
-          className="star-clear"
-          onClick={() => onChange("")}
-          aria-label="Clear rating"
-        >
-          clear
-        </button>
+        {canInteract && (
+          <button
+            type="button"
+            className="star-clear"
+            onClick={() => onChange("")}
+            aria-label="Clear rating"
+          >
+            clear
+          </button>
+        )}
       </div>
     );
   };
@@ -2984,7 +2989,8 @@ export default function Manga() {
                   <strong>Rating:</strong>{" "}
                   <StarPicker
                     value={modalBook.rating || ""}
-                    onChange={(v) => handleInlineRating(modalBook, v)}
+                    onChange={isAdmin ? (v) => handleInlineRating(modalBook, v) : undefined}
+                    interactive={isAdmin}
                   />
                 </div>
                 {modalBook.amountPaid && (
@@ -3042,7 +3048,7 @@ export default function Manga() {
                       Edit
                     </button>
                   )}
-                  {modalBook.kind === "library" && (
+                  {modalBook.kind === "library" && isAdmin && (
                     <>
                       {!modalBook.read ? (
                         <button

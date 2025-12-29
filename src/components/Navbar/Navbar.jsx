@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import AuthModal from "../AuthModal/AuthModal";
+import md5 from "blueimp-md5";
 
 import {
   GoogleAuthProvider,
@@ -41,6 +42,7 @@ export default function Navbar() {
     google: false,
     discord: false,
   });
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
   const [blogAlert, setBlogAlert] = useState(null);
@@ -57,6 +59,17 @@ export default function Navbar() {
     setProfileEditing(false);
     setProfileNameEdit(user?.displayName || user?.email?.split("@")[0] || "");
   }, [user]);
+
+  useEffect(() => {
+    const email = (user?.email || "").trim().toLowerCase();
+    if (!email) {
+      setAvatarUrl("");
+      return;
+    }
+    const hash = md5(email);
+    const cacheBuster = Date.now(); // helps bust cached gravatar after an update
+    setAvatarUrl(`https://www.gravatar.com/avatar/${hash}?s=160&d=identicon&r=g&cb=${cacheBuster}`);
+  }, [user?.email]);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,6 +310,12 @@ export default function Navbar() {
     }
   };
 
+  const profileInitial = user
+    ? (user.displayName?.[0] || user.email?.[0] || user.uid?.[0] || "?").toUpperCase()
+    : "?";
+  const profileLabel = user?.displayName || user?.email || "Guest";
+  const profileRole = user ? (admin ? "admin" : role || "viewer") : "Not signed in";
+
   return (
     <>
       {blogAlert && (
@@ -427,20 +446,19 @@ export default function Navbar() {
             }}
           >
             <div className="profile-avatar">
-              {user
-                ? (user.displayName?.[0] ||
-                    user.email?.[0] ||
-                    user.uid?.[0] ||
-                    "?").toUpperCase()
-                : "?"}
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${profileLabel} avatar`}
+                  onError={() => setAvatarUrl("")}
+                />
+              ) : (
+                profileInitial
+              )}
             </div>
             <div className="profile-meta">
-              <div className="profile-name">
-                {user?.displayName || user?.email || "Guest"}
-              </div>
-              <div className="profile-role">
-                {user ? (admin ? "admin" : role || "viewer") : "Not signed in"}
-              </div>
+              <div className="profile-name">{profileLabel}</div>
+              <div className="profile-role">{profileRole}</div>
             </div>
             {user && profileMenuOpen && (
               <div className="profile-menu">
@@ -481,14 +499,24 @@ export default function Navbar() {
               </button>
             </div>
             <div className="profile-edit-body">
-              <div className="profile-edit-avatar">
-                {user
-                  ? (user.displayName?.[0] ||
-                      user.email?.[0] ||
-                      user.uid?.[0] ||
-                      "?").toUpperCase()
-                  : "?"}
-              </div>
+              <a
+                className="profile-edit-avatar clickable"
+                href="https://gravatar.com/profile"
+                target="_blank"
+                rel="noreferrer"
+                title="Manage your picture on Gravatar (opens in new tab)"
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${profileLabel} avatar`}
+                    onError={() => setAvatarUrl("")}
+                  />
+                ) : (
+                  profileInitial
+                )}
+                <span className="profile-avatar-hover-hint">Change on Gravatar</span>
+              </a>
               <div className="profile-edit-field">
                 <label className="profile-edit-label" htmlFor="displayName">
                   Display name
@@ -608,6 +636,9 @@ export default function Navbar() {
             {profileSaving && (
               <div className="profile-edit-status saving">Saving...</div>
             )}
+            <div className="profile-gravatar-note">
+              Profile pictures are managed through Gravatar—click the avatar to update.
+            </div>
           </div>
         </div>
       )}
