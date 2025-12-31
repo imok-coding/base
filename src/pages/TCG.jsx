@@ -1038,18 +1038,20 @@ export default function TCG() {
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Total value</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>${stats.totalValue.toFixed(2 )}</div>
         </div>
-        <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
-          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Unrealized gain / loss</div>
-          <div
-            style={{
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              color: gain >= 0 ? "#00e676" : "#ff8a80",
-            }}
-          >
-            {gain >= 0 ? "+" : "-"}${Math.abs(gain).toFixed(2 )}
+        {stats.totalPaid > 0 && (
+          <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Unrealized gain / loss</div>
+            <div
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: gain >= 0 ? "#00e676" : "#ff8a80",
+              }}
+            >
+              {gain >= 0 ? "+" : "-"}${Math.abs(gain).toFixed(2 )}
+            </div>
           </div>
-        </div>
+        )}
         <div className="card" style={{ padding: "10px 12px", textAlign: "center", minWidth: "170px" }}>
           <div style={{ fontSize: "0.8rem", color: "var(--text-soft)" }}>Pokemon cards</div>
           <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{stats.pokemon}</div>
