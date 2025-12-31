@@ -378,9 +378,13 @@ function buildReleaseEntries(library, wishlist) {
   const collect = (item, source) => {
     const date = parseDate(item.releaseDate || item.ReleaseDate || item.date || item.Date);
     if (!date) return null;
-    const title = (item.title || item.series || item.Title || "Unknown Title").trim();
+    const rawTitle = (item.title || item.series || item.Title || "Unknown Title").trim();
+    const parsed = parseTitleForSort(rawTitle);
+    const releaseVolume = parsed?.vol ? parsed.vol : null;
+    const title = rawTitle;
     const purchased = !!(item.datePurchased || item.DatePurchased || "").trim();
-    return { date, title, purchased, source };
+    const seriesKey = stripVolumeInfo(title || "").toLowerCase();
+    return { date, title, purchased, source, seriesKey, volume: releaseVolume };
   };
 
   const merged = [];
@@ -479,6 +483,164 @@ function computeCollectionValue(library) {
     collectibleTotal += collectible;
   }
   return { msrpTotal, paidTotal, collectibleTotal };
+}
+
+function buildSeriesProgress(library) {
+  const map = new Map();
+  let globalMsrpSum = 0;
+  let globalMsrpCount = 0;
+  library.forEach((book) => {
+    const key = getSeriesKey(book) || book.id;
+    if (!key) return;
+    const parsed = parseTitleForSort(book.title || book.Title || book.series || "");
+    const vol = parsed.vol || 0;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        title: getSeriesDisplayName(book),
+        highestOwnedVolume: 0,
+        lastReadVolume: 0,
+        unreadCount: 0,
+        total: 0,
+        msrpSum: 0,
+        msrpCount: 0,
+      });
+    }
+    const entry = map.get(key);
+    entry.total += 1;
+    entry.highestOwnedVolume = Math.max(entry.highestOwnedVolume, vol);
+    const readFlag = !!book.read || book.status === "Read" || book.Read === true;
+    if (readFlag) {
+      entry.lastReadVolume = Math.max(entry.lastReadVolume, vol);
+    } else {
+      entry.unreadCount += 1;
+    }
+    const msrpVal = Number(book.msrp || book.MSRP);
+    if (!Number.isNaN(msrpVal) && msrpVal > 0) {
+      entry.msrpSum += msrpVal;
+      entry.msrpCount += 1;
+      globalMsrpSum += msrpVal;
+      globalMsrpCount += 1;
+    }
+  });
+  map.forEach((entry) => {
+    entry.avgMsrp = entry.msrpCount ? entry.msrpSum / entry.msrpCount : null;
+  });
+  const globalAvgMsrp = globalMsrpCount ? globalMsrpSum / globalMsrpCount : null;
+  return { map, globalAvgMsrp };
+}
+
+// Lightweight "AI-ish" read-next pick that blends backlog, upcoming releases, and some randomness
+function buildReadNextSuggestion(seriesProgress, releases, snoozed = {}, seed = 0) {
+  if (!seriesProgress || !seriesProgress.size) return null;
+  const now = new Date();
+
+  const releaseBySeries = new Map();
+  (releases || []).forEach((rel) => {
+    if (!rel || !rel.date) return;
+    if (rel.date < now) return;
+    const key = rel.seriesKey || stripVolumeInfo(rel.title || "").toLowerCase();
+    if (!key) return;
+    const existing = releaseBySeries.get(key);
+    if (!existing || rel.date < existing.date) {
+      releaseBySeries.set(key, rel);
+    }
+  });
+
+  const candidates = [...seriesProgress.values()].filter((s) => s.unreadCount > 0);
+  if (!candidates.length) return null;
+
+  let idx = 0;
+  for (const c of candidates) {
+    const snoozeUntil = snoozed?.[c.key] ? new Date(snoozed[c.key]) : null;
+    if (snoozeUntil && snoozeUntil > now) {
+      c.snoozedUntil = snoozeUntil;
+      c.score = -Infinity;
+      continue;
+    }
+    const nextRelease = releaseBySeries.get(c.key) || null;
+    const daysToRelease = nextRelease
+      ? Math.round((nextRelease.date - now) / (1000 * 60 * 60 * 24))
+      : null;
+    const releaseVolume = nextRelease && Number.isFinite(nextRelease.volume) ? nextRelease.volume : null;
+    const releaseGapOwned = releaseVolume ? Math.max(0, releaseVolume - c.highestOwnedVolume - 1) : 0;
+    const catchUpTarget = releaseVolume
+      ? Math.max(c.highestOwnedVolume || 0, releaseVolume - 1)
+      : c.highestOwnedVolume || c.total;
+    const behindToCatchUp = Math.max(0, catchUpTarget - c.lastReadVolume);
+    const behindToUpcoming = releaseVolume ? Math.max(0, releaseVolume - 1 - c.lastReadVolume) : 0;
+    const behindCount = Math.max(c.unreadCount, behindToCatchUp, behindToUpcoming);
+    const backlogWeight = Math.min(behindCount, 8) / 8;
+    const urgency = daysToRelease != null && daysToRelease >= 0 ? Math.max(0, 120 - daysToRelease) / 120 : 0;
+    const upcomingSoon = daysToRelease != null && daysToRelease <= 45 ? 0.8 : 0;
+    const ownedGapPenalty = releaseVolume ? Math.min(releaseGapOwned, 12) / 12 : 0;
+    const bigGapPenalty = releaseGapOwned >= 6 ? 0.6 : 0;
+    const jitter = 0.85 + (Math.abs(Math.sin(seed + idx + 1)) % 0.35);
+    const baseScore = 1 + backlogWeight * 1.2 + urgency * 1.4 + upcomingSoon - ownedGapPenalty * 1.6 - bigGapPenalty;
+    c.score = Math.max(baseScore, 0.05) * jitter;
+    c.nextRelease = nextRelease;
+    c.daysToRelease = daysToRelease;
+    c.catchUpTarget = catchUpTarget;
+    c.behindCount = behindCount;
+    c.upcomingVolume = releaseVolume;
+    c.ownedVolume = c.highestOwnedVolume;
+    c.ownedVsUpcomingGap = releaseGapOwned;
+    idx += 1;
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  const available = candidates.filter((c) => c.score > -Infinity);
+  const pick = available[0] || null;
+  const backup = available.find((c, i) => i > 0 && c.unreadCount > 0) || null;
+  return { pick, backup };
+}
+
+function buildPurchaseNextSuggestion(seriesProgress, releases, globalAvgMsrp) {
+  if (!seriesProgress || !seriesProgress.size) return null;
+  const now = new Date();
+  const releaseBySeries = new Map();
+  (releases || []).forEach((rel) => {
+    if (!rel || !rel.date) return;
+    if (rel.date < now) return;
+    const key = rel.seriesKey;
+    if (!key) return;
+    const existing = releaseBySeries.get(key);
+    if (!existing || rel.date < existing.date) {
+      releaseBySeries.set(key, rel);
+    }
+  });
+
+  const candidates = [];
+  seriesProgress.forEach((entry) => {
+    const nextRelease = releaseBySeries.get(entry.key);
+    if (!nextRelease) return;
+    const releaseVolume = nextRelease && Number.isFinite(nextRelease.volume) ? nextRelease.volume : null;
+    if (!releaseVolume) return;
+    const missingCount = Math.max(0, releaseVolume - 1 - entry.highestOwnedVolume);
+    if (missingCount <= 0) return;
+    const daysToRelease =
+      nextRelease.date instanceof Date ? Math.round((nextRelease.date - now) / (1000 * 60 * 60 * 24)) : null;
+    const avgMsrp = entry.avgMsrp || globalAvgMsrp || 0;
+    const costEstimate = avgMsrp > 0 ? avgMsrp * missingCount : 0;
+    const affordability = avgMsrp > 0 ? 1 / (1 + costEstimate / 60) : 0.7;
+    const urgency = daysToRelease != null && daysToRelease >= 0 ? Math.max(0, 120 - daysToRelease) / 120 : 0;
+    const gapPenalty = Math.min(missingCount, 12) / 12;
+    const score = urgency * 1.3 + affordability * 1.1 + 1 / (1 + missingCount) - gapPenalty * 0.9;
+    candidates.push({
+      ...entry,
+      nextRelease,
+      releaseVolume,
+      daysToRelease,
+      missingCount,
+      costEstimate,
+      avgMsrp,
+      score,
+    });
+  });
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return { pick: candidates[0], list: candidates };
 }
 
 function aggregateBySeries(library) {
@@ -746,6 +908,8 @@ export default function Dashboard() {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsErr, setSuggestionsErr] = useState("");
+  const [readNextSnoozed, setReadNextSnoozed] = useState({});
+  const [readNextSeed, setReadNextSeed] = useState(() => Math.random());
   const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const [calendarModalDay, setCalendarModalDay] = useState(null);
   const refreshUsers = async () => {
@@ -980,6 +1144,11 @@ export default function Dashboard() {
     };
   }, [user, admin]);
 
+  const { map: seriesProgress, globalAvgMsrp } = useMemo(
+    () => buildSeriesProgress(library),
+    [library]
+  );
+
   const stats = useMemo(() => {
     const totalLibrary = library.length;
     const readCount = library.filter(
@@ -1119,6 +1288,58 @@ export default function Dashboard() {
     while (cells.length < totalCells) cells.push({ type: "pad" });
     return { cells, hasItems };
   }, [purchaseMonth, purchasesByDate, todayKey]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("dashboard.readNextSnoozed");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        setReadNextSnoozed(parsed);
+      }
+    } catch (e) {
+      console.error("Failed to load read-next snoozed state", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    const cleaned = {};
+    const now = Date.now();
+    Object.entries(readNextSnoozed || {}).forEach(([k, v]) => {
+      const ts = Number(v);
+      if (Number.isFinite(ts) && ts > now) cleaned[k] = ts;
+    });
+    if (JSON.stringify(cleaned) !== JSON.stringify(readNextSnoozed)) {
+      setReadNextSnoozed(cleaned);
+      return;
+    }
+    try {
+      localStorage.setItem("dashboard.readNextSnoozed", JSON.stringify(cleaned));
+    } catch (e) {
+      console.error("Failed to persist read-next snoozed state", e);
+    }
+  }, [readNextSnoozed]);
+
+  const readNextSuggestion = useMemo(
+    () => buildReadNextSuggestion(seriesProgress, releases, readNextSnoozed, readNextSeed),
+    [seriesProgress, releases, readNextSnoozed, readNextSeed]
+  );
+
+  const readNextPick = readNextSuggestion?.pick || null;
+  const readNextBackup = readNextSuggestion?.backup || null;
+  const readNextSnoozedUntil = readNextPick?.snoozedUntil || null;
+  const handleSnoozeReadNext = (days = 7) => {
+    if (!readNextPick?.key) return;
+    const until = Date.now() + days * 24 * 60 * 60 * 1000;
+    setReadNextSnoozed((prev) => ({ ...prev, [readNextPick.key]: until }));
+    setReadNextSeed((s) => s + 1);
+  };
+
+  const purchaseNextSuggestion = useMemo(
+    () => buildPurchaseNextSuggestion(seriesProgress, releases, globalAvgMsrp),
+    [seriesProgress, releases, globalAvgMsrp]
+  );
+  const purchaseNextPick = purchaseNextSuggestion?.pick || null;
 
   const managerGroups = useMemo(() => {
     if (!library || !library.length) return [];
@@ -2464,6 +2685,247 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
             </div>
           </div>
         </div>
+
+          <div
+            className="stat-card wide"
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              background:
+                "linear-gradient(135deg, rgba(255,182,193,0.08), rgba(255,105,180,0.08)) , radial-gradient(120% 120% at 0% 0%, rgba(255,182,193,0.14), rgba(36,12,24,0.8))",
+              border: "1px solid rgba(255,182,193,0.24)",
+              boxShadow: "0 16px 50px rgba(0,0,0,0.52)",
+              paddingTop: 18,
+              marginTop: 12,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                right: -32,
+                top: -32,
+                width: 180,
+                height: 180,
+                background: "radial-gradient(circle, rgba(255,105,180,0.16), rgba(255,105,180,0))",
+                pointerEvents: "none",
+              }}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div
+                style={{
+                  width: 6,
+                  height: 40,
+                  borderRadius: 999,
+                  background: "linear-gradient(180deg, #ff7fb0, #ffb6c1)",
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <h3 style={{ marginBottom: 4 }}>Read Next</h3>
+                <div className="stat-sub" style={{ color: "#f7d0dc", fontSize: "0.9rem" }}>
+                  Weighted pick that balances backlog and upcoming releases.
+                </div>
+              </div>
+              <span
+                style={{
+                  background: "rgba(255,182,193,0.18)",
+                  border: "1px solid rgba(255,182,193,0.32)",
+                  color: "#ffb6c1",
+                  fontSize: "0.78rem",
+                  padding: "6px 11px",
+                  borderRadius: "999px",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Smart
+              </span>
+            </div>
+            {readNextPick ? (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 14,
+                    alignItems: "stretch",
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: "14px",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: "rgba(255,255,255,0.04)",
+                        display: "grid",
+                        gridTemplateColumns: "1fr",
+                        gap: 8,
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <div className="stat-value" style={{ lineHeight: 1.2 }}>{readNextPick.title}</div>
+                        {readNextSnoozedUntil && readNextSnoozedUntil > new Date() && (
+                          <span
+                            className="stat-sub"
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "999px",
+                              border: "1px solid rgba(255,218,123,0.5)",
+                              background: "rgba(255,218,123,0.12)",
+                              color: "#ffda7b",
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            Snoozed to {readNextSnoozedUntil.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="stat-sub" style={{ color: "#f7d0dc" }}>
+                        Catch up {readNextPick.behindCount} volume{readNextPick.behindCount === 1 ? "" : "s"} to reach vol {readNextPick.catchUpTarget}.
+                      </div>
+                      {readNextPick.upcomingVolume ? (
+                        <div className="stat-sub" style={{ color: "#c5b3bc" }}>
+                          Own to vol {readNextPick.ownedVolume || 0}; next release is vol {readNextPick.upcomingVolume}
+                          {readNextPick.ownedVsUpcomingGap > 0 ? ` (gap ${readNextPick.ownedVsUpcomingGap})` : ""}.
+                        </div>
+                      ) : null}
+                      <div className="stat-sub" style={{ color: "#b6a6af" }}>
+                        Queued after:{" "}
+                        {readNextBackup ? `${readNextBackup.title} (${readNextBackup.unreadCount} unread)` : "Shuffle for another option"}
+                        .
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 12,
+                        textAlign: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: "12px",
+                          border: "1px solid rgba(255,182,193,0.22)",
+                          background: "rgba(255,182,193,0.08)",
+                        }}
+                      >
+                        <div className="stat-sub" style={{ marginBottom: 4 }}>Next release</div>
+                        <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                          {readNextPick.nextRelease
+                            ? readNextPick.nextRelease.date.toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : "None scheduled"}
+                        </div>
+                        <div className="stat-sub">
+                          {readNextPick.nextRelease ? `${readNextPick.daysToRelease} days out` : "Backlog focus"}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: "12px",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.05)",
+                        }}
+                      >
+                        <div className="stat-sub" style={{ marginBottom: 4 }}>Up next</div>
+                        <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                          {readNextBackup ? readNextBackup.title : "Shuffle for another pick"}
+                        </div>
+                        <div className="stat-sub">
+                          {readNextBackup ? `${readNextBackup.unreadCount} unread` : "Queue empty"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "14px",
+                    border: "1px solid rgba(255,182,193,0.24)",
+                    background: "rgba(255,182,193,0.08)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    textAlign: "center",
+                  }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                      <h4 style={{ margin: 0 }}>Purchase Next</h4>
+                      <span
+                        className="stat-sub"
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(255,255,255,0.06)",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Catch-up buy
+                      </span>
+                    </div>
+                    {purchaseNextPick ? (
+                      <>
+                        <div style={{ fontWeight: 700, fontSize: "1rem" }}>{purchaseNextPick.title}</div>
+                        <div className="stat-sub" style={{ color: "#f7d0dc" }}>
+                          Need {purchaseNextPick.missingCount} volume{purchaseNextPick.missingCount === 1 ? "" : "s"} to reach vol {purchaseNextPick.releaseVolume}.
+                        </div>
+                        <div className="stat-sub" style={{ color: "#c5b3bc" }}>
+                          Own to vol {purchaseNextPick.highestOwnedVolume || 0}; est. catch-up cost{" "}
+                          {purchaseNextPick.costEstimate
+                            ? `$${purchaseNextPick.costEstimate.toFixed(2)}`
+                            : "n/a"}{" "}
+                          {purchaseNextPick.avgMsrp ? `(avg $${purchaseNextPick.avgMsrp.toFixed(2)})` : ""}
+                        </div>
+                        <div className="stat-sub">
+                          Next release:{" "}
+                          {purchaseNextPick.nextRelease
+                            ? `${purchaseNextPick.nextRelease.date.toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })} (${purchaseNextPick.daysToRelease} days)`
+                            : "No date"}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="stat-sub">No purchase catch-ups needed right now.</div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12, justifyContent: "center" }}>
+                  <button className="stat-link" type="button" onClick={() => setReadNextSeed((s) => s + 1)}>
+                    Shuffle pick
+                  </button>
+                  <button
+                    type="button"
+                    className="stat-link"
+                    style={{ background: "rgba(255,218,123,0.1)", borderColor: "rgba(255,218,123,0.4)", color: "#ffda7b" }}
+                    onClick={() => handleSnoozeReadNext(7)}
+                  >
+                    Delay 7 days
+                  </button>
+                  <button
+                    type="button"
+                    className="stat-link"
+                    style={{ background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.22)" }}
+                    onClick={() => setReadNextSnoozed({})}
+                  >
+                    Clear delays
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="stat-sub">Add some unread volumes to get a tailored pick.</div>
+            )}
+          </div>
 
           <div className="stat-card wide">
             <h3>Activity Log</h3>
