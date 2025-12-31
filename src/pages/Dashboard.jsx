@@ -3488,7 +3488,7 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
                 x
               </button>
             </div>
-            <div className="calendar-releases">
+            <div className="calendar-releases modal-list">
               {readCalendarModalDay.releases.map((r, idx) => (
                 <div className="calendar-release purchased" key={idx} title={r.title}>
                   {r.title}
@@ -3675,7 +3675,7 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
                 x
               </button>
             </div>
-            <div className="calendar-releases">
+            <div className="calendar-releases modal-list">
               {calendarModalDay.releases.map((r, idx) => (
                 <div
                   className={"calendar-release" + (r.purchased ? " purchased" : "")}

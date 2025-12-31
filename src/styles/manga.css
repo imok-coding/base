@@ -827,6 +827,20 @@
   display: block;
 }
 
+.manga-modal.series {
+  width: 95%;
+  max-width: 880px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.manga-modal.series .manga-modal-body {
+  max-height: calc(92vh - 24px);
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
 .manga-modal.admin .manga-modal-body {
   max-height: calc(94vh - 36px);
   overflow-y: auto;

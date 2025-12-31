@@ -75,15 +75,40 @@ function isMissingValue(val, allowUnknown = false) {
   return false;
 }
 
-function isMissingCoreMeta(book) {
+function isMissingCoreMeta(book, options = {}) {
+  const includeIsbn = options.includeIsbn ?? false;
+  const includeFinance = options.includeFinance ?? false;
+  const isCollectible =
+    (book?.specialType || "").toLowerCase() === "collectible" ||
+    (book?.SpecialType || "").toLowerCase() === "collectible";
   const authorMissing = isMissingValue(book?.authors);
   const publisherMissing = isMissingValue(book?.publisher);
   const dateMissing = isMissingValue(book?.date);
+  const isbnMissing = includeIsbn ? isMissingValue(book?.isbn) : false;
+  const amountMissing =
+    includeFinance && !isCollectible ? isMissingValue(book?.amountPaid) : false;
+  const collectibleMissing =
+    includeFinance && isCollectible ? isMissingValue(book?.collectiblePrice) : false;
+  const msrpMissing = includeFinance ? isMissingValue(book?.msrp ?? book?.MSRP) : false;
+  const purchaseMissing = includeFinance ? isMissingValue(book?.datePurchased) : false;
   return {
     authorMissing,
     publisherMissing,
     dateMissing,
-    any: authorMissing || publisherMissing || dateMissing,
+    isbnMissing,
+    amountMissing,
+    collectibleMissing,
+    msrpMissing,
+    purchaseMissing,
+    any:
+      authorMissing ||
+      publisherMissing ||
+      dateMissing ||
+      isbnMissing ||
+      amountMissing ||
+      collectibleMissing ||
+      msrpMissing ||
+      purchaseMissing,
   };
 }
 
@@ -442,9 +467,6 @@ export default function Manga() {
     return stored === "individual" ? "individual" : "series";
   }); // 'series' | 'individual'
   useEffect(() => {
-    document.title = "Manga | Library";
-  }, []);
-  useEffect(() => {
     setSuggestionStatus("");
   }, [user]);
   useEffect(() => {
@@ -558,15 +580,23 @@ export default function Manga() {
   });
   const [volumeEntries, setVolumeEntries] = useState([]);
   const [volumeIndex, setVolumeIndex] = useState(0);
-  const adminMissing = useMemo(
-    () => ({
+  const adminMissing = useMemo(() => {
+    const isLib = adminForm.list === "library";
+    const isCollectible =
+      isLib && adminForm.data.special && adminForm.data.specialType === "collectible";
+    const amountVisible = isLib && !isCollectible;
+    return {
       author: isMissingValue(adminForm.data.authors),
       publisher: isMissingValue(adminForm.data.publisher),
       date: isMissingValue(adminForm.data.date),
+      purchaseDate: isLib ? isMissingValue(adminForm.data.datePurchased) : false,
       page: isMissingPageCount({ pageCount: adminForm.data.pageCount }),
-    }),
-    [adminForm.data]
-  );
+      isbn: isLib ? isMissingValue(adminForm.data.isbn) : false,
+      amountPaid: amountVisible ? isMissingValue(adminForm.data.amountPaid) : false,
+      collectiblePrice: isCollectible ? isMissingValue(adminForm.data.collectiblePrice) : false,
+      msrp: isLib ? isMissingValue(adminForm.data.msrp) : false,
+    };
+  }, [adminForm.data, adminForm.list]);
   const [bulkEdit, setBulkEdit] = useState({
     open: false,
     index: 0,
@@ -578,6 +608,23 @@ export default function Manga() {
   const [suggestionSending, setSuggestionSending] = useState(false);
   const [modalBook, setModalBook] = useState(null);
   const [seriesModal, setSeriesModal] = useState(null); // { series, volumes[] }
+
+  useEffect(() => {
+    const baseTitle = "Manga | Library";
+    if (!isAdmin) {
+      document.title = baseTitle;
+      return;
+    }
+    const countMissing = [...library, ...wishlist].reduce((acc, item) => {
+      const missingPage = isMissingPageCount(item);
+      const metaMissing = isMissingCoreMeta(item, {
+        includeIsbn: item.kind === "library",
+        includeFinance: item.kind === "library",
+      });
+      return acc + (missingPage || metaMissing.any ? 1 : 0);
+    }, 0);
+    document.title = countMissing > 0 ? `(${countMissing}) ${baseTitle}` : baseTitle;
+  }, [isAdmin, library, wishlist]);
 
   // Lock page scroll when any modal is open
   useEffect(() => {
@@ -1153,6 +1200,12 @@ export default function Manga() {
                   genre: "",
                   subGenre: "",
                 };
+          if (destination === "library" && (payload.msrp === "" || payload.msrp === null)) {
+            const inherited = getSeriesMsrp(item);
+            if (inherited !== "" && inherited !== null && inherited !== undefined) {
+              payload.msrp = inherited;
+            }
+          }
           await addDoc(collection(db, destination), payload);
           await deleteDoc(doc(db, source, id));
         }
@@ -1906,7 +1959,10 @@ export default function Manga() {
         (item.title || "").replace(/,?\s*Vol\.?\s*\d+.*/i, "").trim() ||
         item.title ||
         "Untitled";
-      const metaMissing = isMissingCoreMeta(item);
+      const metaMissing = isMissingCoreMeta(item, {
+        includeIsbn: item.kind === "library",
+        includeFinance: item.kind === "library",
+      });
       const volumesForItem = extractVolumesFromTitle(item.title || "");
       const fallbackVol = Number.isFinite(parsed.vol) ? parsed.vol : 0;
       const volumeNumbers =
@@ -2004,7 +2060,18 @@ export default function Manga() {
     const selected = selectedIds.has(book.id);
     const isLibraryCard = book.kind === "library";
     const missingPage = isAdmin && isMissingPageCount(book);
-    const missingMeta = isAdmin ? isMissingCoreMeta(book) : { any: false, authorMissing: false, publisherMissing: false, dateMissing: false };
+    const missingMeta = isAdmin
+      ? isMissingCoreMeta(book, { includeIsbn: isLibraryCard, includeFinance: isLibraryCard })
+      : {
+          any: false,
+          authorMissing: false,
+          publisherMissing: false,
+          dateMissing: false,
+          isbnMissing: false,
+          amountMissing: false,
+          msrpMissing: false,
+          purchaseMissing: false,
+        };
 
     const handleClick = () => {
       if (multiMode && isAdmin) {
@@ -2052,8 +2119,11 @@ export default function Manga() {
               {book.date && book.date !== "Unknown" ? book.date : missingMeta.dateMissing ? "Missing date" : ""}
             </span>
           </div>
-          {book.isbn && (
+          {book.isbn ? (
             <div className="manga-card-isbn">ISBN: {book.isbn}</div>
+          ) : (
+            isLibraryCard &&
+            missingMeta.isbnMissing && <div className="manga-card-isbn missing-field">Missing ISBN</div>
           )}
           {isAdmin && (
             <div className="manga-card-actions">
@@ -2279,6 +2349,7 @@ export default function Manga() {
             prev.cover !== v.cover ||
             prev.read !== v.read ||
             prev.pageCount !== v.pageCount ||
+            prev.datePurchased !== v.datePurchased ||
             prev.amountPaid !== v.amountPaid ||
             prev.msrp !== v.msrp ||
             prev.rating !== v.rating
@@ -2437,13 +2508,20 @@ export default function Manga() {
     const key = parsed.name;
     if (!key) return "";
     const source = [...library, ...wishlist];
-    const match = source.find((b) => {
-      const p = parseTitleForSort(b.title || "");
-      const sameSeries = p.name === key;
-      const hasMsrp = b.msrp !== undefined && b.msrp !== null && b.msrp !== "";
-      return sameSeries && hasMsrp;
-    });
-    return match ? match.msrp : "";
+    const msrps = source
+      .map((b) => {
+        const p = parseTitleForSort(b.title || "");
+        const sameSeries = p.name === key;
+        const raw = b.msrp ?? b.MSRP ?? "";
+        const str = String(raw).trim();
+        if (!sameSeries || !str) return null;
+        const num = Number(str);
+        return Number.isFinite(num) ? num : null;
+      })
+      .filter((n) => n !== null);
+    if (!msrps.length) return "";
+    const first = msrps[0];
+    return msrps.every((n) => n === first) ? first : "";
   };
 
   const getSeriesDemographics = (book) => {
@@ -2500,6 +2578,36 @@ export default function Manga() {
   const isWishlistForm = adminForm.list === "wishlist";
   const bulkCurrent = bulkEdit.items[bulkEdit.index] || null;
   const bulkIsWishlist = bulkCurrent?.kind === "wishlist";
+  const bulkMissing = useMemo(() => {
+    if (!bulkCurrent) {
+      return {
+        author: false,
+        publisher: false,
+        date: false,
+        purchaseDate: false,
+        page: false,
+        isbn: false,
+        amountPaid: false,
+        collectiblePrice: false,
+        msrp: false,
+      };
+    }
+    const data = bulkCurrent.data || {};
+    const isLib = bulkCurrent.kind === "library";
+    const isCollectible = isLib && data.special && data.specialType === "collectible";
+    const amountVisible = isLib && !isCollectible;
+    return {
+      author: isMissingValue(data.authors),
+      publisher: isMissingValue(data.publisher),
+      date: isMissingValue(data.date),
+      purchaseDate: isLib ? isMissingValue(data.datePurchased) : false,
+      page: isMissingPageCount({ pageCount: data.pageCount }),
+      isbn: isLib ? isMissingValue(data.isbn) : false,
+      amountPaid: amountVisible ? isMissingValue(data.amountPaid) : false,
+      collectiblePrice: isCollectible ? isMissingValue(data.collectiblePrice) : false,
+      msrp: isLib ? isMissingValue(data.msrp) : false,
+    };
+  }, [bulkCurrent]);
 
   return (
     <div className="manga-page">
@@ -2803,66 +2911,77 @@ export default function Manga() {
                 </div>
               )}
               <div className="manga-series-modal-grid">
-                {seriesModal.volumes.map((vol) => (
-              <div
-                key={vol.id}
-                className={
-                  "manga-card mini-card" +
-                  (vol.read ? " read" : "") +
-                  (isAdmin && isMissingPageCount(vol) ? " missing-page" : "") +
-                  (isAdmin && isMissingCoreMeta(vol).any ? " missing-meta" : "")
-                }
-                onClick={() => {
-                  if (!isAdmin) {
-                    openModal(vol);
-                    return;
-                  }
-                      if (multiMode) {
-                        toggleCardSelection(vol.id);
-                        return;
+                {seriesModal.volumes.map((vol) => {
+                  const volMeta = isMissingCoreMeta(vol, {
+                    includeIsbn: vol.kind === "library",
+                    includeFinance: vol.kind === "library",
+                  });
+                  return (
+                    <div
+                      key={vol.id}
+                      className={
+                        "manga-card mini-card" +
+                        (vol.read ? " read" : "") +
+                        (isAdmin && isMissingPageCount(vol) ? " missing-page" : "") +
+                        (isAdmin && volMeta.any ? " missing-meta" : "")
                       }
-                      openModal(vol);
-                    }}
-                  >
-                    <div className="manga-card-cover-wrap">
-                      {multiMode && isAdmin && (
-                        <div
-                          className={
-                            "mini-select-indicator" +
-                            (selectedIds.has(vol.id) ? " selected" : "")
-                          }
-                        >
-                          {selectedIds.has(vol.id) ? "X" : ""}
+                      onClick={() => {
+                        if (!isAdmin) {
+                          openModal(vol);
+                          return;
+                        }
+                        if (multiMode) {
+                          toggleCardSelection(vol.id);
+                          return;
+                        }
+                        openModal(vol);
+                      }}
+                    >
+                      <div className="manga-card-cover-wrap">
+                        {multiMode && isAdmin && (
+                          <div
+                            className={
+                              "mini-select-indicator" +
+                              (selectedIds.has(vol.id) ? " selected" : "")
+                            }
+                          >
+                            {selectedIds.has(vol.id) ? "X" : ""}
+                          </div>
+                        )}
+                        <img
+                          src={vol.cover || "https://imgur.com/chUgq4W.png"}
+                          alt={vol.title || "Cover"}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                      <div className="manga-card-body">
+                        <div className="manga-card-title">{vol.title || "Untitled"}</div>
+                        <div className="manga-card-meta">
+                          <span className={volMeta.authorMissing ? "missing-field" : ""}>
+                            {vol.authors && vol.authors !== "Unknown" ? vol.authors : "Missing author"}
+                          </span>
+                          <br />
+                          <span className={volMeta.publisherMissing ? "missing-field" : ""}>
+                            {vol.publisher && vol.publisher !== "Unknown" ? vol.publisher : "Missing publisher"}
+                          </span>
+                          <br />
+                          <span className={volMeta.dateMissing ? "missing-field" : ""}>
+                            {vol.date && vol.date !== "Unknown" ? vol.date : "Missing date"}
+                          </span>
                         </div>
-                      )}
-                      <img
-                        src={vol.cover || "https://imgur.com/chUgq4W.png"}
-                        alt={vol.title || "Cover"}
-                        loading="lazy"
-                        decoding="async"
-                      />
+                        {vol.isbn ? (
+                          <div className="manga-card-isbn">ISBN: {vol.isbn}</div>
+                        ) : (
+                          vol.kind === "library" &&
+                          volMeta.isbnMissing && (
+                            <div className="manga-card-isbn missing-field">Missing ISBN</div>
+                          )
+                        )}
+                      </div>
                     </div>
-        <div className="manga-card-body">
-          <div className="manga-card-title">{vol.title || "Untitled"}</div>
-          <div className="manga-card-meta">
-            <span className={isMissingCoreMeta(vol).authorMissing ? "missing-field" : ""}>
-              {vol.authors && vol.authors !== "Unknown" ? vol.authors : "Missing author"}
-            </span>
-            <br />
-            <span className={isMissingCoreMeta(vol).publisherMissing ? "missing-field" : ""}>
-              {vol.publisher && vol.publisher !== "Unknown" ? vol.publisher : "Missing publisher"}
-            </span>
-            <br />
-            <span className={isMissingCoreMeta(vol).dateMissing ? "missing-field" : ""}>
-              {vol.date && vol.date !== "Unknown" ? vol.date : "Missing date"}
-            </span>
-          </div>
-                      {vol.isbn && (
-                        <div className="manga-card-isbn">ISBN: {vol.isbn}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -3228,7 +3347,7 @@ export default function Manga() {
                         onChange={(e) => handleAdminChange("date", e.target.value)}
                       />
                     </label>
-                    <label>
+                    <label className={adminMissing.purchaseDate ? "missing-field-input" : ""}>
                       Purchase Date
                       <input
                         type="date"
@@ -3259,7 +3378,7 @@ export default function Manga() {
                       />
                     </label>
                     {!isWishlistForm && (
-                      <label>
+                      <label className={adminMissing.isbn ? "missing-field-input" : ""}>
                         ISBN (library only)
                         <input
                           type="text"
@@ -3286,7 +3405,7 @@ export default function Manga() {
                     <>
                       <div className="admin-row two">
                         {!(adminForm.data.special && adminForm.data.specialType === "collectible") && (
-                          <label>
+                          <label className={adminMissing.amountPaid ? "missing-field-input" : ""}>
                             Amount Paid
                             <input
                               type="number"
@@ -3296,7 +3415,7 @@ export default function Manga() {
                             />
                           </label>
                         )}
-                        <label>
+                        <label className={adminMissing.msrp ? "missing-field-input" : ""}>
                           MSRP
                           <input
                             type="number"
@@ -3320,19 +3439,19 @@ export default function Manga() {
                       {adminForm.data.special && (
                         <>
                           <div className="admin-row two">
-                            <label>
-                              Special Type
-                              <select
-                                value={adminForm.data.specialType}
-                                onChange={(e) => handleAdminChange("specialType", e.target.value)}
-                              >
-                                <option value="">Select type</option>
-                                <option value="specialEdition">Special Edition</option>
-                                <option value="collectible">Collectible</option>
-                              </select>
-                            </label>
-                            {adminForm.data.specialType === "collectible" && (
-                              <label>
+                          <label>
+                            Special Type
+                            <select
+                              value={adminForm.data.specialType}
+                              onChange={(e) => handleAdminChange("specialType", e.target.value)}
+                            >
+                              <option value="">Select type</option>
+                              <option value="specialEdition">Special Edition</option>
+                              <option value="collectible">Collectible</option>
+                            </select>
+                          </label>
+                          {adminForm.data.specialType === "collectible" && (
+                              <label className={adminMissing.collectiblePrice ? "missing-field-input" : ""}>
                                 Collectible Price
                                 <input
                                   type="number"
@@ -3501,7 +3620,7 @@ export default function Manga() {
                       </div>
 
                       <div className="admin-row">
-                        <label>
+                        <label className={bulkMissing.author ? "missing-field-input" : ""}>
                           Authors
                           <input
                             type="text"
@@ -3512,7 +3631,7 @@ export default function Manga() {
                       </div>
 
                       <div className="admin-row">
-                        <label>
+                        <label className={bulkMissing.publisher ? "missing-field-input" : ""}>
                           Publisher
                           <input
                             type="text"
@@ -3523,7 +3642,7 @@ export default function Manga() {
                       </div>
 
                       <div className="admin-row three">
-                        <label>
+                        <label className={bulkMissing.date ? "missing-field-input" : ""}>
                           Release Date
                           <input
                             type="date"
@@ -3531,7 +3650,7 @@ export default function Manga() {
                             onChange={(e) => handleBulkChange("date", e.target.value)}
                           />
                         </label>
-                        <label>
+                        <label className={bulkMissing.purchaseDate ? "missing-field-input" : ""}>
                           Purchase Date
                           <input
                             type="date"
@@ -3552,7 +3671,7 @@ export default function Manga() {
                       </div>
 
                       <div className="admin-row two">
-                        <label>
+                        <label className={bulkMissing.page ? "missing-field-input" : ""}>
                           Page Count
                           <input
                             type="number"
@@ -3561,7 +3680,7 @@ export default function Manga() {
                           />
                         </label>
                         {!bulkIsWishlist && (
-                          <label>
+                          <label className={bulkMissing.isbn ? "missing-field-input" : ""}>
                             ISBN (library only)
                             <input
                               type="text"
@@ -3585,7 +3704,7 @@ export default function Manga() {
 
                       {!bulkIsWishlist && (
                         <div className="admin-row two">
-                          <label>
+                          <label className={bulkMissing.amountPaid ? "missing-field-input" : ""}>
                             Amount Paid
                             <input
                               type="number"
@@ -3594,7 +3713,7 @@ export default function Manga() {
                               onChange={(e) => handleBulkChange("amountPaid", e.target.value)}
                             />
                           </label>
-                          <label>
+                          <label className={bulkMissing.msrp ? "missing-field-input" : ""}>
                             MSRP
                             <input
                               type="number"
@@ -3669,7 +3788,7 @@ export default function Manga() {
                             </label>
                           )}
                           {bulkEdit.items[bulkEdit.index].data.specialType === "collectible" && (
-                            <label>
+                            <label className={bulkMissing.collectiblePrice ? "missing-field-input" : ""}>
                               Collectible Price
                               <input
                                 type="number"
@@ -3684,26 +3803,42 @@ export default function Manga() {
                         </div>
                       )}
 
-                      <div className="admin-row two">
-                        <label>
-                          Amazon URL
-                          <input
-                            type="text"
-                            value={bulkEdit.items[bulkEdit.index].data.amazonURL}
-                            onChange={(e) => handleBulkChange("amazonURL", e.target.value)}
-                          />
-                        </label>
-                        <label className="checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={!!bulkEdit.items[bulkEdit.index].data.hidden}
-                            onChange={(e) =>
-                              handleBulkChange("hidden", e.target.checked, "checkbox")
-                            }
-                          />
-                          <span>Hidden from public</span>
-                        </label>
-                      </div>
+                      {bulkIsWishlist && (
+                        <div className="admin-row two">
+                          <label>
+                            Amazon URL
+                            <input
+                              type="text"
+                              value={bulkEdit.items[bulkEdit.index].data.amazonURL}
+                              onChange={(e) => handleBulkChange("amazonURL", e.target.value)}
+                            />
+                          </label>
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={!!bulkEdit.items[bulkEdit.index].data.hidden}
+                              onChange={(e) =>
+                                handleBulkChange("hidden", e.target.checked, "checkbox")
+                              }
+                            />
+                            <span>Hidden from public</span>
+                          </label>
+                        </div>
+                      )}
+                      {!bulkIsWishlist && (
+                        <div className="admin-row">
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={!!bulkEdit.items[bulkEdit.index].data.hidden}
+                              onChange={(e) =>
+                                handleBulkChange("hidden", e.target.checked, "checkbox")
+                              }
+                            />
+                            <span>Hidden from public</span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -833,6 +833,12 @@ a,
   overflow: hidden;
 }
 
+.calendar-releases.modal-list {
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
 .calendar-release {
   background: rgba(255, 105, 180, 0.15);
   border: 1px solid rgba(255, 105, 180, 0.35);
@@ -1094,6 +1100,8 @@ a,
 
 .purchase-day-modal {
   width: min(520px, 90vw);
+  max-height: 85vh;
+  overflow: hidden;
   background: linear-gradient(135deg, rgba(39, 13, 25, 0.98), rgba(12, 6, 16, 0.98));
   border: 1px solid rgba(74, 224, 165, 0.55);
   border-radius: 16px;
@@ -1121,6 +1129,9 @@ a,
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: 6px;
 }
 
 .purchase-day-item {
