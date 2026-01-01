@@ -15,6 +15,7 @@ const DEFAULT_YEARLY_WEBHOOK =
   "https://discord.com/api/webhooks/1448287168845054004/cGWGPoH5LaTFlBZ1vxtgMjOfV9au6qyQ_9ZRnOWN9-AX0MNfwxKNWVcZYQHz0ESA7_4k";
 const DEFAULT_RELEASE_WEBHOOK =
   "https://discord.com/api/webhooks/1448288240871276616/101WI-B2p8tDR34Hl9fZxxb0QG01f1Eo5w1IvbttlQmP2wWFNJ0OI7UnJfJujKRNWW2Q";
+const READ_NEXT_STATE_COLLECTION = "readNextState";
 
 /* ---------- Helpers ---------- */
 
@@ -595,6 +596,17 @@ function buildReadNextSuggestion(seriesProgress, releases, snoozed = {}, seed = 
   return { pick, backup };
 }
 
+function sanitizeReadNextSnoozed(raw) {
+  const cleaned = {};
+  const now = Date.now();
+  if (!raw || typeof raw !== "object") return cleaned;
+  Object.entries(raw).forEach(([k, v]) => {
+    const ts = Number(v);
+    if (Number.isFinite(ts) && ts > now) cleaned[k] = ts;
+  });
+  return cleaned;
+}
+
 function buildPurchaseNextSuggestion(seriesProgress, releases, globalAvgMsrp) {
   if (!seriesProgress || !seriesProgress.size) return null;
   const now = new Date();
@@ -910,6 +922,7 @@ export default function Dashboard() {
   const [suggestionsErr, setSuggestionsErr] = useState("");
   const [readNextSnoozed, setReadNextSnoozed] = useState({});
   const [readNextSeed, setReadNextSeed] = useState(() => Math.random());
+  const [readNextStateLoaded, setReadNextStateLoaded] = useState(false);
   const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const [calendarModalDay, setCalendarModalDay] = useState(null);
   const refreshUsers = async () => {
@@ -1295,7 +1308,7 @@ export default function Dashboard() {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
-        setReadNextSnoozed(parsed);
+        setReadNextSnoozed(sanitizeReadNextSnoozed(parsed));
       }
     } catch (e) {
       console.error("Failed to load read-next snoozed state", e);
@@ -1303,12 +1316,40 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const cleaned = {};
-    const now = Date.now();
-    Object.entries(readNextSnoozed || {}).forEach(([k, v]) => {
-      const ts = Number(v);
-      if (Number.isFinite(ts) && ts > now) cleaned[k] = ts;
-    });
+    if (!user) {
+      setReadNextStateLoaded(false);
+      setReadNextSnoozed({});
+      setReadNextSeed(Math.random());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ref = doc(db, READ_NEXT_STATE_COLLECTION, user.uid);
+        const snap = await getDoc(ref);
+        if (cancelled) return;
+        if (snap.exists()) {
+          const data = snap.data() || {};
+          if (data.snoozed) {
+            setReadNextSnoozed(sanitizeReadNextSnoozed(data.snoozed));
+          }
+          if (Number.isFinite(data.seed)) {
+            setReadNextSeed(data.seed);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load read-next state", e);
+      } finally {
+        if (!cancelled) setReadNextStateLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    const cleaned = sanitizeReadNextSnoozed(readNextSnoozed);
     if (JSON.stringify(cleaned) !== JSON.stringify(readNextSnoozed)) {
       setReadNextSnoozed(cleaned);
       return;
@@ -1318,7 +1359,24 @@ export default function Dashboard() {
     } catch (e) {
       console.error("Failed to persist read-next snoozed state", e);
     }
-  }, [readNextSnoozed]);
+    if (!user || !readNextStateLoaded) return;
+    const ref = doc(db, READ_NEXT_STATE_COLLECTION, user.uid);
+    (async () => {
+      try {
+        await setDoc(
+          ref,
+          {
+            snoozed: cleaned,
+            seed: readNextSeed,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.error("Failed to persist read-next state", e);
+      }
+    })();
+  }, [readNextSnoozed, readNextSeed, user, readNextStateLoaded]);
 
   const readNextSuggestion = useMemo(
     () => buildReadNextSuggestion(seriesProgress, releases, readNextSnoozed, readNextSeed),
