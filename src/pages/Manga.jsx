@@ -855,8 +855,6 @@ export default function Manga() {
       }
     };
 
-    if (!user) return undefined;
-
     setLoading(true);
     setError("");
 
