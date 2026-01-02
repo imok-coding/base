@@ -152,6 +152,22 @@ function extractVolumesFromTitle(title) {
   return vols;
 }
 
+function getSeriesKeyFromTitle(title) {
+  const parsed = parseTitleForSort(title || "");
+  return parsed.name;
+}
+
+function buildSeriesHiddenMap(library, wishlist) {
+  const map = new Map();
+  [...library, ...wishlist].forEach((item) => {
+    const key = getSeriesKeyFromTitle(item.title || "");
+    if (!key) return;
+    const alreadyHidden = map.get(key) || false;
+    map.set(key, alreadyHidden || !!item.hidden);
+  });
+  return map;
+}
+
 // ---- Stats computation (React version of your old dashboard) ----
 
 function computeMangaStats(library, wishlist) {
@@ -1011,6 +1027,11 @@ export default function Manga() {
 
   // ----- Filtered lists -----
 
+  const seriesHiddenMap = useMemo(
+    () => buildSeriesHiddenMap(library, wishlist),
+    [library, wishlist]
+  );
+
   const filteredLibrary = useMemo(() => {
     const q = searchLibrary.trim().toLowerCase();
     if (!q) return library;
@@ -1029,10 +1050,16 @@ export default function Manga() {
     });
   }, [library, searchLibrary]);
 
+  const isSeriesHidden = (book) => {
+    const key = getSeriesKeyFromTitle(book.title || "");
+    const seriesHidden = seriesHiddenMap.get(key);
+    return seriesHidden != null ? seriesHidden : !!book.hidden;
+  };
+
   const visibleLibrary = useMemo(() => {
     if (isAdmin && showHidden) return filteredLibrary;
-    return filteredLibrary.filter((b) => !b.hidden);
-  }, [filteredLibrary, isAdmin, showHidden]);
+    return filteredLibrary.filter((b) => !isSeriesHidden(b));
+  }, [filteredLibrary, isAdmin, showHidden, seriesHiddenMap]);
 
   const filteredWishlist = useMemo(() => {
     const q = searchWishlist.trim().toLowerCase();
@@ -1054,8 +1081,8 @@ export default function Manga() {
 
   const visibleWishlist = useMemo(() => {
     if (isAdmin && showHidden) return filteredWishlist;
-    return filteredWishlist.filter((b) => !b.hidden);
-  }, [filteredWishlist, isAdmin, showHidden]);
+    return filteredWishlist.filter((b) => !isSeriesHidden(b));
+  }, [filteredWishlist, isAdmin, showHidden, seriesHiddenMap]);
 
 
   const changeViewMode = (mode) => {
@@ -1082,6 +1109,31 @@ export default function Manga() {
     };
     setLibrary((prev) => applyToList(prev, "library"));
     setWishlist((prev) => applyToList(prev, "wishlist"));
+  };
+
+  const syncSeriesHiddenState = async (seriesKey, hiddenValue, skipIds = []) => {
+    if (!seriesKey) return;
+    const skip = new Set(skipIds || []);
+    const allItems = [...library, ...wishlist];
+    const updates = allItems.filter((item) => {
+      const key = getSeriesKeyFromTitle(item.title || "");
+      return key === seriesKey && !skip.has(item.id) && (!!item.hidden) !== hiddenValue;
+    });
+    if (!updates.length) return;
+    await Promise.all(
+      updates.map((item) =>
+        updateDoc(doc(db, item.kind === "wishlist" ? "wishlist" : "library", item.id), {
+          hidden: hiddenValue,
+        })
+      )
+    );
+    applyWriteResults(
+      updates.map((item) => ({
+        target: item.kind === "wishlist" ? "wishlist" : "library",
+        id: item.id,
+        payload: { hidden: hiddenValue },
+      }))
+    );
   };
 
   const toggleSeriesMultiMode = (volumes) => {
@@ -1588,6 +1640,7 @@ export default function Manga() {
     if (!isAdmin) return;
     const { list } = adminForm;
     const targetList = list || "library";
+    const seriesHiddenIntents = new Map();
     const entries =
       volumeEntries.length > 0
         ? volumeEntries
@@ -1607,12 +1660,12 @@ export default function Manga() {
       const genreVal = (d.genre || "").trim() || meta.genre || "";
       const subVal = (d.subGenre || "").trim() || meta.subGenre || "";
 
-      return {
-        title: titleTrim,
-        authors: authorVal,
-        publisher: publisherVal,
-        demographic: demoVal,
-        genre: genreVal,
+          return {
+            title: titleTrim,
+            authors: authorVal,
+            publisher: publisherVal,
+            demographic: demoVal,
+            genre: genreVal,
         subGenre: subVal,
         date: normalizeDateString(d.date || ""),
         cover: (d.cover || "").trim(),
@@ -1689,6 +1742,10 @@ export default function Manga() {
           alert("Title is required for every entry.");
           throw new Error("missing title");
         }
+        const seriesKey = getSeriesKeyFromTitle(payload.title);
+        if (seriesKey) {
+          seriesHiddenIntents.set(seriesKey, payload.hidden);
+        }
         if (entry.kind === "edit" && entry.id) {
           await updateDoc(doc(db, targetList, entry.id), payload);
           return { target: targetList, id: entry.id, payload };
@@ -1698,6 +1755,19 @@ export default function Manga() {
         }
       }));
       applyWriteResults(results.filter(Boolean));
+      const idsBySeries = new Map();
+      results.forEach((r) => {
+        const key = getSeriesKeyFromTitle(r?.payload?.title || "");
+        if (!key) return;
+        if (!idsBySeries.has(key)) idsBySeries.set(key, new Set());
+        idsBySeries.get(key).add(r.id);
+      });
+      const seriesSyncTasks = [...seriesHiddenIntents.entries()].map(([seriesKey, hiddenValue]) =>
+        syncSeriesHiddenState(seriesKey, hiddenValue, Array.from(idsBySeries.get(seriesKey) || []))
+      );
+      if (seriesSyncTasks.length) {
+        await Promise.all(seriesSyncTasks);
+      }
       await Promise.all([loadLibrary(), loadWishlist()]);
       logActivity(
         `${adminForm.mode === "add" ? "Added" : "Saved"} ${entries.length} item${
@@ -1887,6 +1957,7 @@ export default function Manga() {
   async function applyBulkSave() {
     if (!isAdmin) return;
     const updates = bulkEdit.items;
+    const seriesHiddenIntents = new Map();
     if (!updates.length) {
       resetBulkEdit();
       return;
@@ -1923,11 +1994,28 @@ export default function Manga() {
           amazonURL: item.data.amazonURL || "",
           read: !!item.data.read,
         };
+        const seriesKey = getSeriesKeyFromTitle(payload.title);
+        if (seriesKey) {
+          seriesHiddenIntents.set(seriesKey, payload.hidden);
+        }
         const target = item.kind === "wishlist" ? "wishlist" : "library";
         await updateDoc(doc(db, target, item.id), payload);
         return { target, id: item.id, payload };
       }));
       applyWriteResults(results.filter(Boolean));
+      const idsBySeries = new Map();
+      results.forEach((r) => {
+        const key = getSeriesKeyFromTitle(r?.payload?.title || "");
+        if (!key) return;
+        if (!idsBySeries.has(key)) idsBySeries.set(key, new Set());
+        idsBySeries.get(key).add(r.id);
+      });
+      const seriesSyncTasks = [...seriesHiddenIntents.entries()].map(([seriesKey, hiddenValue]) =>
+        syncSeriesHiddenState(seriesKey, hiddenValue, Array.from(idsBySeries.get(seriesKey) || []))
+      );
+      if (seriesSyncTasks.length) {
+        await Promise.all(seriesSyncTasks);
+      }
       await Promise.all([loadLibrary(), loadWishlist()]);
       setSelectedIds(new Set());
       setMultiMode(false);

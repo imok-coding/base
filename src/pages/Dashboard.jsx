@@ -1,7 +1,18 @@
 ﻿// src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/dashboard.css";
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -467,6 +478,29 @@ function computePurchaseToReadSeries(library) {
     .sort((a, b) => b.avg - a.avg);
 }
 
+function computeAverageDailyReads(library) {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const reads = library
+    .map((item) => parseDate(item.dateRead || item.DateRead))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  if (!reads.length) return { lifetime: null, ytd: null };
+  const now = Date.now();
+  const firstTs = reads[0].getTime();
+  const lifetimeDays = Math.max(1, Math.round((now - firstTs) / msPerDay) + 1);
+  const today = new Date();
+  const startOfYear = new Date(today.getFullYear(), 0, 1);
+  const daysElapsedYear = Math.max(
+    1,
+    Math.floor((today.getTime() - startOfYear.getTime()) / msPerDay) + 1
+  );
+  const currentYearReads = reads.filter((d) => d.getFullYear() === today.getFullYear()).length;
+  return {
+    lifetime: reads.length / lifetimeDays,
+    ytd: currentYearReads / daysElapsedYear,
+  };
+}
+
 function computeCollectionValue(library) {
   let msrpTotal = 0;
   let paidTotal = 0;
@@ -486,7 +520,7 @@ function computeCollectionValue(library) {
   return { msrpTotal, paidTotal, collectibleTotal };
 }
 
-function buildSeriesProgress(library) {
+function buildSeriesProgress(library, wishlist = []) {
   const map = new Map();
   let globalMsrpSum = 0;
   let globalMsrpCount = 0;
@@ -502,17 +536,24 @@ function buildSeriesProgress(library) {
         highestOwnedVolume: 0,
         lastReadVolume: 0,
         unreadCount: 0,
+        readVolumes: 0,
+        libraryCount: 0,
+        wishlistCount: 0,
         total: 0,
         msrpSum: 0,
         msrpCount: 0,
+        latestPurchaseTs: 0,
+        latestPurchaseDate: null,
       });
     }
     const entry = map.get(key);
+    entry.libraryCount += 1;
     entry.total += 1;
     entry.highestOwnedVolume = Math.max(entry.highestOwnedVolume, vol);
     const readFlag = !!book.read || book.status === "Read" || book.Read === true;
     if (readFlag) {
       entry.lastReadVolume = Math.max(entry.lastReadVolume, vol);
+      entry.readVolumes += 1;
     } else {
       entry.unreadCount += 1;
     }
@@ -523,9 +564,33 @@ function buildSeriesProgress(library) {
       globalMsrpSum += msrpVal;
       globalMsrpCount += 1;
     }
+    const latestPurchase = parseDate(book.datePurchased || book.DatePurchased);
+    if (latestPurchase) {
+      const ts = latestPurchase.getTime();
+      if (ts > entry.latestPurchaseTs) {
+        entry.latestPurchaseTs = ts;
+        entry.latestPurchaseDate = latestPurchase;
+      }
+    }
+  });
+  wishlist.forEach((book) => {
+    const key = getSeriesKey(book) || book.id;
+    if (!key) return;
+    const entry = map.get(key);
+    if (!entry) return;
+    entry.wishlistCount += 1;
   });
   map.forEach((entry) => {
     entry.avgMsrp = entry.msrpCount ? entry.msrpSum / entry.msrpCount : null;
+    const ownedTotal = entry.libraryCount + entry.wishlistCount;
+    entry.ownershipRatio = ownedTotal ? entry.libraryCount / ownedTotal : 0;
+    entry.fullyOwned = entry.wishlistCount === 0;
+    entry.recentPurchaseScore = entry.latestPurchaseTs
+      ? Math.max(0, 1 - (Date.now() - entry.latestPurchaseTs) / (1000 * 60 * 60 * 24 * 120))
+      : 0;
+    entry.latestPurchaseDays = entry.latestPurchaseTs
+      ? Math.round((Date.now() - entry.latestPurchaseTs) / (1000 * 60 * 60 * 24))
+      : null;
   });
   const globalAvgMsrp = globalMsrpCount ? globalMsrpSum / globalMsrpCount : null;
   return { map, globalAvgMsrp };
@@ -553,6 +618,9 @@ function buildReadNextSuggestion(seriesProgress, releases, snoozed = {}, seed = 
 
   let idx = 0;
   for (const c of candidates) {
+    const ownershipRatio = Number.isFinite(c.ownershipRatio) ? c.ownershipRatio : 0;
+    const recentPurchaseBoost = Number.isFinite(c.recentPurchaseScore) ? c.recentPurchaseScore : 0;
+    const wishlistPressure = Math.min(c.wishlistCount || 0, 6) / 6;
     const snoozeUntil = snoozed?.[c.key] ? new Date(snoozed[c.key]) : null;
     if (snoozeUntil && snoozeUntil > now) {
       c.snoozedUntil = snoozeUntil;
@@ -573,11 +641,32 @@ function buildReadNextSuggestion(seriesProgress, releases, snoozed = {}, seed = 
     const behindCount = Math.max(c.unreadCount, behindToCatchUp, behindToUpcoming);
     const backlogWeight = Math.min(behindCount, 8) / 8;
     const urgency = daysToRelease != null && daysToRelease >= 0 ? Math.max(0, 120 - daysToRelease) / 120 : 0;
-    const upcomingSoon = daysToRelease != null && daysToRelease <= 45 ? 0.8 : 0;
+    const upcomingSoon = daysToRelease != null && daysToRelease <= 45 ? 0.6 : 0;
     const ownedGapPenalty = releaseVolume ? Math.min(releaseGapOwned, 12) / 12 : 0;
     const bigGapPenalty = releaseGapOwned >= 6 ? 0.6 : 0;
+    const ownershipBonus = ownershipRatio * 1.05 - wishlistPressure * 0.35;
+    const fullyOwnedBoost = c.fullyOwned ? 0.35 : 0;
+    const recencyBoost = recentPurchaseBoost * 0.8;
     const jitter = 0.85 + (Math.abs(Math.sin(seed + idx + 1)) % 0.35);
-    const baseScore = 1 + backlogWeight * 1.2 + urgency * 1.4 + upcomingSoon - ownedGapPenalty * 1.6 - bigGapPenalty;
+    const baseScore =
+      1 +
+      backlogWeight * 1.15 +
+      urgency * 1.1 +
+      upcomingSoon +
+      ownershipBonus +
+      fullyOwnedBoost +
+      recencyBoost -
+      ownedGapPenalty * 1.25 -
+      bigGapPenalty;
+    const weightBreakdown = {
+      backlogWeight,
+      urgency,
+      upcomingSoon,
+      ownershipBonus,
+      fullyOwnedBoost,
+      recencyBoost,
+      gapPenalty: ownedGapPenalty + bigGapPenalty,
+    };
     c.score = Math.max(baseScore, 0.05) * jitter;
     c.nextRelease = nextRelease;
     c.daysToRelease = daysToRelease;
@@ -586,6 +675,9 @@ function buildReadNextSuggestion(seriesProgress, releases, snoozed = {}, seed = 
     c.upcomingVolume = releaseVolume;
     c.ownedVolume = c.highestOwnedVolume;
     c.ownedVsUpcomingGap = releaseGapOwned;
+    c.ownershipRatio = ownershipRatio;
+    c.latestPurchaseDays = c.latestPurchaseDays ?? null;
+    c.weightBreakdown = weightBreakdown;
     idx += 1;
   }
 
@@ -593,7 +685,11 @@ function buildReadNextSuggestion(seriesProgress, releases, snoozed = {}, seed = 
   const available = candidates.filter((c) => c.score > -Infinity);
   const pick = available[0] || null;
   const backup = available.find((c, i) => i > 0 && c.unreadCount > 0) || null;
-  return { pick, backup };
+  const weights = {
+    pick: pick?.weightBreakdown || null,
+    seed,
+  };
+  return { pick, backup, weights };
 }
 
 function sanitizeReadNextSnoozed(raw) {
@@ -625,7 +721,7 @@ function buildPurchaseNextSuggestion(seriesProgress, releases, globalAvgMsrp) {
   const candidates = [];
   seriesProgress.forEach((entry) => {
     const nextRelease = releaseBySeries.get(entry.key);
-    if (!nextRelease) return;
+    if (!nextRelease || nextRelease.purchased) return;
     const releaseVolume = nextRelease && Number.isFinite(nextRelease.volume) ? nextRelease.volume : null;
     if (!releaseVolume) return;
     const missingCount = Math.max(0, releaseVolume - 1 - entry.highestOwnedVolume);
@@ -637,7 +733,19 @@ function buildPurchaseNextSuggestion(seriesProgress, releases, globalAvgMsrp) {
     const affordability = avgMsrp > 0 ? 1 / (1 + costEstimate / 60) : 0.7;
     const urgency = daysToRelease != null && daysToRelease >= 0 ? Math.max(0, 120 - daysToRelease) / 120 : 0;
     const gapPenalty = Math.min(missingCount, 12) / 12;
-    const score = urgency * 1.3 + affordability * 1.1 + 1 / (1 + missingCount) - gapPenalty * 0.9;
+    const ownershipBonus = Number.isFinite(entry.ownershipRatio) ? entry.ownershipRatio * 0.9 : 0;
+    const catchUpSpeed = 1 / Math.max(1, missingCount);
+    const readPct = entry.total ? (entry.readVolumes || 0) / entry.total : 0;
+    const engagement = readPct * 0.8;
+    const soonBoost = daysToRelease != null && daysToRelease <= 45 ? 0.5 : 0;
+    const score =
+      urgency * 1.2 +
+      affordability * 1 +
+      catchUpSpeed * 0.8 +
+      ownershipBonus +
+      engagement +
+      soonBoost -
+      gapPenalty * 0.9;
     candidates.push({
       ...entry,
       nextRelease,
@@ -646,6 +754,8 @@ function buildPurchaseNextSuggestion(seriesProgress, releases, globalAvgMsrp) {
       missingCount,
       costEstimate,
       avgMsrp,
+      ownershipRatio: entry.ownershipRatio ?? 0,
+      readPct,
       score,
     });
   });
@@ -923,6 +1033,7 @@ export default function Dashboard() {
   const [readNextSnoozed, setReadNextSnoozed] = useState({});
   const [readNextSeed, setReadNextSeed] = useState(() => Math.random());
   const [readNextStateLoaded, setReadNextStateLoaded] = useState(false);
+  const readNextPersistRef = useRef(null);
   const [calendarExpandedDay, setCalendarExpandedDay] = useState(null);
   const [calendarModalDay, setCalendarModalDay] = useState(null);
   const refreshUsers = async () => {
@@ -985,6 +1096,10 @@ export default function Dashboard() {
   useEffect(() => {
     document.title = "Dashboard";
   }, []);
+
+  useEffect(() => {
+    readNextPersistRef.current = null;
+  }, [user?.uid]);
 
   useEffect(() => {
     const hasOpenModal =
@@ -1158,8 +1273,8 @@ export default function Dashboard() {
   }, [user, admin]);
 
   const { map: seriesProgress, globalAvgMsrp } = useMemo(
-    () => buildSeriesProgress(library),
-    [library]
+    () => buildSeriesProgress(library, wishlist),
+    [library, wishlist]
   );
 
   const stats = useMemo(() => {
@@ -1191,6 +1306,7 @@ export default function Dashboard() {
     const pages = computePages(library);
     const avgRating = computeAverageRating(seriesMap);
     const purchaseToReadSeries = computePurchaseToReadSeries(library);
+    const avgBooksPerDay = computeAverageDailyReads(library);
 
     const topPublishers = buildTopFromSeries(seriesMap, "publisher", 5);
     const topGenres = buildTopFromSeries(seriesMap, "genre", 5);
@@ -1216,6 +1332,7 @@ export default function Dashboard() {
       collectionValue,
       pages,
       avgRating,
+      avgBooksPerDay,
       topPublishers,
       topGenres,
       topDemographics,
@@ -1241,6 +1358,7 @@ export default function Dashboard() {
     collectionValue,
     pages,
     avgRating,
+    avgBooksPerDay,
     topPublishers,
     topGenres,
     topDemographics,
@@ -1322,29 +1440,28 @@ export default function Dashboard() {
       setReadNextSeed(Math.random());
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const ref = doc(db, READ_NEXT_STATE_COLLECTION, user.uid);
-        const snap = await getDoc(ref);
-        if (cancelled) return;
-        if (snap.exists()) {
-          const data = snap.data() || {};
-          if (data.snoozed) {
-            setReadNextSnoozed(sanitizeReadNextSnoozed(data.snoozed));
-          }
-          if (Number.isFinite(data.seed)) {
-            setReadNextSeed(data.seed);
-          }
+    const ref = doc(db, READ_NEXT_STATE_COLLECTION, user.uid);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = snap.exists() ? snap.data() || {} : {};
+        if (data.snoozed) {
+          setReadNextSnoozed(sanitizeReadNextSnoozed(data.snoozed));
+        } else {
+          setReadNextSnoozed({});
         }
-      } catch (e) {
-        console.error("Failed to load read-next state", e);
-      } finally {
-        if (!cancelled) setReadNextStateLoaded(true);
+        if (Number.isFinite(data.seed)) {
+          setReadNextSeed(data.seed);
+        }
+        setReadNextStateLoaded(true);
+      },
+      (err) => {
+        console.error("Failed to load read-next state", err);
+        setReadNextStateLoaded(true);
       }
-    })();
+    );
     return () => {
-      cancelled = true;
+      unsub?.();
     };
   }, [user]);
 
@@ -1386,6 +1503,42 @@ export default function Dashboard() {
   const readNextPick = readNextSuggestion?.pick || null;
   const readNextBackup = readNextSuggestion?.backup || null;
   const readNextSnoozedUntil = readNextPick?.snoozedUntil || null;
+  useEffect(() => {
+    if (!user || !readNextStateLoaded) return;
+    if (!readNextSuggestion) return;
+    if (!readNextPick && !readNextBackup) return;
+    const ref = doc(db, READ_NEXT_STATE_COLLECTION, user.uid);
+    const summary = {
+      pick: readNextPick
+        ? {
+            key: readNextPick.key,
+            title: readNextPick.title,
+            score: Number.isFinite(readNextPick.score) ? Number(readNextPick.score.toFixed(3)) : null,
+            ownershipRatio: readNextPick.ownershipRatio ?? null,
+            behindCount: readNextPick.behindCount ?? null,
+          }
+        : null,
+      backup: readNextBackup
+        ? {
+            key: readNextBackup.key,
+            title: readNextBackup.title,
+            behindCount: readNextBackup.behindCount ?? null,
+          }
+        : null,
+      weights: readNextSuggestion.weights || null,
+      updatedAt: new Date().toISOString(),
+    };
+    const summaryKey = JSON.stringify(summary);
+    if (readNextPersistRef.current === summaryKey) return;
+    readNextPersistRef.current = summaryKey;
+    (async () => {
+      try {
+        await setDoc(ref, { lastSuggestion: summary }, { merge: true });
+      } catch (e) {
+        console.error("Failed to persist read-next suggestion", e);
+      }
+    })();
+  }, [readNextSuggestion, readNextPick, readNextBackup, user, readNextStateLoaded]);
   const handleSnoozeReadNext = (days = 7) => {
     if (!readNextPick?.key) return;
     const until = Date.now() + days * 24 * 60 * 60 * 1000;
@@ -2719,15 +2872,25 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
             <div className="stat-sub">Reads in {currentYear}</div>
           </div>
 
-          <div
-            className="stat-card clickable"
-            onClick={() => openDetail("timeToRead")}
-          >
-            <h3>Avg Days From Purchase to Read</h3>
-            <div className="stat-value">
-              {avgDays == null ? "-" : `${avgDays.toFixed(1)} days`}
+          <div className="stat-stack">
+            <div className="stat-card mini">
+              <h3>Avg Books / Day</h3>
+              <div className="stat-value">
+                {avgBooksPerDay?.ytd != null ? avgBooksPerDay.ytd.toFixed(2) : "-"}
+              </div>
+              <div className="stat-sub">
+                {avgBooksPerDay?.lifetime != null
+                  ? `YTD from Jan 1 · Lifetime ${avgBooksPerDay.lifetime.toFixed(2)}`
+                  : "No reads logged yet"}
+              </div>
             </div>
-            <div className="stat-sub">When both dates exist</div>
+            <div className="stat-card mini clickable" onClick={() => openDetail("timeToRead")}>
+              <h3>Avg Days From Purchase to Read</h3>
+              <div className="stat-value">
+                {avgDays == null ? "-" : `${avgDays.toFixed(1)} days`}
+              </div>
+              <div className="stat-sub">When both dates exist</div>
+            </div>
           </div>
 
           <div className="stat-duo">
@@ -2849,6 +3012,12 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
                         </div>
                       ) : null}
                       <div className="stat-sub" style={{ color: "#b6a6af" }}>
+                        Ownership {Math.round((readNextPick.ownershipRatio || 0) * 100)}%
+                        {readNextPick.latestPurchaseDays != null
+                          ? ` · Latest buy ${readNextPick.latestPurchaseDays}d ago`
+                          : ""}
+                      </div>
+                      <div className="stat-sub" style={{ color: "#b6a6af" }}>
                         Queued after:{" "}
                         {readNextBackup ? `${readNextBackup.title} (${readNextBackup.unreadCount} unread)` : "Shuffle for another option"}
                         .
@@ -2934,6 +3103,10 @@ ${todays.map((r) => `- ${r.title}`).join("\n")}`;
                         <div style={{ fontWeight: 700, fontSize: "1rem" }}>{purchaseNextPick.title}</div>
                         <div className="stat-sub" style={{ color: "#f7d0dc" }}>
                           Need {purchaseNextPick.missingCount} volume{purchaseNextPick.missingCount === 1 ? "" : "s"} to reach vol {purchaseNextPick.releaseVolume}.
+                        </div>
+                        <div className="stat-sub" style={{ color: "#b6a6af" }}>
+                          Ownership {Math.round((purchaseNextPick.ownershipRatio || 0) * 100)}% · Read{" "}
+                          {Math.round((purchaseNextPick.readPct || 0) * 100)}% of owned
                         </div>
                         <div className="stat-sub" style={{ color: "#c5b3bc" }}>
                           Own to vol {purchaseNextPick.highestOwnedVolume || 0}; est. catch-up cost{" "}

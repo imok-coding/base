@@ -1197,6 +1197,56 @@ button,
   }
 }
 
+@media (max-width: 640px) {
+  .manga-page {
+    padding: 16px 10px 28px;
+  }
+  .manga-header {
+    align-items: flex-start;
+  }
+  .manga-header-title {
+    font-size: 1.3rem;
+  }
+  .manga-tabs {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .manga-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .manga-toolbar-left,
+  .manga-toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .manga-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .manga-view-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .manga-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    justify-items: stretch;
+  }
+  .manga-card {
+    max-width: none;
+    min-height: 360px;
+  }
+  .manga-floating-actions {
+    right: 10px;
+    bottom: 10px;
+    gap: 6px;
+  }
+  .admin-form-grid.two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Custom cursor to match site aesthetic */
 :root {
   --cursor-pink: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%23ff69b4' fill-opacity='0.75' stroke='%23ffb6c1' stroke-width='2'/></svg>") 8 8, auto;
