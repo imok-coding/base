@@ -29,7 +29,7 @@ export default function TCG() {
   const [loading, setLoading] = useState(true);
   const [term, setTerm] = useState("");
   const [gameFilter, setGameFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("name-asc");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState("");
@@ -81,6 +81,64 @@ export default function TCG() {
     };
   }, [user]);
 
+  // Rarity order is defined from least to most rare for each game.
+  const rarityOrderByGame = {
+    pokemon: [
+      "common",
+      "uncommon",
+      "rare",
+      "holo",
+      "rare holo",
+      "double rare",
+      "ultra rare",
+      "amazing rare",
+      "illustration rare",
+      "special illustration rare",
+      "secret rare",
+      "hyper rare",
+      "promo",
+    ],
+    mtg: ["common", "uncommon", "rare", "mythic", "mythic rare", "special", "bonus", "masterpiece"],
+    onepiece: [
+      "common",
+      "uncommon",
+      "rare",
+      "leader",
+      "super rare",
+      "secret rare",
+      "parallel",
+      "manga",
+    ],
+  };
+
+  const normalizeRarityKey = (value) =>
+    (value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+  const rarityIndexForCard = (card) => {
+    const gameKey = (card.game || "").toLowerCase();
+    const order = rarityOrderByGame[gameKey];
+    if (!order) return Number.POSITIVE_INFINITY;
+    const normalizedValue = normalizeRarityKey(card.rarity);
+    if (!normalizedValue) return Number.POSITIVE_INFINITY;
+    for (let i = 0; i < order.length; i += 1) {
+      const normalizedKey = normalizeRarityKey(order[i]);
+      if (!normalizedKey) continue;
+      if (normalizedValue === normalizedKey || normalizedValue.includes(normalizedKey)) {
+        return i;
+      }
+    }
+    return Number.POSITIVE_INFINITY;
+  };
+
+  const parseCardNumber = (value) => {
+    const raw = (value || "").toString().trim().toLowerCase();
+    const match = raw.match(/\d+/);
+    return {
+      numeric: match ? Number(match[0]) : Number.POSITIVE_INFINITY,
+      raw,
+    };
+  };
+
   const filtered = cards.filter((c) => {
     if (gameFilter !== "all" && c.game !== gameFilter) return false;
     if (!term) return true;
@@ -96,22 +154,50 @@ export default function TCG() {
     const bName = (b.name || "").toLowerCase();
     const aSet = (a.setName || "").toLowerCase();
     const bSet = (b.setName || "").toLowerCase();
-    const aRarity = (a.rarity || "").toLowerCase();
-    const bRarity = (b.rarity || "").toLowerCase();
     const aQty = Number(a.quantity || 0);
     const bQty = Number(b.quantity || 0);
     const aVal = Number(a.estimatedValue || 0) * Math.max(1, aQty);
     const bVal = Number(b.estimatedValue || 0) * Math.max(1, bQty);
     switch (sortBy) {
-      case "set":
-        return aSet.localeCompare(bSet) || aName.localeCompare(bName);
-      case "rarity":
-        return aRarity.localeCompare(bRarity) || aName.localeCompare(bName);
-      case "quantity":
+      case "name-desc":
+        return bName.localeCompare(aName);
+      case "rarity-asc": {
+        const rankA = rarityIndexForCard(a);
+        const rankB = rarityIndexForCard(b);
+        if (Number.isFinite(rankA) && Number.isFinite(rankB) && rankA !== rankB) {
+          return rankA - rankB;
+        }
+        if (Number.isFinite(rankA) && !Number.isFinite(rankB)) return -1;
+        if (!Number.isFinite(rankA) && Number.isFinite(rankB)) return 1;
+        return aName.localeCompare(bName);
+      }
+      case "rarity-desc": {
+        const rankA = rarityIndexForCard(a);
+        const rankB = rarityIndexForCard(b);
+        if (Number.isFinite(rankA) && Number.isFinite(rankB) && rankA !== rankB) {
+          return rankB - rankA;
+        }
+        if (Number.isFinite(rankA) && !Number.isFinite(rankB)) return -1;
+        if (!Number.isFinite(rankA) && Number.isFinite(rankB)) return 1;
+        return aName.localeCompare(bName);
+      }
+      case "quantity-desc":
         return bQty - aQty || aName.localeCompare(bName);
-      case "value":
+      case "quantity-asc":
+        return aQty - bQty || aName.localeCompare(bName);
+      case "value-desc":
         return bVal - aVal || aName.localeCompare(bName);
-      case "name":
+      case "value-asc":
+        return aVal - bVal || aName.localeCompare(bName);
+      case "set-number": {
+        const setCompare = aSet.localeCompare(bSet);
+        if (setCompare !== 0) return setCompare;
+        const aNum = parseCardNumber(a.number);
+        const bNum = parseCardNumber(b.number);
+        if (aNum.numeric !== bNum.numeric) return aNum.numeric - bNum.numeric;
+        return aNum.raw.localeCompare(bNum.raw) || aName.localeCompare(bName);
+      }
+      case "name-asc":
       default:
         return aName.localeCompare(bName);
     }
@@ -1118,11 +1204,15 @@ export default function TCG() {
             color: "#fff",
           }}
         >
-          <option value="name">Sort: Name (A-Z)</option>
-          <option value="set">Sort: Set (A-Z)</option>
-          <option value="rarity">Sort: Rarity (A-Z)</option>
-          <option value="quantity">Sort: Quantity (high to low)</option>
-          <option value="value">Sort: Value (high to low)</option>
+          <option value="name-asc">Sort: Name (A-Z)</option>
+          <option value="name-desc">Sort: Name (Z-A)</option>
+          <option value="quantity-desc">Sort: Quantity (high to low)</option>
+          <option value="quantity-asc">Sort: Quantity (low to high)</option>
+          <option value="value-desc">Sort: Value (high to low)</option>
+          <option value="value-asc">Sort: Value (low to high)</option>
+          <option value="rarity-asc">Sort: Rarity (least to most rare)</option>
+          <option value="rarity-desc">Sort: Rarity (most to least rare)</option>
+          <option value="set-number">Sort: Card number within set</option>
         </select>
       </section>
 
