@@ -88,13 +88,29 @@ function getSeriesDisplayName(doc) {
 
 function parseTitleForSort(t) {
   const text = (t || "").trim();
-  const match = text.match(/^(.*?)(?:,?\s*(?:vol\.|volume)\s*(\d+)(?:\s*[-â€“]\s*\d+)?\s*)?(?:\s*\([^)]*\))?$/i);
-  const base = match ? match[1].trim().toLowerCase() : text.toLowerCase();
-  const volNum = match && match[2] ? parseInt(match[2], 10) : 0;
+  const withoutParens = text.replace(/\s*\([^)]*\)\s*$/, "");
+  const volMatch = withoutParens.match(/\b(?:vol\.?|volume)\s*#?\s*(\d+)\b/i);
+  const volNum = volMatch && volMatch[1] ? parseInt(volMatch[1], 10) : 0;
+  const base = withoutParens
+    .replace(/\b(?:vol\.?|volume)\s*#?\s*\d+\b/i, "")
+    .replace(/\s*[,.-]\s*$/, "")
+    .trim()
+    .toLowerCase();
   return {
     name: base,
     vol: Number.isFinite(volNum) ? volNum : 0,
   };
+}
+
+function sortEntriesByTitle(a, b) {
+  const aTitle = a?.title || "";
+  const bTitle = b?.title || "";
+  const aParsed = parseTitleForSort(aTitle);
+  const bParsed = parseTitleForSort(bTitle);
+  const nameCmp = aParsed.name.localeCompare(bParsed.name);
+  if (nameCmp !== 0) return nameCmp;
+  if (aParsed.vol !== bParsed.vol) return aParsed.vol - bParsed.vol;
+  return aTitle.localeCompare(bTitle);
 }
 
 function sortBooksForManager(a, b) {
@@ -978,6 +994,7 @@ function buildCalendarGrid(monthDate, releases, todayKey) {
       byDay.get(day).push(r);
     }
   }
+  byDay.forEach((list) => list.sort(sortEntriesByTitle));
 
   const cells = [];
   for (let i = 0; i < startDay; i++) {
@@ -1396,7 +1413,7 @@ export default function Dashboard() {
         title: item.title || item.Title || "Untitled",
       });
     });
-    map.forEach((list) => list.sort((a, b) => (a.title || "").localeCompare(b.title || "")));
+    map.forEach((list) => list.sort(sortEntriesByTitle));
     return map;
   }, [library, wishlist]);
 
