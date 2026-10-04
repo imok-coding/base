@@ -1,0 +1,1 @@
+import{j as s}from"./react-DQekVQz4.js";function x({icon:e,title:t,children:m,action:i}){return s.jsxs("div",{className:"empty",children:[e&&s.jsx("div",{className:"empty-icon",children:s.jsx(e,{})}),t&&s.jsx("div",{className:"empty-title",children:t}),m&&s.jsx("div",{className:"empty-text",children:m}),i]})}export{x as E};
