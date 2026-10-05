@@ -717,7 +717,12 @@ button.chip[aria-pressed="true"] {
   padding: 8px 24px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  flex: 1;
+  -webkit-overflow-scrolling: touch;
+  /* Size from content, then shrink to fit the sheet's max-height. Not flex: 1 —
+     older Safari (seen in 17.4) resolves its 0% basis to zero inside a
+     max-height-only column, collapsing the body. */
+  flex: 0 1 auto;
+  min-height: 0;
 }
 
 .sheet-footer {
