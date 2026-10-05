@@ -28,6 +28,7 @@ export function GameCover({ game, size = 420, eager, className = "", children })
 
 export const GameTile = memo(function GameTile({ game, isAdmin, selectMode, selected, onOpen, onToggle }) {
   const FormatIcon = FORMAT_ICON[game.format] || Disc3;
+  const meta = game.edition || (isAdmin && !game.cover ? "No cover yet" : "");
   return (
     <article className={`tile ${selectMode ? "is-select-mode" : ""} ${selected ? "is-selected" : ""}`}>
       <button
@@ -68,9 +69,7 @@ export const GameTile = memo(function GameTile({ game, isAdmin, selectMode, sele
       </GameCover>
       <div className="tile-body">
         <span className="tile-title clamp-2">{game.title}</span>
-        <span className="tile-meta clamp-1">
-          {game.edition || (isAdmin && !game.cover ? "No cover yet" : game.format)}
-        </span>
+        {meta && <span className="tile-meta clamp-1">{meta}</span>}
         <TileStars value={game.rating} />
       </div>
     </article>
