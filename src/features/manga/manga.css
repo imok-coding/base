@@ -827,3 +827,9 @@
 .bulk-row.is-off .select {
   opacity: 0.5;
 }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .manga-controls {
+    background: var(--bg);
+  }
+}

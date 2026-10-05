@@ -1,6 +1,6 @@
 import Sheet from "../../../components/ui/Sheet";
 
-function ChipGroup({ title, options, value, onChange, multi = false }) {
+export function ChipGroup({ title, options, value, onChange, multi = false }) {
   if (!options.length) return null;
   const isOn = (v) => (multi ? value.includes(v) : value === v);
   const toggle = (v) => {

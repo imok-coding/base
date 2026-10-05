@@ -4,6 +4,9 @@ import { ArrowRight, BookCheck, BookOpen, Bookmark, CalendarClock, Gamepad2, Lib
 import Cover from "../components/ui/Cover";
 import { formatDate, relativeDays } from "../lib/format";
 import { useManga } from "../features/manga/MangaData";
+import { useGames } from "../features/games/GamesData";
+import { GameCover } from "../features/games/components/GameTile";
+import "../features/games/games.css";
 import { MangaWorkspace, useWorkspace } from "../features/manga/Workspace";
 import { groupSeries, seriesSlug } from "../features/manga/model";
 import "../features/manga/manga.css";
@@ -39,6 +42,17 @@ function CoverRow({ items, onOpen, meta }) {
 
 function HomeInner() {
   const { publicLibrary, publicWishlist, loading } = useManga();
+  const gamesData = useGames();
+  const games = gamesData.owned;
+  const gamePlatforms = new Set(games.map((g) => g.platform)).size;
+  const gameMosaic = useMemo(
+    () =>
+      [...games]
+        .filter((g) => g.cover)
+        .sort((a, b) => (b.acquired || "").localeCompare(a.acquired || ""))
+        .slice(0, 4),
+    [games]
+  );
   const ws = useWorkspace();
 
   useEffect(() => {
@@ -115,8 +129,8 @@ function HomeInner() {
             </span>
           </h1>
           <p className="home-bio">
-            Hi, I&apos;m Tyler. This is where I keep track of every manga I own, what I&apos;m reading and what&apos;s
-            next on the wishlist — with games joining soon.
+            Hi, I&apos;m Tyler. This is where I keep track of every manga and game I own, what I&apos;m reading and
+            playing, and what&apos;s next on the wishlist.
           </p>
           <div className="home-cta">
             <Link to="/manga" className="btn btn--primary btn--lg">
@@ -147,7 +161,7 @@ function HomeInner() {
         <div className="section-head">
           <h2 className="section-title">Collections</h2>
         </div>
-        <div className="home-collections">
+        <div className={`home-collections ${games.length ? "home-collections--even" : ""}`}>
           <Link to="/manga" className="collection-card card card--interactive">
             <div className="collection-mosaic" aria-hidden="true">
               {mosaic.slice(0, 4).map((v) => (
@@ -167,20 +181,43 @@ function HomeInner() {
               </span>
             </div>
           </Link>
-          <Link to="/games" className="collection-card collection-card--soon card card--interactive">
-            <div className="collection-info">
-              <div className="collection-icon">
-                <Gamepad2 />
+          {games.length ? (
+            <Link to="/games" className="collection-card card card--interactive">
+              <div className="collection-mosaic collection-mosaic--games" aria-hidden="true">
+                {gameMosaic.map((g) => (
+                  <GameCover key={g.id} game={g} size={300} />
+                ))}
               </div>
-              <h3>
-                Games <span className="nav-soon">Soon</span>
-              </h3>
-              <p className="muted">Physical games first, digital libraries later.</p>
-              <span className="section-link">
-                Preview <ArrowRight />
-              </span>
-            </div>
-          </Link>
+              <div className="collection-info">
+                <div className="collection-icon">
+                  <Gamepad2 />
+                </div>
+                <h3>Games</h3>
+                <p className="muted">
+                  {games.length.toLocaleString()} games · {gamePlatforms} platform{gamePlatforms === 1 ? "" : "s"}
+                  {gamesData.wishlist.length ? ` · ${gamesData.wishlist.length} wanted` : ""}
+                </p>
+                <span className="section-link">
+                  Open library <ArrowRight />
+                </span>
+              </div>
+            </Link>
+          ) : (
+            <Link to="/games" className="collection-card collection-card--soon card card--interactive">
+              <div className="collection-info">
+                <div className="collection-icon">
+                  <Gamepad2 />
+                </div>
+                <h3>
+                  Games <span className="nav-soon">Soon</span>
+                </h3>
+                <p className="muted">Physical games first, digital libraries later.</p>
+                <span className="section-link">
+                  Preview <ArrowRight />
+                </span>
+              </div>
+            </Link>
+          )}
         </div>
       </section>
 

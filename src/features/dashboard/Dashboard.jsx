@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import {
   CalendarDays,
+  Gamepad2,
   Inbox as InboxIcon,
   LayoutDashboard,
   Lock,
@@ -21,6 +22,7 @@ import CalendarView from "./sections/CalendarView";
 import Manager from "./sections/Manager";
 import Inbox from "./sections/Inbox";
 import Settings from "./sections/Settings";
+import GamesSection from "./sections/GamesSection";
 import "../manga/manga.css";
 import "./dashboard.css";
 
@@ -39,6 +41,7 @@ function DashboardInner() {
     { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
     { to: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
     { to: "/dashboard/manager", label: "Manager", icon: Wrench, badge: needsInfo },
+    { to: "/dashboard/games", label: "Games", icon: Gamepad2 },
     { to: "/dashboard/inbox", label: "Inbox", icon: InboxIcon, badge: suggestions.items.length },
     { to: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
   ];
@@ -76,6 +79,7 @@ function DashboardInner() {
           <Route index element={<Overview stats={stats} />} />
           <Route path="calendar" element={<CalendarView stats={stats} />} />
           <Route path="manager" element={<Manager />} />
+          <Route path="games" element={<GamesSection />} />
           <Route path="inbox" element={<Inbox suggestions={suggestions} />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

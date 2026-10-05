@@ -140,7 +140,7 @@ export default function AppShell({ children }) {
   const nav = [
     { to: "/", label: "Home", icon: Home, end: true },
     { to: "/manga", label: "Manga", icon: BookOpen },
-    { to: "/games", label: "Games", icon: Gamepad2, soon: true },
+    { to: "/games", label: "Games", icon: Gamepad2 },
     ...(isAdmin ? [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
   ];
 

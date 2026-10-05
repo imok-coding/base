@@ -43,7 +43,7 @@
   --surface-1: #161015;
   --surface-2: #1e161d;
   --surface-3: #291e28;
-  --surface-glass: rgba(18, 12, 17, 0.74);
+  --surface-glass: rgba(18, 12, 17, 0.84);
   --scrim: rgba(6, 3, 5, 0.66);
   --line: rgba(255, 228, 240, 0.075);
   --line-2: rgba(255, 228, 240, 0.14);
@@ -88,7 +88,7 @@
   --surface-1: #ffffff;
   --surface-2: #f6eff3;
   --surface-3: #ede2e8;
-  --surface-glass: rgba(255, 255, 255, 0.8);
+  --surface-glass: rgba(255, 255, 255, 0.86);
   --scrim: rgba(30, 12, 22, 0.38);
   --line: rgba(60, 20, 40, 0.08);
   --line-2: rgba(60, 20, 40, 0.15);

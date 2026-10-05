@@ -190,8 +190,17 @@
   gap: 16px;
 }
 
+.home-collections--even {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.collection-mosaic--games {
+  grid-template-columns: repeat(4, 58px);
+}
+
 @media (max-width: 760px) {
-  .home-collections {
+  .home-collections,
+  .home-collections--even {
     grid-template-columns: minmax(0, 1fr);
   }
 }

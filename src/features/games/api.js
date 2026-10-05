@@ -1,0 +1,75 @@
+// All game writes, batched, with activity logging.
+import { recordActivity } from "../../lib/activity";
+import { store } from "../../lib/store";
+import { toGamePayload } from "./model";
+
+const s = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** Add or update games from editor forms: [{ id?, form }] */
+export async function saveGames(entries, { user }) {
+  const ops = entries.map(({ id, form }) => {
+    const data = toGamePayload(form);
+    if (!data.title) throw new Error("Every game needs a title.");
+    if (!id) return { type: "add", col: "games", data };
+    // keep the original import key so the spreadsheet row stays linked after renames
+    delete data.importKey;
+    return { type: "update", col: "games", id, data };
+  });
+  await store.batch(ops);
+  const added = entries.filter((e) => !e.id).length;
+  recordActivity(
+    entries.length === 1
+      ? `${added ? "Added" : "Updated"} game "${entries[0].form.title}"`
+      : `Saved ${s(entries.length, "game")}`,
+    { user, context: "Games", action: added ? "create" : "update" }
+  );
+}
+
+export async function patchGames(games, data, { user }) {
+  if (!games.length) return;
+  await store.batch(games.map((g) => ({ type: "update", col: "games", id: g.id, data })));
+  recordActivity(`Bulk edited ${s(games.length, "game")}`, {
+    user,
+    context: "Games",
+    action: "bulk-edit",
+    details: { fields: Object.keys(data).join(", ") },
+  });
+}
+
+export async function deleteGames(games, { user }) {
+  await store.batch(games.map((g) => ({ type: "delete", col: "games", id: g.id })));
+  recordActivity(games.length === 1 ? `Deleted game "${games[0].title}"` : `Deleted ${s(games.length, "game")}`, {
+    user,
+    context: "Games",
+    action: "delete",
+  });
+}
+
+/** Write an import plan from planImport(). `covers` maps title → URL. */
+export async function applyImport(plan, { user, covers = new Map() }) {
+  const ops = [
+    ...plan.adds.map((data) => ({
+      type: "add",
+      col: "games",
+      data: { ...data, cover: data.cover || covers.get(data.title) || "" },
+    })),
+    ...plan.updates.map(({ game, changes }) => ({
+      type: "update",
+      col: "games",
+      id: game.id,
+      data: !game.cover && covers.get(game.title) ? { ...changes, cover: covers.get(game.title) } : changes,
+    })),
+  ];
+  if (ops.length) await store.batch(ops);
+  recordActivity(`Imported games: ${plan.adds.length} added, ${plan.updates.length} updated`, {
+    user,
+    context: "Games",
+    action: "import",
+  });
+}
+
+export async function setGameCovers(pairs, { user }) {
+  if (!pairs.length) return;
+  await store.batch(pairs.map(({ id, cover }) => ({ type: "update", col: "games", id, data: { cover } })));
+  recordActivity(`Added cover art to ${s(pairs.length, "game")}`, { user, context: "Games", action: "covers" });
+}

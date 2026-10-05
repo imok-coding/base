@@ -416,3 +416,11 @@
   min-height: 50vh;
   color: var(--text-3);
 }
+
+/* Without backdrop blur, translucent bars let content show through — go solid */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-header,
+  .tabbar {
+    background: var(--bg);
+  }
+}

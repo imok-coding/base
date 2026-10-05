@@ -1,0 +1,267 @@
+/* Game box art is roughly 3:4 (manga covers are 2:3) */
+.cover--game {
+  aspect-ratio: 3 / 4;
+}
+
+.cover--game img {
+  object-position: center top;
+}
+
+/* doubled class so it wins over .tile-grid regardless of stylesheet order */
+.tile-grid.tile-grid--games {
+  --tile-min: 150px;
+}
+
+@media (max-width: 520px) {
+  .tile-grid.tile-grid--games {
+    --tile-min: 104px;
+    gap: 16px 10px;
+  }
+}
+
+/* platform badge: text carries identity, colour only hints the family */
+.plat {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(12, 6, 10, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
+  border-left: 3px solid var(--plat-color, #8d7985);
+}
+
+.plat[data-family="playstation"] {
+  --plat-color: #4c8dff;
+}
+.plat[data-family="xbox"] {
+  --plat-color: #3fbf5f;
+}
+.plat[data-family="nintendo"] {
+  --plat-color: #ff5a5a;
+}
+.plat[data-family="pc"] {
+  --plat-color: #c9c3c7;
+}
+
+.chip .plat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--plat-color, #8d7985);
+}
+
+.chip[data-family="playstation"] {
+  --plat-color: #4c8dff;
+}
+.chip[data-family="xbox"] {
+  --plat-color: #3fbf5f;
+}
+.chip[data-family="nintendo"] {
+  --plat-color: #ff5a5a;
+}
+.chip[data-family="pc"] {
+  --plat-color: #c9c3c7;
+}
+
+.game-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 12px;
+  background:
+    radial-gradient(
+      120% 70% at 100% 0%,
+      color-mix(in srgb, var(--plat-color, var(--accent)) 30%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(165deg, var(--surface-3), var(--surface-2));
+  color: var(--text-1);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  text-align: left;
+}
+
+.game-fallback svg {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  color: var(--text-3);
+  opacity: 0.6;
+}
+
+.game-fallback[data-family="playstation"] {
+  --plat-color: #4c8dff;
+}
+.game-fallback[data-family="xbox"] {
+  --plat-color: #3fbf5f;
+}
+.game-fallback[data-family="nintendo"] {
+  --plat-color: #ff5a5a;
+}
+
+/* shelves view: one row per platform */
+.shelf + .shelf {
+  margin-top: 28px;
+}
+
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.shelf-title {
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.shelf-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(112px, 12vw, 150px);
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px var(--gutter) 12px;
+  margin: 0 calc(var(--gutter) * -1);
+  scroll-padding-inline: var(--gutter);
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.shelf-row > .tile {
+  scroll-snap-align: start;
+}
+
+/* detail sheet */
+.game-progress {
+  margin-top: 14px;
+  max-width: 320px;
+}
+
+.notes {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* cover picker */
+.cover-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 14px;
+}
+
+.cover-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  text-align: left;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  min-width: 0;
+}
+
+.cover-pick:hover {
+  border-color: var(--accent-line);
+}
+
+.cover-pick strong {
+  color: var(--text-1);
+  font-size: var(--text-xs);
+}
+
+/* import */
+.import-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  text-align: center;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-1),
+    background var(--dur-1);
+}
+
+.import-drop:hover,
+.import-drop.is-over {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.import-drop svg {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.import-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.import-summary > div {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.import-summary strong {
+  display: block;
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.import-summary span {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.setup-code {
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  text-align: left;
+  color: var(--text-1);
+}

@@ -1055,3 +1055,9 @@ button.cal-day:hover {
   margin: 8vh auto 0;
   text-align: center;
 }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .dash-tabs {
+    background: var(--bg);
+  }
+}
