@@ -14,7 +14,6 @@ export function GameCover({ game, size = 420, eager, className = "", children })
       size={size}
       eager={eager}
       className={`cover--game ${className}`}
-      fitSquare
       fallback={
         <div className="game-fallback" data-family={game.family} aria-hidden="true">
           <Gamepad2 />

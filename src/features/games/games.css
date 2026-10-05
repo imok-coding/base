@@ -1,26 +1,12 @@
-/* Game box art is roughly 3:4 (manga covers are 2:3) */
-.cover--game {
-  aspect-ratio: 3 / 4;
+/* Game covers are square like the PlayStation Store art. Taller box art fills
+   the square from the top, where the title usually is. Doubled class so it wins
+   over .cover from manga.css, which can load later. */
+.cover.cover--game {
+  aspect-ratio: 1 / 1;
 }
 
 .cover--game img {
   object-position: center top;
-}
-
-/* square art: show all of it, with a blurred copy filling the frame */
-.cover[data-square] img {
-  position: relative;
-  object-fit: contain;
-  object-position: center;
-}
-
-.cover[data-square][data-state] img.cover-backdrop {
-  position: absolute;
-  inset: -10%;
-  width: 120%;
-  height: 120%;
-  object-fit: cover;
-  filter: blur(14px) saturate(1.1) brightness(0.6);
 }
 
 /* doubled class so it wins over .tile-grid regardless of stylesheet order */
