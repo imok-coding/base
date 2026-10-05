@@ -149,7 +149,10 @@ export function MangaWorkspace({ children }) {
         if (ok && selectMode) exitSelect();
       },
       async rate(v, rating) {
-        await run(() => patchVolume(v, { rating }, { user, message: `Rated "${v.title}" ${rating || "(cleared)"}` }));
+        await run(
+          () => patchVolume(v, { rating }, { user, message: `Rated "${v.title}" ${rating || "(cleared)"}` }),
+          rating ? `Rated ${rating} ★` : "Rating cleared"
+        );
       },
       async setHidden(volumes, hidden) {
         const ok = await run(() => patchVolumes(volumes, { hidden }, { user, allVolumes: all }));

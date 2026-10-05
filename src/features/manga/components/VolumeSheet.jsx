@@ -16,7 +16,7 @@ import {
 import Sheet from "../../../components/ui/Sheet";
 import Cover from "../../../components/ui/Cover";
 import Menu from "../../../components/ui/Menu";
-import StarRating from "../../../components/ui/StarRating";
+import RatingRow from "../../../components/ui/RatingRow";
 import { formatDate, money } from "../../../lib/format";
 import { FIELD_LABELS, isCollectible, isSpecialEdition, LIST_LABEL, missingFields, seriesSlug } from "../model";
 import { useSticky } from "../hooks";
@@ -140,11 +140,7 @@ export default function VolumeSheet({ volume, siblings = [], isAdmin, onClose, o
               )}
               {missing.size > 0 && <span className="chip chip--warn">{missing.size} missing</span>}
             </div>
-            {isLib && (v.read || v.rating) && (
-              <div className="volume-rating">
-                <StarRating value={v.rating} onChange={isAdmin ? (r) => actions.rate(v, r) : undefined} />
-              </div>
-            )}
+            {isLib && <RatingRow value={v.rating} canEdit={isAdmin} onRate={(r) => actions.rate(v, r)} />}
           </div>
           <dl className="details">
             <Detail label="Author" value={v.authors} missing={missing.has("authors")} wide />

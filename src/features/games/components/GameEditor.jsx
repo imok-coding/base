@@ -6,6 +6,7 @@ import { SelectField, TextField } from "../../../components/ui/Fields";
 import { useFeedback } from "../../../components/ui/Feedback";
 import { searchGameCovers } from "../../../lib/gameCovers";
 import { todayISO } from "../../../lib/format";
+import { youtubeId, youtubeThumb } from "../../../lib/youtube";
 import { useAuth } from "../../auth/AuthContext";
 import { useSticky } from "../../manga/hooks";
 import { saveGames } from "../api";
@@ -87,9 +88,15 @@ function EditorInner({ cfg, open, onClose }) {
       return next;
     });
 
+  const reviewId = youtubeId(form.reviewUrl);
+
   const save = async () => {
     if (!form.title.trim()) {
       toast("Give the game a title", { type: "error" });
+      return;
+    }
+    if (form.reviewUrl.trim() && !reviewId) {
+      toast("Fix the review video link first", { type: "error" });
       return;
     }
     setSaving(true);
@@ -226,13 +233,39 @@ function EditorInner({ cfg, open, onClose }) {
                 options={["Yes", "No"]}
               />
             </div>
+          </div>
+
+          <div className="form-section">
+            <div className="form-section-title">Review</div>
             <div className="field">
               <span className="field-label">Rating</span>
               <StarRating
                 value={form.rating}
-                onChange={(v) => set("rating")(v === "" ? "" : String(Math.max(1, v)))}
+                onChange={(v) => set("rating")(v === "" ? "" : String(v))}
+                step={1}
                 size={26}
               />
+            </div>
+            <div className="field">
+              <TextField
+                label="Review video (YouTube link)"
+                type="url"
+                inputMode="url"
+                placeholder="https://youtu.be/…"
+                value={form.reviewUrl}
+                onChange={set("reviewUrl")}
+              />
+              {form.reviewUrl.trim() && !reviewId && (
+                <span className="field-hint" style={{ color: "var(--danger)" }} role="alert">
+                  That doesn&apos;t look like a YouTube video link.
+                </span>
+              )}
+              {reviewId && (
+                <div className="review-thumb">
+                  <img src={youtubeThumb(reviewId)} alt="" />
+                  <span className="field-hint">Shows on the game&apos;s page — visitors tap to play.</span>
+                </div>
+              )}
             </div>
           </div>
 

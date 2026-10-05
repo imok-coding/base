@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Check, EyeOff, Gem, Sparkles } from "lucide-react";
 import Cover from "../../../components/ui/Cover";
+import TileStars from "../../../components/ui/TileStars";
 import { formatDate } from "../../../lib/format";
 import { formatVolumeRange, isCollectible, isSpecialEdition, missingFields } from "../model";
 
@@ -77,6 +78,7 @@ export const VolumeTile = memo(function VolumeTile({
         {label ? <span className="tile-vol">{label}</span> : <span className="tile-title clamp-2">{v.title}</span>}
         {label && showSeries && <span className="tile-meta clamp-2">{v.series}</span>}
         {v.kind === "wishlist" && v.date && <span className="tile-meta">{formatDate(v.date)}</span>}
+        <TileStars value={v.rating} />
       </div>
     </article>
   );
@@ -146,6 +148,7 @@ export const SeriesTile = memo(function SeriesTile({ s, list, isAdmin, selectMod
             ? ` · ${formatDate(s.nextRelease, { month: "short", day: "numeric" })}`
             : ""}
         </span>
+        <TileStars value={s.avgRating} label="Average rating" />
       </div>
     </article>
   );

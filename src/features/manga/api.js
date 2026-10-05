@@ -78,7 +78,7 @@ export async function patchVolume(v, data, { user, message }) {
 export function readPatch(v, read) {
   return read
     ? { read: true, dateRead: v.read && v.dateRead ? v.dateRead : todayISO(), rating: v.rating ?? "" }
-    : { read: false, dateRead: "", rating: "" };
+    : { read: false, dateRead: "" }; // keep the rating — it isn't tied to read state
 }
 
 export async function setReadState(volumes, read, { user }) {

@@ -45,6 +45,8 @@ function useGameFilters() {
     view: params.get("view") || "grid",
     sort: params.get("sort") || "title",
     q: params.get("q") || "",
+    review: params.get("review") || "",
+    rated: params.get("rated") || "",
     ...Object.fromEntries(MULTI.map((k) => [k, params.getAll(k)])),
   };
   const set = (key, value) =>
@@ -114,6 +116,9 @@ function GamesInner() {
         const hay = `${g.title} ${g.edition} ${g.platform} ${platformShort(g.platform)} ${g.genre}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
+      if (f.review === "yes" && !g.reviewUrl) return false;
+      if (f.rated === "yes" && !(Number(g.rating) > 0)) return false;
+      if (f.rated === "no" && Number(g.rating) > 0) return false;
       return MULTI.every((k) => !f[k].length || f[k].includes(g[k]));
     });
     const by = {
@@ -124,7 +129,7 @@ function GamesInner() {
       release: (a, b) => (Number(b.releaseYear) || 0) - (Number(a.releaseYear) || 0),
     }[f.sort];
     return by ? [...out].sort(by) : out;
-  }, [base, deferred, f.platform, f.format, f.backlog, f.genre, f.sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [base, deferred, f.platform, f.format, f.backlog, f.genre, f.sort, f.review, f.rated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { setVisibleIds } = ws;
   useEffect(() => setVisibleIds(shown.map((g) => g.id)), [shown, setVisibleIds]);
@@ -154,17 +159,24 @@ function GamesInner() {
     { value: "rating", label: "Top rated" },
     ...(isAdmin ? [{ value: "price", label: "Price paid" }] : []),
   ];
-  const chips = MULTI.flatMap((k) =>
-    f[k].map((v) => ({
-      key: `${k}-${v}`,
-      label: k === "platform" ? platformShort(v) : v,
-      clear: () =>
-        set(
-          k,
-          f[k].filter((x) => x !== v)
-        ),
-    }))
-  );
+  const chips = [
+    f.review && { key: "review", label: "Has review video", clear: () => set("review", "") },
+    f.rated && { key: "rated", label: f.rated === "yes" ? "Rated" : "Not rated yet", clear: () => set("rated", "") },
+  ]
+    .filter(Boolean)
+    .concat(
+      MULTI.flatMap((k) =>
+        f[k].map((v) => ({
+          key: `${k}-${v}`,
+          label: k === "platform" ? platformShort(v) : v,
+          clear: () =>
+            set(
+              k,
+              f[k].filter((x) => x !== v)
+            ),
+        }))
+      )
+    );
 
   if (data.setupNeeded) {
     return (
@@ -463,6 +475,21 @@ function GamesInner() {
           value={f.genre}
           onChange={(v) => set("genre", v)}
           multi
+        />
+        <ChipGroup
+          title="Rating"
+          options={[
+            { value: "yes", label: "Rated", count: base.filter((g) => Number(g.rating) > 0).length },
+            { value: "no", label: "Not rated yet", count: base.filter((g) => !(Number(g.rating) > 0)).length },
+          ]}
+          value={f.rated}
+          onChange={(v) => set("rated", v)}
+        />
+        <ChipGroup
+          title="Review"
+          options={[{ value: "yes", label: "Has review video", count: base.filter((g) => g.reviewUrl).length }]}
+          value={f.review}
+          onChange={(v) => set("review", v)}
         />
       </Sheet>
     </div>

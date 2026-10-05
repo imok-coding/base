@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Trash2, Trophy } from "lucide-react";
 import Sheet from "../../../components/ui/Sheet";
 import Menu from "../../../components/ui/Menu";
-import StarRating from "../../../components/ui/StarRating";
+import RatingRow from "../../../components/ui/RatingRow";
+import ReviewVideo from "../../../components/ui/ReviewVideo";
 import { formatDate, money } from "../../../lib/format";
 import { useSticky } from "../../manga/hooks";
 import { completionPct, hoursRemaining, platformShort } from "../model";
@@ -109,7 +110,7 @@ export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpe
               </span>
               {g.priority && g.priority !== "Low" && <span className="chip chip--warn">{g.priority}</span>}
             </div>
-            {g.rating !== "" && <StarRating value={g.rating} />}
+            <RatingRow value={g.rating} canEdit={isAdmin} onRate={(r) => actions.rate(g, r)} step={1} />
             {pct !== "" && (
               <div className="game-progress">
                 <div className="series-progress-label">
@@ -142,6 +143,12 @@ export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpe
           {g.notes && <p className="notes">{g.notes}</p>}
         </div>
       </div>
+      <ReviewVideo url={g.reviewUrl} key={g.id} />
+      {isAdmin && !g.reviewUrl && (
+        <button type="button" className="card-link" style={{ marginTop: 14 }} onClick={() => actions.edit([g])}>
+          + Add a review video
+        </button>
+      )}
     </Sheet>
   );
 }

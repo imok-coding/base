@@ -149,6 +149,7 @@ export const EMPTY_GAME = Object.freeze({
   revisit: "",
   notes: "",
   cover: "",
+  reviewUrl: "",
 });
 
 export function normalizeGame(raw) {
@@ -179,6 +180,7 @@ export function normalizeGame(raw) {
     revisit: raw.revisit === true || raw.revisit === false ? raw.revisit : "",
     notes: str(raw.notes),
     cover: str(raw.cover),
+    reviewUrl: str(raw.reviewUrl),
     importKey: str(raw.importKey),
     family: platformFamily(raw.platform),
   };
@@ -239,7 +241,7 @@ export function toGamePayload(form) {
     status: str(form.status) || "Owned",
     backlog: str(form.backlog) || "Not Started",
     priority: str(form.priority),
-    rating: rating === "" ? "" : Math.max(1, Math.min(5, rating)),
+    rating: rating === "" ? "" : Math.max(1, Math.min(5, Math.round(rating))),
     genre: str(form.genre),
     releaseYear: formNum(form.releaseYear, true),
     acquired: normalizeDate(form.acquired),
@@ -256,6 +258,7 @@ export function toGamePayload(form) {
     revisit: form.revisit === "Yes" ? true : form.revisit === "No" ? false : "",
     notes: str(form.notes),
     cover: str(form.cover),
+    reviewUrl: str(form.reviewUrl),
   };
   payload.importKey = gameKey(payload);
   return payload;

@@ -2,8 +2,11 @@ import { useState } from "react";
 
 const STAR_PATH = "M12 2.6l2.85 5.95 6.55.86-4.8 4.53 1.2 6.5L12 17.3l-5.8 3.14 1.2-6.5-4.8-4.53 6.55-.86z";
 
-/** 0.5–5 star rating. Read-only unless onChange is given. */
-export default function StarRating({ value, onChange, size = 22, showValue = true, label = "Rating" }) {
+/**
+ * Star rating out of 5. Read-only unless onChange is given.
+ * `step` 0.5 allows half stars (manga); 1 is whole stars (games).
+ */
+export default function StarRating({ value, onChange, size = 22, showValue = true, label = "Rating", step = 0.5 }) {
   const [hover, setHover] = useState(null);
   const base = Math.max(0, Math.min(5, Number(value) || 0));
   const shown = hover ?? base;
@@ -28,12 +31,12 @@ export default function StarRating({ value, onChange, size = 22, showValue = tru
           </div>
         ))}
         {interactive && (
-          <div className="stars-hit">
-            {Array.from({ length: 10 }, (_, i) => (i + 1) / 2).map((v) => (
+          <div className="stars-hit" style={{ gridTemplateColumns: `repeat(${Math.round(5 / step)}, 1fr)` }}>
+            {Array.from({ length: Math.round(5 / step) }, (_, i) => (i + 1) * step).map((v) => (
               <button
                 key={v}
                 type="button"
-                aria-label={`${v} stars`}
+                aria-label={`${v} star${v === 1 ? "" : "s"}${base === v ? " (tap again to clear)" : ""}`}
                 aria-pressed={base === v}
                 onMouseEnter={() => setHover(v)}
                 onFocus={() => setHover(v)}
@@ -44,7 +47,7 @@ export default function StarRating({ value, onChange, size = 22, showValue = tru
           </div>
         )}
       </div>
-      {showValue && <span className="stars-value">{shown ? shown.toFixed(1) : "—"}</span>}
+      {showValue && <span className="stars-value">{shown ? (step < 1 ? shown.toFixed(1) : String(shown)) : "—"}</span>}
     </div>
   );
 }

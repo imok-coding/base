@@ -523,16 +523,14 @@ function EditorInner({ cfg, open, onClose }) {
                       <TextField label="Date read" type="date" value={form.dateRead} onChange={setField("dateRead")} />
                     )}
                   </div>
-                  {form.read && (
-                    <div className="field">
-                      <span className="field-label">Rating</span>
-                      <StarRating
-                        value={form.rating}
-                        onChange={(v) => update({ rating: v === "" ? "" : String(v) })}
-                        size={26}
-                      />
-                    </div>
-                  )}
+                  <div className="field">
+                    <span className="field-label">Rating</span>
+                    <StarRating
+                      value={form.rating}
+                      onChange={(v) => update({ rating: v === "" ? "" : String(v) })}
+                      size={26}
+                    />
+                  </div>
                 </>
               )}
               <Switch label="Hide this series from visitors" checked={form.hidden} onChange={setField("hidden")} />

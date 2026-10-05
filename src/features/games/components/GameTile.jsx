@@ -1,6 +1,7 @@
 import { memo } from "react";
-import { Check, CloudDownload, Disc3, Gamepad2, Layers } from "lucide-react";
+import { Check, CloudDownload, Disc3, Gamepad2, Layers, Play } from "lucide-react";
 import Cover from "../../../components/ui/Cover";
+import TileStars from "../../../components/ui/TileStars";
 import { platformShort } from "../model";
 
 export const FORMAT_ICON = { Physical: Disc3, Digital: CloudDownload, Both: Layers };
@@ -44,6 +45,11 @@ export const GameTile = memo(function GameTile({ game, isAdmin, selectMode, sele
             </span>
           </div>
           <div>
+            {game.reviewUrl && (
+              <span className="badge badge--accent" title="Has a review video">
+                <Play />
+              </span>
+            )}
             {game.backlog === "Completed" && (
               <span className="badge badge--read" title="Completed">
                 <Check />
@@ -65,6 +71,7 @@ export const GameTile = memo(function GameTile({ game, isAdmin, selectMode, sele
         <span className="tile-meta clamp-1">
           {game.edition || (isAdmin && !game.cover ? "No cover yet" : game.format)}
         </span>
+        <TileStars value={game.rating} />
       </div>
     </article>
   );

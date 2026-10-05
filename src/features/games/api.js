@@ -36,6 +36,15 @@ export async function patchGames(games, data, { user }) {
   });
 }
 
+export async function rateGame(game, rating, { user }) {
+  await store.updateDocument("games", game.id, { rating });
+  recordActivity(rating ? `Rated "${game.title}" ${rating}/5` : `Cleared the rating for "${game.title}"`, {
+    user,
+    context: "Games",
+    action: "rating",
+  });
+}
+
 export async function deleteGames(games, { user }) {
   await store.batch(games.map((g) => ({ type: "delete", col: "games", id: g.id })));
   recordActivity(games.length === 1 ? `Deleted game "${games[0].title}"` : `Deleted ${s(games.length, "game")}`, {

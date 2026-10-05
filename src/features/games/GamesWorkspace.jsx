@@ -7,7 +7,7 @@ import { store } from "../../lib/store";
 import { todayISO } from "../../lib/format";
 import { useAuth } from "../auth/AuthContext";
 import { useGames } from "./GamesData";
-import { deleteGames, patchGames, setGameCovers } from "./api";
+import { deleteGames, patchGames, rateGame, setGameCovers } from "./api";
 import { toGameForm, toGamePayload } from "./model";
 import GameSheet from "./components/GameSheet";
 import GameEditor, { gameEditorConfig } from "./components/GameEditor";
@@ -73,6 +73,14 @@ export function GamesWorkspace({ children }) {
       edit: ([g]) => setEditor(gameEditorConfig(g, toGameForm(g))),
       bulk: (list) => setBulk(list),
       import: () => setImporting(true),
+      async rate(g, rating) {
+        try {
+          await rateGame(g, rating, { user });
+          toast(rating ? `Rated ${rating} ★` : "Rating cleared");
+        } catch {
+          toast("Couldn't save the rating", { type: "error" });
+        }
+      },
       async markCompleted(g) {
         try {
           await patchGames([g], { backlog: "Completed", completedDate: g.completedDate || todayISO() }, { user });

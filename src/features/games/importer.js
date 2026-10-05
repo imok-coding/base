@@ -32,6 +32,11 @@ const COLUMNS = {
   notes: "notes",
   cover: "cover",
   "cover url": "cover",
+  "review video": "reviewUrl",
+  "review url": "reviewUrl",
+  "review link": "reviewUrl",
+  review: "reviewUrl",
+  youtube: "reviewUrl",
 };
 
 // fields compared/updated on re-import (cover only when the sheet has one)
