@@ -108,7 +108,7 @@
 
 @media (max-width: 860px) {
   .home-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .home-hero-art {
@@ -192,13 +192,13 @@
 
 @media (max-width: 760px) {
   .home-collections {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .collection-card {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 24px;
   align-items: center;
   padding: 20px;
@@ -256,7 +256,7 @@
 }
 
 .collection-card--soon {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   background:
     repeating-linear-gradient(
       -45deg,
@@ -268,7 +268,7 @@
 
 @media (max-width: 520px) {
   .collection-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .collection-mosaic {

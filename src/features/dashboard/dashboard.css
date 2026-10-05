@@ -460,7 +460,7 @@ button.barlist-row:hover {
 /* ============ Read next ============ */
 .pick {
   display: grid;
-  grid-template-columns: 92px 1fr;
+  grid-template-columns: 92px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -732,7 +732,7 @@ button.cal-day:hover {
 
 .agenda-day {
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 52px minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
   border-radius: var(--radius-lg);
@@ -923,7 +923,7 @@ button.cal-day:hover {
 
 .vol-row {
   display: grid;
-  grid-template-columns: auto 64px 1fr auto;
+  grid-template-columns: auto 64px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 6px 8px;
@@ -955,7 +955,7 @@ button.cal-day:hover {
 
 @media (max-width: 560px) {
   .vol-row {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .vol-row-missing {

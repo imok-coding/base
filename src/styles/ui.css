@@ -311,6 +311,7 @@ button.chip[aria-pressed="true"] {
 .select,
 .textarea {
   width: 100%;
+  min-width: 0;
   min-height: 42px;
   padding: 0 12px;
   border-radius: var(--radius-sm);
@@ -358,6 +359,22 @@ button.chip[aria-pressed="true"] {
 
 .input[type="date"] {
   min-width: 0;
+}
+
+/* iOS Safari gives native date inputs a fixed intrinsic width that ignores
+   width: 100%; drop the native look so they fit their column. */
+@supports (-webkit-touch-callout: none) {
+  .input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    line-height: 40px;
+  }
+
+  .input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+  }
 }
 
 .input[type="date"]::-webkit-calendar-picker-indicator {
@@ -417,7 +434,7 @@ button.chip[aria-pressed="true"] {
 .form-grid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
 }
 
 .form-grid--2 {
@@ -715,8 +732,10 @@ button.chip[aria-pressed="true"] {
 
 .sheet-body {
   padding: 8px 24px 24px;
+  overflow-x: hidden; /* vertical scrolling only — content never pans sideways */
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
   -webkit-overflow-scrolling: touch;
   /* Size from content, then shrink to fit the sheet's max-height. Not flex: 1 —
      older Safari (seen in 17.4) resolves its 0% basis to zero inside a

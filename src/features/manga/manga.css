@@ -488,7 +488,7 @@
 /* ============ Volume sheet ============ */
 .volume-layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -499,7 +499,7 @@
 
 @media (max-width: 640px) {
   .volume-layout {
-    grid-template-columns: 112px 1fr;
+    grid-template-columns: 112px minmax(0, 1fr);
     gap: 16px;
   }
 }
@@ -590,7 +590,7 @@
   border: 1px solid var(--line);
   padding: clamp(18px, 4vw, 36px);
   display: grid;
-  grid-template-columns: clamp(120px, 20vw, 200px) 1fr;
+  grid-template-columns: clamp(120px, 20vw, 200px) minmax(0, 1fr);
   gap: clamp(18px, 4vw, 36px);
   align-items: end;
   isolation: isolate;
@@ -684,7 +684,7 @@
 
 @media (max-width: 640px) {
   .series-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: start;
   }
 
@@ -715,7 +715,7 @@
 /* ============ Editor ============ */
 .editor-layout {
   display: grid;
-  grid-template-columns: 168px 1fr;
+  grid-template-columns: 168px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -730,7 +730,7 @@
 
 @media (max-width: 720px) {
   .editor-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .editor-cover {
@@ -812,7 +812,7 @@
 
 .bulk-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   padding: 10px 0;
