@@ -43,7 +43,9 @@ function CoverRow({ items, onOpen, meta }) {
 function HomeInner() {
   const { publicLibrary, publicWishlist, loading } = useManga();
   const gamesData = useGames();
-  const games = gamesData.owned;
+  // the home page shows what visitors see, so hidden games stay out for admins too
+  const games = useMemo(() => gamesData.owned.filter((g) => !g.hidden), [gamesData.owned]);
+  const wantedGames = gamesData.wishlist.filter((g) => !g.hidden).length;
   const gamePlatforms = new Set(games.map((g) => g.platform)).size;
   const gameMosaic = useMemo(
     () =>
@@ -195,7 +197,7 @@ function HomeInner() {
                 <h3>Games</h3>
                 <p className="muted">
                   {games.length.toLocaleString()} games · {gamePlatforms} platform{gamePlatforms === 1 ? "" : "s"}
-                  {gamesData.wishlist.length ? ` · ${gamesData.wishlist.length} wanted` : ""}
+                  {wantedGames ? ` · ${wantedGames} wanted` : ""}
                 </p>
                 <span className="section-link">
                   Open library <ArrowRight />

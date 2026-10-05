@@ -39,7 +39,11 @@ Series are grouped by title ("Series Name, Vol. 3"). Hiding one volume hides the
 
 ### Games import
 
-Dashboard > Games > Import from spreadsheet. It reads the Backlog tab of my `Game_Library_and_Backlog_Tracker_Expanded.xlsx`. Re-importing updates games that match (title + platform + edition + format) and adds new ones, and blank cells don't erase anything. Covers come from Wikipedia and can be changed in the game editor.
+Dashboard > Games > Import from spreadsheet. It reads the Backlog tab of my `Game_Library_and_Backlog_Tracker_Expanded.xlsx`. Re-importing updates games that match (title + platform + edition + format) and adds new ones, and blank cells don't erase anything.
+
+Covers come from the PlayStation Store for PlayStation games (its old search API still allows calls from any site) and from Wikipedia for everything else, or when the store has nothing. Any cover can be changed in the game editor.
+
+Games can be hidden from the game page, the editor, or by selecting a few. Hidden games don't show up for visitors and don't count as missing covers, but they still count toward money spent on the dashboard.
 
 The `games` collection needs this Firestore rule:
 

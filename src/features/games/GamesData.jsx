@@ -8,9 +8,10 @@ const GamesContext = createContext(null);
 /**
  * Live `games` collection, shared app-wide. `setupNeeded` is true when
  * Firestore rules don't allow the collection yet (permission-denied).
+ * Hidden games are only included for admins.
  */
 export function GamesProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
   const [setupNeeded, setSetupNeeded] = useState(false);
@@ -35,7 +36,10 @@ export function GamesProvider({ children }) {
   }, [user?.uid]);
 
   const value = useMemo(() => {
-    const games = (rows || []).map(normalizeGame).sort(compareGames);
+    const games = (rows || [])
+      .map(normalizeGame)
+      .filter((g) => isAdmin || !g.hidden)
+      .sort(compareGames);
     return {
       loading: rows === null,
       error,
@@ -45,7 +49,7 @@ export function GamesProvider({ children }) {
       wishlist: games.filter((g) => g.status === "Wishlist"),
       byId: new Map(games.map((g) => [g.id, g])),
     };
-  }, [rows, error, setupNeeded]);
+  }, [rows, error, setupNeeded, isAdmin]);
 
   return <GamesContext.Provider value={value}>{children}</GamesContext.Provider>;
 }

@@ -7,6 +7,22 @@
   object-position: center top;
 }
 
+/* square art: show all of it, with a blurred copy filling the frame */
+.cover[data-square] img {
+  position: relative;
+  object-fit: contain;
+  object-position: center;
+}
+
+.cover[data-square][data-state] img.cover-backdrop {
+  position: absolute;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
+  object-fit: cover;
+  filter: blur(14px) saturate(1.1) brightness(0.6);
+}
+
 /* doubled class so it wins over .tile-grid regardless of stylesheet order */
 .tile-grid.tile-grid--games {
   --tile-min: 150px;
@@ -164,6 +180,10 @@
 }
 
 /* cover picker */
+.cover-pick-group + .cover-pick-group {
+  margin-top: 22px;
+}
+
 .cover-picks {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
@@ -279,4 +299,11 @@
   object-fit: cover;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
+}
+
+/* the selection bar gets tight on phones, so its buttons drop their labels */
+@media (max-width: 480px) {
+  .select-bar .btn-label {
+    display: none;
+  }
 }

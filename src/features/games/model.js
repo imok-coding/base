@@ -150,6 +150,7 @@ export const EMPTY_GAME = Object.freeze({
   notes: "",
   cover: "",
   reviewUrl: "",
+  hidden: false,
 });
 
 export function normalizeGame(raw) {
@@ -181,6 +182,7 @@ export function normalizeGame(raw) {
     notes: str(raw.notes),
     cover: str(raw.cover),
     reviewUrl: str(raw.reviewUrl),
+    hidden: !!raw.hidden,
     importKey: str(raw.importKey),
     family: platformFamily(raw.platform),
   };
@@ -259,6 +261,7 @@ export function toGamePayload(form) {
     notes: str(form.notes),
     cover: str(form.cover),
     reviewUrl: str(form.reviewUrl),
+    hidden: !!form.hidden,
   };
   payload.importKey = gameKey(payload);
   return payload;
@@ -272,6 +275,9 @@ export function compareGames(a, b) {
 }
 
 export const isOwned = (g) => g.status === "Owned" || g.status === "Borrowed";
+
+/** Games still waiting on cover art. Hidden ones don't count. */
+export const needsCover = (g) => !g.cover && !g.hidden;
 
 export function gameMissing(g) {
   const m = [];

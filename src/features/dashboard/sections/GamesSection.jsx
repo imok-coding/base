@@ -14,7 +14,7 @@ import {
 import { money } from "../../../lib/format";
 import { useGames } from "../../games/GamesData";
 import { GamesWorkspace, useGamesWorkspace } from "../../games/GamesWorkspace";
-import { OPTIONS, platformOrder, platformShort } from "../../games/model";
+import { needsCover, OPTIONS, platformOrder, platformShort } from "../../games/model";
 import SetupNotice from "../../games/SetupNotice";
 import { BarList, ColumnChart, Meter } from "../charts";
 
@@ -88,7 +88,10 @@ function GamesStats() {
         value: byYear.get(y) || 0,
       })),
       backlog: OPTIONS.backlog.map((b) => ({ label: b, value: byBacklog.get(b) || 0 })).filter((r) => r.value),
-      missingCovers: games.filter((g) => !g.cover).length,
+      // hidden games still count everywhere here except cover art
+      hidden: owned.filter((g) => g.hidden).length,
+      coverBase: games.filter((g) => !g.hidden).length,
+      missingCovers: games.filter(needsCover).length,
     };
   }, [owned, games]);
 
@@ -97,7 +100,12 @@ function GamesStats() {
   return (
     <>
       <section className="kpis" aria-label="Game library numbers">
-        <Kpi icon={Gamepad2} label="Games" value={owned.length.toLocaleString()} sub={`${s.platforms} platforms`} />
+        <Kpi
+          icon={Gamepad2}
+          label="Games"
+          value={owned.length.toLocaleString()}
+          sub={`${s.platforms} platforms${s.hidden ? ` · ${s.hidden} hidden` : ""}`}
+        />
         <Kpi
           icon={Disc3}
           label="Physical"
@@ -122,7 +130,7 @@ function GamesStats() {
         <Kpi
           icon={ImagePlus}
           label="Cover art"
-          value={`${games.length ? Math.round(((games.length - s.missingCovers) / games.length) * 100) : 0}%`}
+          value={`${s.coverBase ? Math.round(((s.coverBase - s.missingCovers) / s.coverBase) * 100) : 0}%`}
           sub={s.missingCovers ? `${s.missingCovers} missing` : "all set"}
         />
       </section>
@@ -176,8 +184,8 @@ function GamesStats() {
           </div>
           <p className="subtle" style={{ fontSize: "var(--text-xs)", marginTop: 10 }}>
             You can re-import the tracker any time. Matching games get updated, new rows get added, and blank cells
-            never erase what&apos;s already here. Covers come from Wikipedia; pick a different one from any game&apos;s
-            editor.
+            never erase what&apos;s already here. Covers come from the PlayStation Store and Wikipedia, and you can
+            pick a different one from any game&apos;s editor. Hidden games are skipped.
           </p>
         </section>
       </div>

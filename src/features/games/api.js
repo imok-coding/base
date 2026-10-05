@@ -1,5 +1,6 @@
 // All game writes, batched, with activity logging.
 import { recordActivity } from "../../lib/activity";
+import { coverKey } from "../../lib/gameCovers";
 import { store } from "../../lib/store";
 import { toGamePayload } from "./model";
 
@@ -36,6 +37,13 @@ export async function patchGames(games, data, { user }) {
   });
 }
 
+export async function setGamesHidden(games, hidden, { user }) {
+  if (!games.length) return;
+  await store.batch(games.map((g) => ({ type: "update", col: "games", id: g.id, data: { hidden } })));
+  const what = games.length === 1 ? `"${games[0].title}"` : s(games.length, "game");
+  recordActivity(`${hidden ? "Hid" : "Unhid"} ${what}`, { user, context: "Games", action: hidden ? "hide" : "unhide" });
+}
+
 export async function rateGame(game, rating, { user }) {
   await store.updateDocument("games", game.id, { rating });
   recordActivity(rating ? `Rated "${game.title}" ${rating}/5` : `Cleared the rating for "${game.title}"`, {
@@ -54,19 +62,19 @@ export async function deleteGames(games, { user }) {
   });
 }
 
-/** Write an import plan from planImport(). `covers` maps title to cover URL. */
+/** Write an import plan from planImport(). `covers` comes from findCoversFor(). */
 export async function applyImport(plan, { user, covers = new Map() }) {
   const ops = [
     ...plan.adds.map((data) => ({
       type: "add",
       col: "games",
-      data: { ...data, cover: data.cover || covers.get(data.title) || "" },
+      data: { ...data, cover: data.cover || covers.get(coverKey(data)) || "" },
     })),
     ...plan.updates.map(({ game, changes }) => ({
       type: "update",
       col: "games",
       id: game.id,
-      data: !game.cover && covers.get(game.title) ? { ...changes, cover: covers.get(game.title) } : changes,
+      data: !game.cover && covers.get(coverKey(game)) ? { ...changes, cover: covers.get(coverKey(game)) } : changes,
     })),
   ];
   if (ops.length) await store.batch(ops);

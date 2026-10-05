@@ -18,6 +18,11 @@ export function coverSrc(url, longEdge = 480) {
       u.pathname = u.pathname.replace(/-[SML]\.jpg$/i, longEdge <= 500 ? "-M.jpg" : "-L.jpg");
       return u.toString();
     }
+    if (u.hostname === "image.api.playstation.com") {
+      u.searchParams.set("w", String(longEdge));
+      u.searchParams.delete("thumb");
+      return u.toString();
+    }
     if (u.hostname === "store.crunchyroll.com" && u.searchParams.has("sw")) {
       u.searchParams.set("sw", String(Math.round(longEdge * 0.7)));
       return u.toString();

@@ -1,14 +1,15 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { CheckSquare, Pencil, Trash2, X } from "lucide-react";
+import { CheckSquare, Eye, EyeOff, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import Menu from "../../components/ui/Menu";
 import { useFeedback } from "../../components/ui/Feedback";
-import { findCoversFor } from "../../lib/gameCovers";
+import { coverKey, findCoversFor } from "../../lib/gameCovers";
 import { store } from "../../lib/store";
 import { todayISO } from "../../lib/format";
 import { useAuth } from "../auth/AuthContext";
 import { useGames } from "./GamesData";
-import { deleteGames, patchGames, rateGame, setGameCovers } from "./api";
-import { toGameForm, toGamePayload } from "./model";
+import { deleteGames, patchGames, rateGame, setGameCovers, setGamesHidden } from "./api";
+import { needsCover, toGameForm, toGamePayload } from "./model";
 import GameSheet from "./components/GameSheet";
 import GameEditor, { gameEditorConfig } from "./components/GameEditor";
 import GameBulkSheet from "./components/GameBulkSheet";
@@ -81,6 +82,18 @@ export function GamesWorkspace({ children }) {
           toast("Couldn't save the rating", { type: "error" });
         }
       },
+      async setHidden(list, hidden) {
+        try {
+          await setGamesHidden(list, hidden, { user });
+          toast(
+            hidden
+              ? `Hid ${list.length === 1 ? list[0].title : plural(list.length, "game")} from visitors`
+              : `${list.length === 1 ? list[0].title : plural(list.length, "game")} visible again`
+          );
+        } catch {
+          toast("Couldn't update that, try again", { type: "error" });
+        }
+      },
       async markCompleted(g) {
         try {
           await patchGames([g], { backlog: "Completed", completedDate: g.completedDate || todayISO() }, { user });
@@ -116,15 +129,14 @@ export function GamesWorkspace({ children }) {
         });
       },
       async findMissingCovers() {
-        const missing = games.filter((g) => !g.cover);
+        const missing = games.filter(needsCover);
         if (!missing.length) return toast("Every game already has cover art", { type: "info" });
-        setCoverJob({ done: 0, total: new Set(missing.map((g) => g.title)).size });
+        setCoverJob({ done: 0, total: new Set(missing.map(coverKey)).size });
         try {
-          const found = await findCoversFor(
-            missing.map((g) => g.title),
-            (done, total) => setCoverJob({ done, total })
-          );
-          const pairs = missing.filter((g) => found.get(g.title)).map((g) => ({ id: g.id, cover: found.get(g.title) }));
+          const found = await findCoversFor(missing, (done, total) => setCoverJob({ done, total }));
+          const pairs = missing
+            .filter((g) => found.get(coverKey(g)))
+            .map((g) => ({ id: g.id, cover: found.get(coverKey(g)) }));
           await setGameCovers(pairs, { user });
           toast(
             `Found covers for ${plural(pairs.length, "game")}${pairs.length < missing.length ? ` · ${missing.length - pairs.length} still need one` : ""}`
@@ -146,6 +158,7 @@ export function GamesWorkspace({ children }) {
   }, [game, byId]);
 
   const selectedGames = [...selected].map((id) => byId.get(id)).filter(Boolean);
+  const hideLabel = !selectedGames.length || selectedGames.some((g) => !g.hidden) ? "Hide" : "Show";
 
   const value = useMemo(
     () => ({
@@ -193,25 +206,55 @@ export function GamesWorkspace({ children }) {
                 type="button"
                 className="btn btn--sm btn--ghost"
                 onClick={() => setSelected(new Set(visible.current))}
+                aria-label="Select all"
+                title="Select all"
               >
-                <CheckSquare /> All
+                <CheckSquare /> <span className="btn-label">All</span>
               </button>
               <button
                 type="button"
                 className="btn btn--sm"
                 disabled={!selectedGames.length}
                 onClick={() => setBulk(selectedGames)}
+                aria-label="Edit"
+                title="Edit"
               >
-                <Pencil /> Edit
+                <Pencil /> <span className="btn-label">Edit</span>
               </button>
               <button
                 type="button"
-                className="btn btn--sm btn--danger"
+                className="btn btn--sm"
                 disabled={!selectedGames.length}
-                onClick={() => actions.remove(selectedGames)}
+                onClick={() => actions.setHidden(selectedGames, hideLabel === "Hide")}
+                aria-label={hideLabel === "Hide" ? "Hide from visitors" : "Show to visitors"}
+                title={hideLabel === "Hide" ? "Hide from visitors" : "Show to visitors"}
               >
-                <Trash2 /> Delete
+                {hideLabel === "Hide" ? <EyeOff /> : <Eye />} <span className="btn-label">{hideLabel}</span>
               </button>
+              <Menu
+                up
+                trigger={(p) => (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--icon"
+                    aria-label="More"
+                    disabled={!selectedGames.length}
+                    {...p}
+                  >
+                    <MoreHorizontal />
+                  </button>
+                )}
+                items={[
+                  { label: "Clear selection", icon: X, onClick: () => setSelected(new Set()) },
+                  { separator: true },
+                  {
+                    label: `Delete ${selectedGames.length}`,
+                    icon: Trash2,
+                    danger: true,
+                    onClick: () => actions.remove(selectedGames),
+                  },
+                ]}
+              />
               <button
                 type="button"
                 className="btn btn--sm btn--ghost btn--icon"

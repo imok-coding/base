@@ -25,7 +25,7 @@ import { ChipGroup } from "../manga/components/FilterSheet";
 import { TileSkeletons } from "../manga/components/Tiles";
 import { useGames } from "./GamesData";
 import { GamesWorkspace, useGamesWorkspace } from "./GamesWorkspace";
-import { OPTIONS, platformOrder, platformShort } from "./model";
+import { needsCover, OPTIONS, platformOrder, platformShort } from "./model";
 import { GameTile } from "./components/GameTile";
 import SetupNotice from "./SetupNotice";
 import "../manga/manga.css";
@@ -47,6 +47,7 @@ function useGameFilters() {
     q: params.get("q") || "",
     review: params.get("review") || "",
     rated: params.get("rated") || "",
+    hidden: params.get("hidden") || "",
     ...Object.fromEntries(MULTI.map((k) => [k, params.getAll(k)])),
   };
   const set = (key, value) =>
@@ -119,6 +120,7 @@ function GamesInner() {
       if (f.review === "yes" && !g.reviewUrl) return false;
       if (f.rated === "yes" && !(Number(g.rating) > 0)) return false;
       if (f.rated === "no" && Number(g.rating) > 0) return false;
+      if (f.hidden === "only" && !g.hidden) return false;
       return MULTI.every((k) => !f[k].length || f[k].includes(g[k]));
     });
     const by = {
@@ -129,7 +131,7 @@ function GamesInner() {
       release: (a, b) => (Number(b.releaseYear) || 0) - (Number(a.releaseYear) || 0),
     }[f.sort];
     return by ? [...out].sort(by) : out;
-  }, [base, deferred, f.platform, f.format, f.backlog, f.genre, f.sort, f.review, f.rated]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [base, deferred, f.platform, f.format, f.backlog, f.genre, f.sort, f.review, f.rated, f.hidden]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { setVisibleIds } = ws;
   useEffect(() => setVisibleIds(shown.map((g) => g.id)), [shown, setVisibleIds]);
@@ -149,7 +151,7 @@ function GamesInner() {
   const platforms = new Set(owned.map((g) => g.platform)).size;
   const physical = owned.filter((g) => g.format !== "Digital").length;
   const digital = owned.filter((g) => g.format !== "Physical").length;
-  const missingCovers = data.games.filter((g) => !g.cover).length;
+  const missingCovers = data.games.filter(needsCover).length;
 
   const sortOptions = [
     { value: "title", label: "Title" },
@@ -162,6 +164,7 @@ function GamesInner() {
   const chips = [
     f.review && { key: "review", label: "Has review video", clear: () => set("review", "") },
     f.rated && { key: "rated", label: f.rated === "yes" ? "Rated" : "Not rated yet", clear: () => set("rated", "") },
+    f.hidden && { key: "hidden", label: "Hidden only", clear: () => set("hidden", "") },
   ]
     .filter(Boolean)
     .concat(
@@ -493,6 +496,14 @@ function GamesInner() {
           value={f.review}
           onChange={(v) => set("review", v)}
         />
+        {isAdmin && (
+          <ChipGroup
+            title="Visibility"
+            options={[{ value: "only", label: "Hidden only", count: base.filter((g) => g.hidden).length }]}
+            value={f.hidden}
+            onChange={(v) => set("hidden", v)}
+          />
+        )}
       </Sheet>
     </div>
   );

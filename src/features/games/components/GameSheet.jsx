@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Trash2, Trophy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, MoreHorizontal, Pencil, Trash2, Trophy } from "lucide-react";
 import Sheet from "../../../components/ui/Sheet";
 import Menu from "../../../components/ui/Menu";
 import RatingRow from "../../../components/ui/RatingRow";
@@ -63,7 +63,13 @@ export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpe
             <MoreHorizontal />
           </button>
         )}
-        items={[{ label: "Delete", icon: Trash2, danger: true, onClick: () => actions.remove([g]) }]}
+        items={[
+          g.hidden
+            ? { label: "Show to visitors", icon: Eye, onClick: () => actions.setHidden([g], false) }
+            : { label: "Hide from visitors", icon: EyeOff, onClick: () => actions.setHidden([g], true) },
+          { separator: true },
+          { label: "Delete", icon: Trash2, danger: true, onClick: () => actions.remove([g]) },
+        ]}
       />
       <span className="spacer" />
       {g.backlog !== "Completed" && (
@@ -109,6 +115,11 @@ export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpe
                 {g.backlog}
               </span>
               {g.priority && g.priority !== "Low" && <span className="chip chip--warn">{g.priority}</span>}
+              {isAdmin && g.hidden && (
+                <span className="chip">
+                  <EyeOff /> Hidden
+                </span>
+              )}
             </div>
             <RatingRow value={g.rating} canEdit={isAdmin} onRate={(r) => actions.rate(g, r)} step={1} />
             {pct !== "" && (

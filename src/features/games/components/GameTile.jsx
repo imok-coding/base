@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Check, CloudDownload, Disc3, Gamepad2, Layers, Play } from "lucide-react";
+import { Check, CloudDownload, Disc3, EyeOff, Gamepad2, Layers, Play } from "lucide-react";
 import Cover from "../../../components/ui/Cover";
 import TileStars from "../../../components/ui/TileStars";
 import { platformShort } from "../model";
@@ -14,6 +14,7 @@ export function GameCover({ game, size = 420, eager, className = "", children })
       size={size}
       eager={eager}
       className={`cover--game ${className}`}
+      fitSquare
       fallback={
         <div className="game-fallback" data-family={game.family} aria-hidden="true">
           <Gamepad2 />
@@ -28,9 +29,11 @@ export function GameCover({ game, size = 420, eager, className = "", children })
 
 export const GameTile = memo(function GameTile({ game, isAdmin, selectMode, selected, onOpen, onToggle }) {
   const FormatIcon = FORMAT_ICON[game.format] || Disc3;
-  const meta = game.edition || (isAdmin && !game.cover ? "No cover yet" : "");
+  const meta = game.edition || (isAdmin && !game.cover && !game.hidden ? "No cover yet" : "");
   return (
-    <article className={`tile ${selectMode ? "is-select-mode" : ""} ${selected ? "is-selected" : ""}`}>
+    <article
+      className={`tile ${selectMode ? "is-select-mode" : ""} ${selected ? "is-selected" : ""} ${game.hidden ? "is-hidden" : ""}`}
+    >
       <button
         type="button"
         className="tile-hit"
@@ -46,6 +49,11 @@ export const GameTile = memo(function GameTile({ game, isAdmin, selectMode, sele
             </span>
           </div>
           <div>
+            {isAdmin && game.hidden && (
+              <span className="badge badge--muted" title="Hidden from visitors">
+                <EyeOff />
+              </span>
+            )}
             {game.reviewUrl && (
               <span className="badge badge--accent" title="Has a review video">
                 <Play />

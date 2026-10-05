@@ -8,6 +8,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useGames } from "../GamesData";
 import { applyImport } from "../api";
 import { planImport, readGameWorkbook } from "../importer";
+import { needsCover } from "../model";
 
 /** Import / re-import games from the tracker spreadsheet. */
 export default function ImportSheet({ open, onClose }) {
@@ -50,8 +51,8 @@ export default function ImportSheet({ open, onClose }) {
       let found = new Map();
       if (covers) {
         const need = [
-          ...plan.adds.filter((a) => !a.cover).map((a) => a.title),
-          ...plan.updates.filter((u) => !u.game.cover).map((u) => u.game.title),
+          ...plan.adds.filter((a) => !a.cover),
+          ...plan.updates.filter((u) => needsCover(u.game)).map((u) => u.game),
         ];
         if (need.length) {
           found = await findCoversFor(need, (done, total) => setBusy(`Finding cover art... ${done} / ${total}`));

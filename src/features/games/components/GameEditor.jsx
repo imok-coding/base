@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { ImageOff, Search } from "lucide-react";
 import Sheet from "../../../components/ui/Sheet";
 import StarRating from "../../../components/ui/StarRating";
-import { SelectField, TextField } from "../../../components/ui/Fields";
+import { SelectField, Switch, TextField } from "../../../components/ui/Fields";
 import { useFeedback } from "../../../components/ui/Feedback";
-import { searchGameCovers } from "../../../lib/gameCovers";
+import { searchGameCovers, searchPlayStationCovers } from "../../../lib/gameCovers";
 import { todayISO } from "../../../lib/format";
 import { youtubeId, youtubeThumb } from "../../../lib/youtube";
 import { useAuth } from "../../auth/AuthContext";
@@ -15,17 +15,43 @@ import { GameCover } from "./GameTile";
 
 const withCurrent = (list, value) => [...new Set([...list, value].filter(Boolean))];
 
-function CoverPicker({ query, open, onClose, onPick }) {
-  const [state, setState] = useState({ q: "", loading: false, results: null, error: "" });
+const isPlayStation = (p = "") => /playstation|ps vita|psp/i.test(p);
+
+function PickGrid({ title, results, onPick }) {
+  if (!results?.length) return null;
+  return (
+    <section className="cover-pick-group">
+      <h4 className="form-section-title">{title}</h4>
+      <div className="cover-picks">
+        {results.map((r) => (
+          <button type="button" key={r.image} className="cover-pick" onClick={() => onPick(r.image)}>
+            <GameCover game={{ title: r.article, cover: r.image }} size={300} />
+            <strong className="clamp-2">{r.article}</strong>
+            <span className="clamp-2">{r.description}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CoverPicker({ query, platform, edition, open, onClose, onPick }) {
+  const [state, setState] = useState({ loading: false, ps: null, wiki: null, error: "" });
   const [text, setText] = useState(query);
 
   const run = async (q) => {
-    setState({ q, loading: true, results: null, error: "" });
-    try {
-      setState({ q, loading: false, results: await searchGameCovers(q, 12), error: "" });
-    } catch {
-      setState({ q, loading: false, results: [], error: "Search failed. Try again in a moment." });
-    }
+    setState({ loading: true, ps: null, wiki: null, error: "" });
+    const [ps, wiki] = await Promise.allSettled([
+      searchPlayStationCovers(q, { platform, edition }),
+      searchGameCovers(q, 12),
+    ]);
+    const failed = ps.status === "rejected" && wiki.status === "rejected";
+    setState({
+      loading: false,
+      ps: ps.status === "fulfilled" ? ps.value : [],
+      wiki: wiki.status === "fulfilled" ? wiki.value : [],
+      error: failed ? "Search failed. Try again in a moment." : "",
+    });
   };
 
   // search for the game's title as soon as the picker opens
@@ -34,8 +60,21 @@ function CoverPicker({ query, open, onClose, onPick }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const groups = [
+    { key: "ps", title: "PlayStation Store", results: state.ps },
+    { key: "wiki", title: "Wikipedia", results: state.wiki },
+  ];
+  if (!isPlayStation(platform)) groups.reverse();
+  const empty = !state.loading && !state.error && state.ps && !state.ps.length && !state.wiki.length;
+
   return (
-    <Sheet open={open} onClose={onClose} title="Pick cover art" subtitle="Box art from Wikipedia articles" width={680}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Pick cover art"
+      subtitle="Box art from the PlayStation Store and Wikipedia"
+      width={680}
+    >
       <form
         className="input-wrap"
         style={{ marginBottom: 16 }}
@@ -55,22 +94,14 @@ function CoverPicker({ query, open, onClose, onPick }) {
       </form>
       {state.loading && <div className="skeleton" style={{ height: 180 }} />}
       {state.error && <p style={{ color: "var(--danger)" }}>{state.error}</p>}
-      {state.results && !state.results.length && !state.error && (
+      {empty && (
         <p className="subtle" style={{ textAlign: "center", padding: 24 }}>
           <ImageOff size={20} style={{ verticalAlign: "-4px" }} /> No images found. Try a shorter title.
         </p>
       )}
-      {state.results?.length > 0 && (
-        <div className="cover-picks">
-          {state.results.map((r) => (
-            <button type="button" key={r.image} className="cover-pick" onClick={() => onPick(r.image)}>
-              <GameCover game={{ title: r.article, cover: r.image }} size={300} />
-              <strong className="clamp-2">{r.article}</strong>
-              <span className="clamp-2">{r.description}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {groups.map((g) => (
+        <PickGrid key={g.key} title={g.title} results={g.results} onPick={onPick} />
+      ))}
     </Sheet>
   );
 }
@@ -333,12 +364,18 @@ function EditorInner({ cfg, open, onClose }) {
                 onChange={(e) => set("notes")(e.target.value)}
               />
             </div>
+            <Switch label="Hide this game from visitors" checked={form.hidden} onChange={set("hidden")} />
+            <span className="field-hint">
+              Hidden games still count toward money spent on the dashboard, but not toward missing covers.
+            </span>
           </div>
         </div>
       </div>
       <CoverPicker
         key={picking ? form.title : "closed"}
         query={form.title}
+        platform={form.platform}
+        edition={form.edition}
         open={picking}
         onClose={() => setPicking(false)}
         onPick={(url) => {
