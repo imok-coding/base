@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Plus, ScanSearch, X } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Plus, ScanSearch, X } from "lucide-react";
 import Sheet from "../../../components/ui/Sheet";
 import Cover from "../../../components/ui/Cover";
 import StarRating from "../../../components/ui/StarRating";
@@ -15,6 +15,13 @@ import { useSticky } from "../hooks";
 
 let uidCounter = 0;
 const uid = () => `e${++uidCounter}`;
+
+/** Short tab label: "Vol. 3", "Vol. 23–24" for 2-in-1s, or the title. */
+function entryLabel(title) {
+  const p = parseTitle(title);
+  if (!p.vol) return title.slice(0, 18) || "Untitled";
+  return p.volumes.length > 1 ? `Vol. ${p.volumes[0]}–${p.volumes.at(-1)}` : `Vol. ${p.vol}`;
+}
 
 /** Build an editor config. */
 export function editorConfig({ mode, list = "library", entries }) {
@@ -189,6 +196,7 @@ function EditorInner({ cfg, open, onClose }) {
   };
 
   const newCount = entries.filter((e) => !e.id).length;
+  const mixedLists = new Set(entries.map((e) => e.list)).size > 1;
   const title = cfg.mode === "add" ? "Add to collection" : entries.length > 1 ? "Edit volumes" : "Edit volume";
   const editionValue = form.specialType || "";
 
@@ -198,6 +206,30 @@ function EditorInner({ cfg, open, onClose }) {
       onClose={onClose}
       title={title}
       subtitle={entries.length > 1 ? `Entry ${index + 1} of ${entries.length}` : undefined}
+      headerExtra={
+        entries.length > 1 && (
+          <div className="volume-nav">
+            <button
+              type="button"
+              className="btn btn--ghost btn--icon"
+              disabled={index === 0}
+              onClick={() => setIndex(index - 1)}
+              aria-label="Previous entry"
+            >
+              <ChevronLeft />
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--icon"
+              disabled={index === entries.length - 1}
+              onClick={() => setIndex(index + 1)}
+              aria-label="Next entry"
+            >
+              <ChevronRight />
+            </button>
+          </div>
+        )
+      }
       width={860}
       footer={
         <>
@@ -227,7 +259,8 @@ function EditorInner({ cfg, open, onClose }) {
         {entries.length > 1 && (
           <div className="entry-tabs" role="tablist">
             {entries.map((e, i) => {
-              const p = parseTitle(e.form.title);
+              const needsInfo = missingFields({ ...e.form, kind: e.list }).length > 0;
+              const markWishlist = mixedLists && e.list === "wishlist";
               return (
                 <button
                   type="button"
@@ -236,8 +269,11 @@ function EditorInner({ cfg, open, onClose }) {
                   className="entry-tab"
                   aria-selected={i === index}
                   onClick={() => setIndex(i)}
+                  title={`${e.form.title}${markWishlist ? " (wishlist)" : ""}${needsInfo ? " — missing info" : ""}`}
                 >
-                  {p.vol ? `Vol. ${p.vol}` : e.form.title.slice(0, 18) || "Untitled"}
+                  {needsInfo && <span className="dot" style={{ color: "var(--warn)", width: 6, height: 6 }} />}
+                  {entryLabel(e.form.title)}
+                  {markWishlist && <Bookmark size={12} aria-label="wishlist" />}
                   {!e.id && cfg.mode === "add" && entries.length > 1 && (
                     <span
                       className="x"

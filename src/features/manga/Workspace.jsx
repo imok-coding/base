@@ -5,7 +5,7 @@ import { store } from "../../lib/store";
 import { useAuth } from "../auth/AuthContext";
 import { useManga } from "./MangaData";
 import { deleteVolumes, moveVolumes, patchVolume, patchVolumes, setReadState } from "./api";
-import { LIST_LABEL, toFormValues, toPayload, parseTitle, nextVolumeTitle } from "./model";
+import { compareVolumes, LIST_LABEL, toFormValues, toPayload, parseTitle, nextVolumeTitle } from "./model";
 import BulkEditSheet from "./components/BulkEditSheet";
 import EntryEditor, { editorConfig } from "./components/EntryEditor";
 import SelectBar from "./components/SelectBar";
@@ -114,7 +114,8 @@ export function MangaWorkspace({ children }) {
         setEditor(
           editorConfig({
             mode: "edit",
-            entries: volumes.map((v) => ({ id: v.id, list: v.kind, form: toFormValues(v) })),
+            // series/volume order, regardless of which list each came from
+            entries: [...volumes].sort(compareVolumes).map((v) => ({ id: v.id, list: v.kind, form: toFormValues(v) })),
           })
         );
       },

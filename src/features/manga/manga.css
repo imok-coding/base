@@ -745,17 +745,12 @@
   }
 }
 
+/* wraps so every entry stays visible — no hidden sideways scrolling */
 .entry-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 4px;
   margin-bottom: 18px;
-  scrollbar-width: none;
-}
-
-.entry-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .entry-tab {
