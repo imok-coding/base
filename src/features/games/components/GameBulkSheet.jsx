@@ -84,7 +84,7 @@ function BulkInner({ games, open, onClose }) {
               <input className="input" type="date" value={values[f.key]} onChange={(e) => set(f.key, e.target.value)} />
             ) : (
               <select className="select" value={values[f.key]} onChange={(e) => set(f.key, e.target.value)}>
-                <option value="">—</option>
+                <option value="">None</option>
                 {[...new Set([...f.options, values[f.key]].filter(Boolean))].map((o) => (
                   <option key={o} value={o}>
                     {o}

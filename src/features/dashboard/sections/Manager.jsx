@@ -122,7 +122,7 @@ export default function Manager() {
           <input
             className="input"
             type="search"
-            placeholder="Find a series or ISBN…"
+            placeholder="Find a series or ISBN"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search series"

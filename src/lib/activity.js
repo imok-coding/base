@@ -32,7 +32,7 @@ function writeActivity(entries) {
     }));
     localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(payload));
   } catch {
-    /* storage unavailable — the log is best-effort */
+    /* storage unavailable, the log is best effort */
   }
   subscribers.forEach((fn) => fn());
 }
@@ -55,11 +55,7 @@ function detailLines(details) {
     .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`);
 }
 
-/**
- * Log an admin action.
- * @param {string} message human-readable summary
- * @param {{user?: {email?: string, displayName?: string}, context?: string, list?: string, action?: string, details?: object}} opts
- */
+// Log an admin action. opts: { user, context, list, action, details }
 export async function recordActivity(message, opts = {}) {
   if (!message) return;
   const { user, context = "Manga", list = "", action = "", details = null } = opts;

@@ -1,4 +1,4 @@
-/* ============ Shell ============ */
+/* Shell */
 .dash-tabs {
   position: sticky;
   top: calc(var(--header-h) + var(--safe-top));
@@ -117,7 +117,7 @@
   margin-top: 2px;
 }
 
-/* ============ KPI tiles ============ */
+/* KPI tiles */
 .kpis {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -204,7 +204,7 @@ button.kpi:active {
   margin-top: 6px;
 }
 
-/* ============ Charts ============ */
+/* Charts */
 .colchart {
   margin: 0;
   display: flex;
@@ -435,7 +435,7 @@ button.barlist-row:hover {
   background: var(--read);
 }
 
-/* ============ Read next ============ */
+/* Read next */
 .pick {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
@@ -554,7 +554,7 @@ button.stat-row:hover span:first-child {
   color: var(--accent-text);
 }
 
-/* ============ Calendar ============ */
+/* Calendar */
 .cal-head {
   display: flex;
   align-items: center;
@@ -782,7 +782,7 @@ button.cal-day:hover {
   border-radius: 6px;
 }
 
-/* ============ Manager ============ */
+/* Manager */
 .health {
   display: flex;
   align-items: center;
@@ -942,7 +942,7 @@ button.cal-day:hover {
   }
 }
 
-/* ============ Inbox ============ */
+/* Inbox */
 .inbox-list {
   display: flex;
   flex-direction: column;
@@ -999,7 +999,7 @@ button.cal-day:hover {
   flex-shrink: 0;
 }
 
-/* ============ Settings ============ */
+/* Settings */
 .user-row {
   display: flex;
   align-items: center;

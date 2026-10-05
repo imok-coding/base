@@ -92,13 +92,13 @@ function AccountMenu() {
                   label: "Admin",
                   icon: UserCog,
                   onClick: () => setDemoRole("admin"),
-                  trail: demoRole === "admin" ? "✓" : "",
+                  trail: demoRole === "admin" ? "current" : "",
                 },
                 {
                   label: "Viewer",
                   icon: Eye,
                   onClick: () => setDemoRole("viewer"),
-                  trail: demoRole === "viewer" ? "✓" : "",
+                  trail: demoRole === "viewer" ? "current" : "",
                 },
                 { label: "Signed out", icon: UserX, onClick: () => setDemoRole("signedOut") },
               ]
@@ -149,10 +149,10 @@ export default function AppShell({ children }) {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      {DEMO && <div className="demo-banner">Demo mode — sample data, nothing is saved to Firestore</div>}
+      {DEMO && <div className="demo-banner">Demo mode: sample data, nothing gets saved to Firestore</div>}
       <header className="app-header">
         <div className="app-header-inner">
-          <Link to="/" className="brand" aria-label="Tyler's Collection — home">
+          <Link to="/" className="brand" aria-label="Tyler's Collection home">
             <img src={AVATAR} alt="" width="36" height="36" />
             <span className="brand-text">
               <span className="brand-name">Tyler&apos;s Collection</span>

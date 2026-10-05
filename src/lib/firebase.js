@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Web config is public by design — access is enforced by Firestore security rules.
+// The web config is meant to be public. Access is controlled by the Firestore security rules.
 const firebaseConfig = {
   apiKey: "AIzaSyCOOnlmEcAcJywsS93LLfLSywy9ENqnppM",
   authDomain: "tyler-manga-library.firebaseapp.com",

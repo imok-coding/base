@@ -42,7 +42,7 @@ function seed() {
       createdAt: new Date(now - 864e5).toISOString(),
     });
     col("suggestions").set("s2", {
-      content: "Dandadan — the art is unreal",
+      content: "Dandadan, the art is unreal",
       type: "manga",
       from: "viewer@example.com",
       createdAt: new Date(now - 3 * 864e5).toISOString(),

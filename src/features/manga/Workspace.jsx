@@ -41,7 +41,7 @@ export function MangaWorkspace({ children }) {
 
   const all = useMemo(() => [...library, ...wishlist], [library, wishlist]);
 
-  // ----- volume sheet via URL -----
+  // volume sheet via URL
   const volumeId = params.get("v");
   const volume = volumeId ? byId.get(volumeId) || null : null;
   const siblings = useMemo(
@@ -72,7 +72,7 @@ export function MangaWorkspace({ children }) {
     }
   }, [location.state, navigate, params, setParams]);
 
-  // ----- selection -----
+  // selection
   const toggle = useCallback((ids) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -89,7 +89,7 @@ export function MangaWorkspace({ children }) {
 
   const selectedVolumes = useMemo(() => [...selected].map((id) => byId.get(id)).filter(Boolean), [selected, byId]);
 
-  // ----- actions -----
+  // actions
   const run = useCallback(
     async (fn, success) => {
       try {
@@ -98,7 +98,7 @@ export function MangaWorkspace({ children }) {
         return true;
       } catch (err) {
         console.error(err);
-        toast("Something went wrong — nothing was changed", { type: "error" });
+        toast("Something went wrong, nothing was changed", { type: "error" });
         return false;
       }
     },

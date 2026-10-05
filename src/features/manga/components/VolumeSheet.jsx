@@ -94,7 +94,7 @@ export default function VolumeSheet({ volume, siblings = [], isAdmin, onClose, o
         </button>
       ) : (
         <button type="button" className="btn btn--primary" onClick={() => actions.move([v], "library")}>
-          <ArrowLeftRight /> Got it — move to Library
+          <ArrowLeftRight /> Got it, move to Library
         </button>
       )}
     </>

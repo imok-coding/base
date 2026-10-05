@@ -1,5 +1,5 @@
 // Box art from Wikipedia (no API key; CORS via origin=*). Most game articles
-// lead with the cover, which is a non-free image — hence pilicense=any.
+// lead with the cover, which is a non-free image, so pilicense=any is needed.
 
 const API = "https://en.wikipedia.org/w/api.php";
 

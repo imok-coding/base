@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Tyler's Collection</title>
-    <meta name="description" content="Tyler's manga library, wishlist and reading stats — all in one place." />
+    <meta name="description" content="Tyler's manga and game collection, wishlists and reading stats." />
 
     <link rel="icon" type="image/png" sizes="32x32" href="https://i.imgur.com/mS65QNF.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="https://i.imgur.com/ZCidbKE.png" />
@@ -17,7 +17,7 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Tyler's Collection" />
-    <meta property="og:description" content="Tyler's manga library, wishlist and reading stats — all in one place." />
+    <meta property="og:description" content="Tyler's manga and game collection, wishlists and reading stats." />
     <meta property="og:image" content="https://i.imgur.com/7co2elX.png" />
     <meta property="og:url" content="https://imok-coding.github.io/base/" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -42,7 +42,7 @@
         } catch (e) {}
       })();
 
-      /* GitHub Pages SPA fallback: 404.html encodes the path as ?/path — restore it. */
+      /* GitHub Pages SPA fallback: 404.html sends us here as ?/path, so put the real path back. */
       (function (l) {
         if (l.search[1] !== "/") return;
         var base = "/" + (l.pathname.split("/").filter(Boolean)[0] || "");

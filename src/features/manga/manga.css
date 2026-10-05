@@ -1,4 +1,4 @@
-/* ============ Cover ============ */
+/* Cover */
 .cover {
   position: relative;
   aspect-ratio: 2 / 3;
@@ -60,7 +60,7 @@
   opacity: 0.7;
 }
 
-/* ============ Tiles ============ */
+/* Tiles */
 .tile-grid {
   --tile-min: 150px;
   display: grid;
@@ -285,7 +285,7 @@
   filter: grayscale(0.7) brightness(0.65);
 }
 
-/* ============ Controls ============ */
+/* Controls */
 .manga-controls {
   position: sticky;
   top: calc(var(--header-h) + var(--safe-top));
@@ -443,7 +443,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ============ Selection bar ============ */
+/* Selection bar */
 .select-bar {
   position: fixed;
   left: 50%;
@@ -485,7 +485,7 @@
   }
 }
 
-/* ============ Volume sheet ============ */
+/* Volume sheet */
 .volume-layout {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
@@ -582,7 +582,7 @@
   gap: 4px;
 }
 
-/* ============ Series page ============ */
+/* Series page */
 .series-hero {
   position: relative;
   overflow: hidden;
@@ -712,7 +712,7 @@
   height: 18px;
 }
 
-/* ============ Editor ============ */
+/* Editor */
 .editor-layout {
   display: grid;
   grid-template-columns: 168px minmax(0, 1fr);
@@ -745,7 +745,7 @@
   }
 }
 
-/* wraps so every entry stays visible — no hidden sideways scrolling */
+/* wrap so every entry stays visible (no hidden sideways scrolling) */
 .entry-tabs {
   display: flex;
   flex-wrap: wrap;

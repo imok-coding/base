@@ -33,7 +33,7 @@ export const VolumeTile = memo(function VolumeTile({
   showSeries = true,
 }) {
   const missing = isAdmin ? missingFields(v).length : 0;
-  const label = v.vol ? `Vol. ${v.volumes.length > 1 ? `${v.volumes[0]}–${v.volumes.at(-1)}` : v.vol}` : null;
+  const label = v.vol ? `Vol. ${v.volumes.length > 1 ? `${v.volumes[0]}-${v.volumes.at(-1)}` : v.vol}` : null;
   return (
     <article
       className={`tile ${selectMode ? "is-select-mode" : ""} ${selected ? "is-selected" : ""} ${v.hidden ? "is-hidden" : ""}`}

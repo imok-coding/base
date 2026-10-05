@@ -200,10 +200,10 @@ function GamesInner() {
           <h1 className="page-title">Games</h1>
           <p className="page-sub">
             {data.loading
-              ? "Loading the shelves…"
+              ? "Loading..."
               : owned.length
                 ? `${owned.length.toLocaleString()} games across ${platforms} platform${platforms === 1 ? "" : "s"} · ${physical} physical · ${digital} digital`
-                : "The game shelves are being stocked."}
+                : "No games added yet."}
           </p>
         </div>
         {isAdmin && (
@@ -232,7 +232,7 @@ function GamesInner() {
                 { label: "Import from spreadsheet", icon: FileSpreadsheet, onClick: ws.actions.import },
                 {
                   label: ws.coverJob
-                    ? `Finding covers… ${ws.coverJob.done}/${ws.coverJob.total}`
+                    ? `Finding covers... ${ws.coverJob.done}/${ws.coverJob.total}`
                     : `Find missing covers (${missingCovers})`,
                   icon: ImagePlus,
                   onClick: ws.actions.findMissingCovers,
@@ -274,7 +274,7 @@ function GamesInner() {
             <input
               type="search"
               className="input"
-              placeholder="Search games, platforms…"
+              placeholder="Search games or platforms"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search games"
@@ -364,7 +364,9 @@ function GamesInner() {
             )
           }
         >
-          {isAdmin ? "Bring in your Game Library & Backlog Tracker to fill the shelves in one go." : "Check back soon."}
+          {isAdmin
+            ? "Import your Game Library & Backlog Tracker spreadsheet to add everything at once."
+            : "Check back soon."}
         </Empty>
       ) : !shown.length ? (
         <Empty

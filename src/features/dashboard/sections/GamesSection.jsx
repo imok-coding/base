@@ -170,13 +170,14 @@ function GamesStats() {
             >
               {ws.coverJob ? <span className="spinner" /> : <ImagePlus />}
               {ws.coverJob
-                ? `Finding covers… ${ws.coverJob.done}/${ws.coverJob.total}`
+                ? `Finding covers... ${ws.coverJob.done}/${ws.coverJob.total}`
                 : `Find missing covers (${s.missingCovers})`}
             </button>
           </div>
           <p className="subtle" style={{ fontSize: "var(--text-xs)", marginTop: 10 }}>
-            Re-import the tracker any time — matching games are updated, new rows are added, and blank cells never erase
-            what&apos;s already here. Covers come from Wikipedia; pick a different one from any game&apos;s editor.
+            You can re-import the tracker any time. Matching games get updated, new rows get added, and blank cells
+            never erase what&apos;s already here. Covers come from Wikipedia; pick a different one from any game&apos;s
+            editor.
           </p>
         </section>
       </div>

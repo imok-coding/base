@@ -23,7 +23,7 @@ export function coverSrc(url, longEdge = 480) {
       return u.toString();
     }
   } catch {
-    /* not a URL — use as-is */
+    /* not a URL, use as is */
   }
   return url;
 }

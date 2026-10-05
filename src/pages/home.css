@@ -1,4 +1,4 @@
-/* ============ Hero ============ */
+/* Hero */
 .home-hero {
   position: relative;
   display: grid;
@@ -121,7 +121,7 @@
   }
 }
 
-/* ============ Stats ============ */
+/* Stats */
 .home-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -183,7 +183,7 @@
   }
 }
 
-/* ============ Collections ============ */
+/* Collections */
 .home-collections {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -285,7 +285,7 @@
   }
 }
 
-/* ============ Cover row ============ */
+/* Cover row */
 .cover-row {
   display: grid;
   grid-auto-flow: column;
@@ -337,7 +337,7 @@
   margin-top: -6px;
 }
 
-/* ============ Lists ============ */
+/* Lists */
 .home-split {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));

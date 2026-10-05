@@ -28,7 +28,7 @@ export default function SuggestSheet({ open, onClose }) {
   const send = async () => {
     const recent = recentSends();
     if (recent.length >= LIMIT) {
-      setError("That's 5 suggestions this hour — try again a bit later.");
+      setError("That's 5 suggestions this hour. Try again a bit later.");
       return;
     }
     if (!text.trim()) {
@@ -45,7 +45,7 @@ export default function SuggestSheet({ open, onClose }) {
         /* ignore */
       }
       setText("");
-      toast("Suggestion sent — thank you!");
+      toast("Suggestion sent, thanks!");
       onClose();
     } catch (err) {
       console.error(err);
@@ -76,7 +76,7 @@ export default function SuggestSheet({ open, onClose }) {
     >
       <textarea
         className="textarea"
-        placeholder="e.g. Frieren — you'd love it"
+        placeholder="e.g. Frieren, you'd love it"
         maxLength={500}
         value={text}
         onChange={(e) => setText(e.target.value)}

@@ -57,7 +57,7 @@ const getJson = (url) =>
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
 
-/** @returns {Promise<null | {title, authors, publisher, date, pageCount, cover}>} */
+// returns null or { title, authors, publisher, date, pageCount, cover }
 export async function lookupIsbn(raw) {
   const isbn = cleanIsbn(raw);
   if (isbn.length !== 10 && isbn.length !== 13) throw new Error("Enter a 10 or 13 digit ISBN.");

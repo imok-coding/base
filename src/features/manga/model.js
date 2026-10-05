@@ -1,4 +1,4 @@
-// Manga domain model: normalising Firestore docs, parsing series/volume
+// Manga model: normalizing Firestore docs, parsing series/volume
 // numbers out of titles, grouping volumes into series and data-health checks.
 import { isBlank, normalizeDate, parseDate, toNumber } from "../../lib/format";
 
@@ -7,9 +7,10 @@ export const LIST_LABEL = { library: "Library", wishlist: "Wishlist" };
 
 export const DEMOGRAPHICS = ["Shounen", "Shoujo", "Seinen", "Josei", "Kodomo"];
 
-// "Series Name, Vol. 3 (Manga)" → name "Series Name", vol 3.  Handles "Volume",
+// "Series Name, Vol. 3 (Manga)" gives name "Series Name", vol 3.  Handles "Volume",
 // "Vol 3", "Vol. #3", ranges like "Vol. 1-3" and trailing parentheticals.
-const TITLE_RE = /^(.*?)(?:[\s,:–—-]*\b(?:vol(?:ume)?)\b\.?\s*#?\s*(\d+)(?:\s*[-–—]\s*(\d+))?)?\s*(?:\([^)]*\)\s*)*$/i;
+const TITLE_RE =
+  /^(.*?)(?:[\s,:\u2013\u2014-]*\b(?:vol(?:ume)?)\b\.?\s*#?\s*(\d+)(?:\s*[-\u2013\u2014]\s*(\d+))?)?\s*(?:\([^)]*\)\s*)*$/i;
 
 const titleCache = new Map();
 
@@ -17,7 +18,7 @@ export function parseTitle(title) {
   const raw = String(title || "").trim();
   if (titleCache.has(raw)) return titleCache.get(raw);
   const m = raw.match(TITLE_RE);
-  const series = (m ? m[1] : raw).replace(/[\s,:–—-]+$/, "").trim() || raw;
+  const series = (m ? m[1] : raw).replace(/[\s,:\u2013\u2014-]+$/, "").trim() || raw;
   const start = m && m[2] ? parseInt(m[2], 10) : 0;
   const end = m && m[3] ? parseInt(m[3], 10) : start;
   const volumes = [];
@@ -47,7 +48,7 @@ const num = (v) => {
 };
 const unknownToBlank = (v) => (str(v).toLowerCase() === "unknown" ? "" : str(v));
 
-/** Normalise a raw Firestore document (including legacy capitalised fields). */
+/** Normalize a raw Firestore doc (also handles old capitalized field names). */
 export function normalizeVolume(raw, kind) {
   const title = str(raw.title ?? raw.Title);
   const parsed = parseTitle(title);
@@ -196,7 +197,7 @@ export function groupSeries(volumes) {
   return [...map.values()];
 }
 
-/** "Vol. 1–5, 7, 9–10" */
+/** "Vol. 1-5, 7, 9-10" */
 export function formatVolumeRange(numbers) {
   const uniq = [...new Set(numbers.filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b);
   if (!uniq.length) return "";
@@ -212,7 +213,7 @@ export function formatVolumeRange(numbers) {
     start = prev = n;
   }
   ranges.push([start, prev]);
-  const text = ranges.map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(", ");
+  const text = ranges.map(([a, b]) => (a === b ? `${a}` : `${a}-${b}`)).join(", ");
   return `${ranges.length === 1 && ranges[0][0] === ranges[0][1] ? "Vol." : "Vols."} ${text}`;
 }
 

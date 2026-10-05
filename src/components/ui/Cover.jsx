@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BookOpen } from "lucide-react";
 import { coverSrc } from "../../lib/images";
 
-/** Book cover with lazy loading, fade-in and a graceful placeholder. */
+// Cover image that lazy loads, fades in, and shows a placeholder if it fails
 export default function Cover({ src, alt = "", size = 480, eager = false, className = "", fallback, children }) {
   const [state, setState] = useState(src ? "loading" : "error");
   const [prevSrc, setPrevSrc] = useState(src);
@@ -23,7 +23,7 @@ export default function Cover({ src, alt = "", size = 480, eager = false, classN
           draggable="false"
           onLoad={() => setState("loaded")}
           onError={(e) => {
-            // the resized URL might not exist — retry once with the original
+            // the resized URL might not exist, so retry once with the original
             if (resized !== src && e.currentTarget.src !== src) e.currentTarget.src = src;
             else setState("error");
           }}

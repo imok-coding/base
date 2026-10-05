@@ -21,7 +21,7 @@ export default function Sheet({
   const ref = useRef(null);
   const titleId = useId();
   const drag = useRef(null);
-  // "open" → "closing" (exit animation) → "closed"; derived during render so
+  // "open", then "closing" (exit animation), then "closed". Derived during render so
   // content never blinks out before the animation finishes.
   const [phase, setPhase] = useState(open ? "open" : "closed");
   if (open && phase !== "open") setPhase("open");

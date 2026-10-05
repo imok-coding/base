@@ -50,21 +50,21 @@ function WebhookSettings() {
             type="url"
             value={values.activity}
             onChange={(v) => setValues({ ...values, activity: v })}
-            placeholder="https://discord.com/api/webhooks/…"
+            placeholder="https://discord.com/api/webhooks/..."
           />
           <TextField
             label="Release day"
             type="url"
             value={values.release}
             onChange={(v) => setValues({ ...values, release: v })}
-            placeholder="https://discord.com/api/webhooks/…"
+            placeholder="https://discord.com/api/webhooks/..."
           />
           <TextField
             label="Yearly summary"
             type="url"
             value={values.yearly}
             onChange={(v) => setValues({ ...values, yearly: v })}
-            placeholder="https://discord.com/api/webhooks/…"
+            placeholder="https://discord.com/api/webhooks/..."
           />
           <div>
             <button type="submit" className="btn btn--primary" disabled={saving}>

@@ -49,7 +49,7 @@ const TITLES = {
   publishers: ["Publishers", "Ranked by number of series"],
   genres: ["Genres", "Ranked by number of series"],
   demographics: ["Demographics", "Ranked by number of series"],
-  timeToRead: ["Purchase → read", "How long volumes wait on the shelf"],
+  timeToRead: ["Purchase to read", "How long volumes wait on the shelf"],
   value: ["Collection value", "MSRP vs what was paid, by series"],
   pages: ["Pages", "Read vs owned, by series"],
   ratings: ["Ratings", "Average rating per series"],
@@ -73,7 +73,7 @@ function body(type, stats) {
         <>
           <Summary
             items={[
-              ["Average wait", p.avg == null ? "—" : `${p.avg.toFixed(1)} days`],
+              ["Average wait", p.avg == null ? "-" : `${p.avg.toFixed(1)} days`],
               ["Volumes with both dates", p.count],
             ]}
           />
@@ -119,7 +119,7 @@ function body(type, stats) {
               s.title,
               money(s.msrp),
               money(s.paid),
-              s.collectible ? money(s.collectible) : "—",
+              s.collectible ? money(s.collectible) : "-",
               s.volumes,
             ])}
           />
@@ -134,7 +134,7 @@ function body(type, stats) {
             items={[
               ["Pages owned", stats.pages.total.toLocaleString()],
               ["Pages read", stats.pages.read.toLocaleString()],
-              ["Completion", stats.pages.total ? `${((stats.pages.read / stats.pages.total) * 100).toFixed(1)}%` : "—"],
+              ["Completion", stats.pages.total ? `${((stats.pages.read / stats.pages.total) * 100).toFixed(1)}%` : "-"],
             ]}
           />
           <Table
@@ -159,7 +159,7 @@ function body(type, stats) {
       return (
         <>
           <Summary
-            items={[["Average across rated series", stats.avgRating == null ? "—" : stats.avgRating.toFixed(2)]]}
+            items={[["Average across rated series", stats.avgRating == null ? "-" : stats.avgRating.toFixed(2)]]}
           />
           <Table
             head={["Series", "Average", "Ratings"]}

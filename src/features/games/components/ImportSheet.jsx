@@ -33,7 +33,7 @@ export default function ImportSheet({ open, onClose }) {
     if (!f) return;
     reset();
     setFile(f);
-    setBusy("Reading spreadsheet…");
+    setBusy("Reading spreadsheet...");
     try {
       const { sheet, rows } = await readGameWorkbook(f);
       setPlan({ ...planImport(rows, games), sheet, total: rows.length });
@@ -54,10 +54,10 @@ export default function ImportSheet({ open, onClose }) {
           ...plan.updates.filter((u) => !u.game.cover).map((u) => u.game.title),
         ];
         if (need.length) {
-          found = await findCoversFor(need, (done, total) => setBusy(`Finding cover art… ${done} / ${total}`));
+          found = await findCoversFor(need, (done, total) => setBusy(`Finding cover art... ${done} / ${total}`));
         }
       }
-      setBusy("Saving to the library…");
+      setBusy("Saving to the library...");
       await applyImport(plan, { user, covers: found });
       const withCover = [...found.values()].filter(Boolean).length;
       toast(
@@ -68,7 +68,7 @@ export default function ImportSheet({ open, onClose }) {
     } catch (err) {
       console.error(err);
       setBusy("");
-      setError("Import failed part-way — nothing was lost; try again.");
+      setError("Import stopped part way. Nothing was lost, so just try again.");
     }
   };
 
@@ -122,7 +122,7 @@ export default function ImportSheet({ open, onClose }) {
           >
             {busy ? <span className="spinner" /> : <Upload />}
             <strong style={{ color: "var(--text-1)" }}>{busy || "Choose or drop your .xlsx file"}</strong>
-            <span>Rows are read from the sheet with a “Game Title” column (your Backlog tab).</span>
+            <span>Rows are read from the sheet with a "Game Title" column (your Backlog tab).</span>
           </button>
           <input
             ref={input}
@@ -137,7 +137,7 @@ export default function ImportSheet({ open, onClose }) {
             </p>
           )}
           <p className="subtle" style={{ fontSize: "var(--text-xs)", marginTop: 14 }}>
-            The file is read in your browser — only the game rows are saved. Re-importing later updates games that
+            The file is read in your browser and only the game rows are saved. Re-importing later updates games that
             already exist and adds new rows; blank cells never erase info already on the site.
           </p>
         </>
@@ -173,14 +173,14 @@ export default function ImportSheet({ open, onClose }) {
                     {game.title}: {Object.keys(c).join(", ")}
                   </li>
                 ))}
-                {plan.updates.length > 40 && <li>…and {plan.updates.length - 40} more</li>}
+                {plan.updates.length > 40 && <li>and {plan.updates.length - 40} more</li>}
               </ul>
             </details>
           )}
           {plan.notInSheet.length > 0 && (
             <p className="subtle" style={{ fontSize: "var(--text-xs)", marginBottom: 14 }}>
               {plan.notInSheet.length} game{plan.notInSheet.length === 1 ? " is" : "s are"} on the site but not in this
-              file — they&apos;ll be left alone.
+              file. They&apos;ll be left alone.
             </p>
           )}
           <Switch label="Find cover art automatically (Wikipedia)" checked={covers} onChange={setCovers} />

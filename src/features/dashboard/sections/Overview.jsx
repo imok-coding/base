@@ -161,7 +161,7 @@ export default function Overview({ stats }) {
         <Kpi
           icon={Star}
           label="Avg rating"
-          value={stats.avgRating == null ? "—" : stats.avgRating.toFixed(2)}
+          value={stats.avgRating == null ? "-" : stats.avgRating.toFixed(2)}
           sub="across rated series"
           onClick={() => setDetail("ratings")}
         />
@@ -247,7 +247,7 @@ export default function Overview({ stats }) {
             </>
           ) : (
             <p className="subtle chart-empty">
-              {snoozedCount ? "Everything unread is snoozed." : "No unread volumes — the backlog is clear."}
+              {snoozedCount ? "Everything unread is snoozed." : "No unread volumes. The backlog is clear!"}
             </p>
           )}
         </section>
@@ -348,7 +348,7 @@ export default function Overview({ stats }) {
               <div className="stat-rows" style={{ marginTop: 10 }}>
                 <div className="stat-row">
                   <span>Estimated cost</span>
-                  <strong>{buy.costEstimate ? money(buy.costEstimate) : "—"}</strong>
+                  <strong>{buy.costEstimate ? money(buy.costEstimate) : "-"}</strong>
                 </div>
                 <div className="stat-row">
                   <span>Releases</span>
@@ -380,15 +380,15 @@ export default function Overview({ stats }) {
             </div>
             <div className="stat-row">
               <span>Per day (this year)</span>
-              <strong>{stats.daily.ytd != null ? stats.daily.ytd.toFixed(2) : "—"}</strong>
+              <strong>{stats.daily.ytd != null ? stats.daily.ytd.toFixed(2) : "-"}</strong>
             </div>
             <div className="stat-row">
               <span>Per day (all time)</span>
-              <strong>{stats.daily.lifetime != null ? stats.daily.lifetime.toFixed(2) : "—"}</strong>
+              <strong>{stats.daily.lifetime != null ? stats.daily.lifetime.toFixed(2) : "-"}</strong>
             </div>
             <button type="button" className="stat-row" onClick={() => setDetail("timeToRead")}>
-              <span>Purchase → read</span>
-              <strong>{stats.purchaseToRead.avg != null ? `${stats.purchaseToRead.avg.toFixed(1)} days` : "—"}</strong>
+              <span>Purchase to read</span>
+              <strong>{stats.purchaseToRead.avg != null ? `${stats.purchaseToRead.avg.toFixed(1)} days` : "-"}</strong>
             </button>
             <div className="stat-row">
               <span>Unread on the shelf</span>

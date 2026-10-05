@@ -16,11 +16,11 @@ import { useSticky } from "../hooks";
 let uidCounter = 0;
 const uid = () => `e${++uidCounter}`;
 
-/** Short tab label: "Vol. 3", "Vol. 23–24" for 2-in-1s, or the title. */
+/** Short tab label: "Vol. 3", "Vol. 23-24" for 2-in-1s, or the title. */
 function entryLabel(title) {
   const p = parseTitle(title);
   if (!p.vol) return title.slice(0, 18) || "Untitled";
-  return p.volumes.length > 1 ? `Vol. ${p.volumes[0]}–${p.volumes.at(-1)}` : `Vol. ${p.vol}`;
+  return p.volumes.length > 1 ? `Vol. ${p.volumes[0]}-${p.volumes.at(-1)}` : `Vol. ${p.vol}`;
 }
 
 /** Build an editor config. */
@@ -189,7 +189,7 @@ function EditorInner({ cfg, open, onClose }) {
       onClose();
     } catch (err) {
       console.error(err);
-      toast(err.message || "Couldn't save — try again", { type: "error" });
+      toast(err.message || "Couldn't save, try again", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -269,7 +269,7 @@ function EditorInner({ cfg, open, onClose }) {
                   className="entry-tab"
                   aria-selected={i === index}
                   onClick={() => setIndex(i)}
-                  title={`${e.form.title}${markWishlist ? " (wishlist)" : ""}${needsInfo ? " — missing info" : ""}`}
+                  title={`${e.form.title}${markWishlist ? " (wishlist)" : ""}${needsInfo ? " (missing info)" : ""}`}
                 >
                   {needsInfo && <span className="dot" style={{ color: "var(--warn)", width: 6, height: 6 }} />}
                   {entryLabel(e.form.title)}
@@ -357,7 +357,7 @@ function EditorInner({ cfg, open, onClose }) {
                   label="Demographic"
                   value={form.demographic}
                   onChange={setField("demographic")}
-                  placeholder="—"
+                  placeholder="None"
                   options={[...new Set([...DEMOGRAPHICS, form.demographic].filter(Boolean))]}
                   missing={missing.has("demographic")}
                 />
@@ -426,7 +426,7 @@ function EditorInner({ cfg, open, onClose }) {
               <TextField
                 label="Cover image URL"
                 type="url"
-                placeholder="https://…"
+                placeholder="https://..."
                 value={form.cover}
                 onChange={setField("cover")}
               />
@@ -434,7 +434,7 @@ function EditorInner({ cfg, open, onClose }) {
                 <TextField
                   label="Store link"
                   type="url"
-                  placeholder="https://amazon.com/…"
+                  placeholder="https://amazon.com/..."
                   value={form.amazonURL}
                   onChange={setField("amazonURL")}
                 />

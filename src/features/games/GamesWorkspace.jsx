@@ -101,7 +101,7 @@ export function GamesWorkspace({ children }) {
         try {
           await deleteGames(list, { user });
         } catch {
-          toast("Couldn't delete — nothing was changed", { type: "error" });
+          toast("Couldn't delete, nothing was changed", { type: "error" });
           return;
         }
         if (list.some((g) => g.id === gameId)) closeGame();
@@ -130,7 +130,7 @@ export function GamesWorkspace({ children }) {
             `Found covers for ${plural(pairs.length, "game")}${pairs.length < missing.length ? ` · ${missing.length - pairs.length} still need one` : ""}`
           );
         } catch {
-          toast("Cover search stopped early — try again", { type: "error" });
+          toast("Cover search stopped early, try again", { type: "error" });
         } finally {
           setCoverJob(null);
         }

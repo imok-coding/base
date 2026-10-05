@@ -51,7 +51,7 @@ function cellValue(field, v) {
   return v;
 }
 
-/** @returns {Promise<{ sheet: string, rows: object[], skipped: number }>} */
+// returns { sheet, rows, skipped }
 export async function readGameWorkbook(file) {
   const { default: readExcelFile } = await import("read-excel-file/universal");
   const sheets = await readExcelFile(file);
@@ -85,10 +85,8 @@ export async function readGameWorkbook(file) {
   throw new Error('Couldn\'t find a sheet with a "Game Title" column.');
 }
 
-/**
- * Compare spreadsheet rows against games already in Firestore.
- * @returns {{ adds: object[], updates: {game, changes}[], unchanged: number, notInSheet: object[] }}
- */
+// Compare the spreadsheet rows with the games already in Firestore.
+// returns { adds, updates: [{ game, changes }], unchanged, notInSheet }
 export function planImport(rows, existing) {
   const byKey = new Map();
   for (const g of existing) {

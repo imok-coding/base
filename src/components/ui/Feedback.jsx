@@ -1,4 +1,4 @@
-// Toasts and confirm dialogs — replacements for alert() / confirm().
+// Toasts and confirm dialogs (used instead of alert() / confirm()).
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import Sheet from "./Sheet";
@@ -30,7 +30,7 @@ export function FeedbackProvider({ children }) {
 
   /**
    * confirm({ title, message, confirmLabel, danger, option: { label, default } })
-   * → Promise<null | { option: boolean }>
+   * returns Promise<null | { option: boolean }>
    */
   const confirm = useCallback((opts) => {
     setOption(!!opts.option?.default);

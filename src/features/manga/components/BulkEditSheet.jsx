@@ -123,7 +123,7 @@ function BulkInner({ volumes, open, onClose, onEditEach }) {
                 </label>
               ) : f.type === "select" ? (
                 <select className="select" value={values[f.key]} onChange={(e) => set(f.key, e.target.value)}>
-                  <option value="">—</option>
+                  <option value="">None</option>
                   {[...new Set([...f.options, values[f.key]].filter(Boolean))].map((o) => (
                     <option key={o} value={o}>
                       {o}

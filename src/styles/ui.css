@@ -1,4 +1,4 @@
-/* ============ Buttons ============ */
+/* Buttons */
 .btn {
   --btn-bg: var(--surface-2);
   --btn-fg: var(--text-1);
@@ -123,7 +123,7 @@
   height: 16px;
 }
 
-/* ============ Spinner ============ */
+/* Spinner */
 .spinner {
   width: 20px;
   height: 20px;
@@ -140,7 +140,7 @@
   }
 }
 
-/* ============ Cards ============ */
+/* Cards */
 .card {
   background: var(--surface-1);
   border: 1px solid var(--line);
@@ -217,7 +217,7 @@
   height: 14px;
 }
 
-/* ============ Chips & badges ============ */
+/* Chips & badges */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -295,7 +295,7 @@ button.chip[aria-pressed="true"] {
   flex-shrink: 0;
 }
 
-/* ============ Forms ============ */
+/* Forms */
 .field {
   display: flex;
   flex-direction: column;
@@ -597,7 +597,7 @@ button.chip[aria-pressed="true"] {
   transform: rotate(-45deg) translate(1px, -1px) scale(1);
 }
 
-/* ============ Segmented control ============ */
+/* Segmented control */
 .segmented {
   display: inline-flex;
   padding: 4px;
@@ -665,7 +665,7 @@ button.chip[aria-pressed="true"] {
   padding: 0 10px;
 }
 
-/* ============ Dialog / Sheet ============ */
+/* Dialog / Sheet */
 .sheet {
   padding: 0;
   border: 1px solid var(--line-2);
@@ -754,14 +754,13 @@ button.chip[aria-pressed="true"] {
 
 .sheet-body {
   padding: 8px 24px 24px;
-  overflow-x: hidden; /* vertical scrolling only — content never pans sideways */
+  overflow-x: hidden; /* only scroll up and down */
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y pinch-zoom;
   -webkit-overflow-scrolling: touch;
-  /* Size from content, then shrink to fit the sheet's max-height. Not flex: 1 —
-     older Safari (seen in 17.4) resolves its 0% basis to zero inside a
-     max-height-only column, collapsing the body. */
+  /* Grow with the content, then shrink to fit the sheet. Using flex: 1 here
+     collapsed the body to nothing in older Safari (17 and below). */
   flex: 0 1 auto;
   min-height: 0;
 }
@@ -850,7 +849,7 @@ button.chip[aria-pressed="true"] {
   }
 }
 
-/* ============ Menu (popover) ============ */
+/* Menu (popover) */
 .menu-anchor {
   position: relative;
   display: inline-flex;
@@ -945,7 +944,7 @@ button.chip[aria-pressed="true"] {
   color: var(--text-3);
 }
 
-/* ============ Toasts ============ */
+/* Toasts */
 .toaster {
   position: fixed;
   z-index: 300;
@@ -1026,7 +1025,7 @@ button.chip[aria-pressed="true"] {
   }
 }
 
-/* ============ Empty / loading ============ */
+/* Empty / loading */
 .empty {
   display: flex;
   flex-direction: column;
@@ -1087,7 +1086,7 @@ button.chip[aria-pressed="true"] {
   }
 }
 
-/* ============ Progress ============ */
+/* Progress */
 .progress {
   height: 6px;
   border-radius: var(--radius-full);
@@ -1107,7 +1106,7 @@ button.chip[aria-pressed="true"] {
   background: var(--accent);
 }
 
-/* ============ Stars ============ */
+/* Stars */
 .stars {
   display: inline-flex;
   align-items: center;
@@ -1168,7 +1167,7 @@ button.chip[aria-pressed="true"] {
   min-width: 2.2em;
 }
 
-/* ============ Misc ============ */
+/* Misc */
 .kbd {
   display: inline-flex;
   align-items: center;
@@ -1266,7 +1265,7 @@ button.chip[aria-pressed="true"] {
   background: color-mix(in srgb, var(--surface-2) 50%, transparent);
 }
 
-/* ============ Rating row (detail sheets) ============ */
+/* Rating row (detail sheets) */
 .rating-row {
   display: flex;
   flex-direction: column;
@@ -1308,7 +1307,7 @@ button.chip[aria-pressed="true"] {
   flex-shrink: 0;
 }
 
-/* ============ Review video ============ */
+/* Review video */
 .review {
   margin-top: 22px;
 }

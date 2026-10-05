@@ -1,6 +1,6 @@
 import { Star } from "lucide-react";
 
-/** Compact "★ 4.5" for tiles. Renders nothing when unrated. */
+// Small star + rating for tiles. Shows nothing when unrated.
 export default function TileStars({ value, label = "Rated" }) {
   const n = Number(value);
   if (!(n > 0)) return null;

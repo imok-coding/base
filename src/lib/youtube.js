@@ -2,7 +2,7 @@
 
 const ID = /^[A-Za-z0-9_-]{11}$/;
 
-/** Video id from watch, youtu.be, Shorts, live, embed or music links — or "". */
+/** Video id from watch, youtu.be, Shorts, live, embed or music links, or "" if it isn't one. */
 export function youtubeId(url) {
   if (!url) return "";
   try {

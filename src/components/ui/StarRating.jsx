@@ -47,7 +47,7 @@ export default function StarRating({ value, onChange, size = 22, showValue = tru
           </div>
         )}
       </div>
-      {showValue && <span className="stars-value">{shown ? (step < 1 ? shown.toFixed(1) : String(shown)) : "—"}</span>}
+      {showValue && <span className="stars-value">{shown ? (step < 1 ? shown.toFixed(1) : String(shown)) : "-"}</span>}
     </div>
   );
 }

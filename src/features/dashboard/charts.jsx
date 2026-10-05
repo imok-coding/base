@@ -8,10 +8,8 @@ function niceMax(max) {
   return 10 * pow;
 }
 
-/**
- * Single-series column chart. Hover/focus a column for its value; the peak is
- * labelled directly. `active` highlights one column (e.g. the current month).
- */
+// Column chart for one series. Hover or focus a column to see its value, the
+// tallest one gets a label, and `active` highlights a column (like this month).
 export function ColumnChart({
   data,
   height = 180,
@@ -111,7 +109,7 @@ export function BarList({ items, max, formatValue = (v) => v.toLocaleString(), o
   );
 }
 
-/** Thin meter (0–1) for read progress etc. */
+/** Thin meter (0 to 1) for read progress etc. */
 export function Meter({ value, label }) {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (

@@ -19,7 +19,7 @@
   }
 }
 
-/* platform badge: text carries identity, colour only hints the family */
+/* platform badge, the color just hints at the console family */
 .plat {
   display: inline-flex;
   align-items: center;

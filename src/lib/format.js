@@ -62,7 +62,7 @@ export function toISODate(date) {
   return `${y}-${m}-${d}`;
 }
 
-/** Normalise any supported date input to "YYYY-MM-DD", or "" if unparseable. */
+/** Turn any supported date into "YYYY-MM-DD", or "" if it can't be parsed. */
 export function normalizeDate(value) {
   return toISODate(parseDate(value));
 }

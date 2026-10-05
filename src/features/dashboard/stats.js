@@ -1,5 +1,5 @@
-// Dashboard statistics. Works on normalised volumes from MangaData
-// (fields: seriesKey, series, vol, read, dateRead, datePurchased, date, …).
+// Dashboard stats. Works on the normalized volumes from MangaData
+// (fields: seriesKey, series, vol, read, dateRead, datePurchased, date, etc).
 import { parseDate, toNumber } from "../../lib/format";
 
 const MS_DAY = 86400000;
@@ -214,7 +214,7 @@ export function averageSeriesRating(seriesMap) {
   return count ? sum / count : null;
 }
 
-// ---------- Read next / purchase next ----------
+// Read next / purchase next
 
 export function seriesProgress(library, wishlist) {
   const map = new Map();

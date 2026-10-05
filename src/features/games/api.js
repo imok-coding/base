@@ -54,7 +54,7 @@ export async function deleteGames(games, { user }) {
   });
 }
 
-/** Write an import plan from planImport(). `covers` maps title → URL. */
+/** Write an import plan from planImport(). `covers` maps title to cover URL. */
 export async function applyImport(plan, { user, covers = new Map() }) {
   const ops = [
     ...plan.adds.map((data) => ({

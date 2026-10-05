@@ -32,7 +32,7 @@ export default function SetupNotice() {
       </div>
       <p className="muted" style={{ marginTop: 8, fontSize: "var(--text-sm)" }}>
         Firestore is blocking the new <code>games</code> collection. In the Firebase console open{" "}
-        <strong>Firestore Database → Rules</strong>, paste this inside{" "}
+        <strong>Firestore Database &gt; Rules</strong>, paste this inside{" "}
         <code>match /databases/{"{database}"}/documents</code> (next to your <code>library</code> rule), then{" "}
         <strong>Publish</strong> and refresh this page.
       </p>

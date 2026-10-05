@@ -1,4 +1,4 @@
-// Discord webhooks. Admins can override these in Dashboard → Settings
+// Discord webhooks. Admins can override these in Dashboard > Settings
 // (stored in Firestore at settings/webhooks).
 //
 // NOTE: anything in this file ships to every visitor's browser, so these URLs

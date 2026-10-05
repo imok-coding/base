@@ -1,4 +1,4 @@
-/* ============ App header ============ */
+/* App header */
 .app-header {
   position: sticky;
   top: 0;
@@ -194,7 +194,7 @@
   padding: 6px 12px;
 }
 
-/* ============ Mobile tab bar ============ */
+/* Mobile tab bar */
 .tabbar {
   display: none;
 }
@@ -281,7 +281,7 @@
   }
 }
 
-/* ============ Page scaffolding ============ */
+/* Page scaffolding */
 .app-main {
   min-height: calc(100dvh - var(--header-h));
   display: flex;
@@ -417,7 +417,7 @@
   color: var(--text-3);
 }
 
-/* Without backdrop blur, translucent bars let content show through — go solid */
+/* no backdrop blur support: use solid bars so content doesn't show through */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .app-header,
   .tabbar {

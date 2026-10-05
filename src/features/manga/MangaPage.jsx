@@ -339,7 +339,7 @@ function MangaPageInner() {
 
   const exportRows = (rows) => rows.map(({ series, seriesKey, vol, volumes, ...rest }) => rest);
   const downloadCovers = async () => {
-    toast("Collecting covers… this can take a minute", { type: "info" });
+    toast("Collecting covers, this can take a minute", { type: "info" });
     const n = await downloadCoversZip(base, `manga-${list}-covers.zip`);
     toast(n ? `Saved ${n} covers` : "No covers to download", { type: n ? "success" : "info" });
   };
@@ -355,7 +355,7 @@ function MangaPageInner() {
           <h1 className="page-title">Manga</h1>
           <p className="page-sub">
             {data.loading
-              ? "Loading the shelves…"
+              ? "Loading..."
               : list === "library"
                 ? `${data.publicLibrary.length.toLocaleString()} volumes across ${libSeries} series · ${readPct}% read`
                 : `${data.publicWishlist.length.toLocaleString()} volumes wanted · ${upcoming} upcoming release${upcoming === 1 ? "" : "s"}`}
@@ -427,7 +427,7 @@ function MangaPageInner() {
               ref={searchRef}
               type="search"
               className="input"
-              placeholder="Search title, author, ISBN…"
+              placeholder="Search title, author or ISBN"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search manga"
@@ -498,7 +498,7 @@ function MangaPageInner() {
 
       {data.offline && (
         <div className="offline-note">
-          <WifiOff /> Showing a saved snapshot — live data couldn&apos;t be reached.
+          <WifiOff /> Showing a saved copy because the live data couldn&apos;t be reached.
         </div>
       )}
 

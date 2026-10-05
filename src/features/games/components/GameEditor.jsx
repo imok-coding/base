@@ -24,7 +24,7 @@ function CoverPicker({ query, open, onClose, onPick }) {
     try {
       setState({ q, loading: false, results: await searchGameCovers(q, 12), error: "" });
     } catch {
-      setState({ q, loading: false, results: [], error: "Search failed — try again in a moment." });
+      setState({ q, loading: false, results: [], error: "Search failed. Try again in a moment." });
     }
   };
 
@@ -57,7 +57,7 @@ function CoverPicker({ query, open, onClose, onPick }) {
       {state.error && <p style={{ color: "var(--danger)" }}>{state.error}</p>}
       {state.results && !state.results.length && !state.error && (
         <p className="subtle" style={{ textAlign: "center", padding: 24 }}>
-          <ImageOff size={20} style={{ verticalAlign: "-4px" }} /> No images found — try a shorter title.
+          <ImageOff size={20} style={{ verticalAlign: "-4px" }} /> No images found. Try a shorter title.
         </p>
       )}
       {state.results?.length > 0 && (
@@ -106,7 +106,7 @@ function EditorInner({ cfg, open, onClose }) {
       onClose();
     } catch (err) {
       console.error(err);
-      toast("Couldn't save — try again", { type: "error" });
+      toast("Couldn't save, try again", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -153,7 +153,7 @@ function EditorInner({ cfg, open, onClose }) {
                 label="Platform"
                 value={form.platform}
                 onChange={set("platform")}
-                placeholder="—"
+                placeholder="None"
                 options={withCurrent(OPTIONS.platform, form.platform)}
               />
               <TextField
@@ -170,7 +170,7 @@ function EditorInner({ cfg, open, onClose }) {
                 label="Genre"
                 value={form.genre}
                 onChange={set("genre")}
-                placeholder="—"
+                placeholder="None"
                 options={withCurrent(OPTIONS.genre, form.genre)}
               />
             </div>
@@ -184,14 +184,14 @@ function EditorInner({ cfg, open, onClose }) {
                 label="Priority"
                 value={form.priority}
                 onChange={set("priority")}
-                placeholder="—"
+                placeholder="None"
                 options={OPTIONS.priority}
               />
               <SelectField
                 label="Play mode"
                 value={form.playMode}
                 onChange={set("playMode")}
-                placeholder="—"
+                placeholder="None"
                 options={OPTIONS.playMode}
               />
             </div>
@@ -229,7 +229,7 @@ function EditorInner({ cfg, open, onClose }) {
                 label="Worth revisiting?"
                 value={form.revisit}
                 onChange={set("revisit")}
-                placeholder="—"
+                placeholder="None"
                 options={["Yes", "No"]}
               />
             </div>
@@ -251,7 +251,7 @@ function EditorInner({ cfg, open, onClose }) {
                 label="Review video (YouTube link)"
                 type="url"
                 inputMode="url"
-                placeholder="https://youtu.be/…"
+                placeholder="https://youtu.be/..."
                 value={form.reviewUrl}
                 onChange={set("reviewUrl")}
               />
@@ -263,7 +263,7 @@ function EditorInner({ cfg, open, onClose }) {
               {reviewId && (
                 <div className="review-thumb">
                   <img src={youtubeThumb(reviewId)} alt="" />
-                  <span className="field-hint">Shows on the game&apos;s page — visitors tap to play.</span>
+                  <span className="field-hint">Shows on the game&apos;s page. Visitors tap to play it.</span>
                 </div>
               )}
             </div>
@@ -297,28 +297,28 @@ function EditorInner({ cfg, open, onClose }) {
                 label="Store / source"
                 value={form.store}
                 onChange={set("store")}
-                placeholder="—"
+                placeholder="None"
                 options={withCurrent(OPTIONS.store, form.store)}
               />
               <SelectField
                 label="Region"
                 value={form.region}
                 onChange={set("region")}
-                placeholder="—"
+                placeholder="None"
                 options={withCurrent(OPTIONS.region, form.region)}
               />
               <SelectField
                 label="Condition"
                 value={form.condition}
                 onChange={set("condition")}
-                placeholder="—"
+                placeholder="None"
                 options={withCurrent(OPTIONS.condition, form.condition)}
               />
             </div>
             <TextField
               label="Cover image URL"
               type="url"
-              placeholder="https://…"
+              placeholder="https://..."
               value={form.cover}
               onChange={set("cover")}
             />

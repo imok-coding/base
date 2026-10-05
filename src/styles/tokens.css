@@ -34,7 +34,7 @@
   color-scheme: dark;
 }
 
-/* ---------- Dark (default) ---------- */
+/* Dark (default) */
 :root,
 [data-theme="dark"] {
   --bg: #0e090d;
@@ -68,7 +68,7 @@
   --info: #a5b4fc;
   --info-soft: rgba(165, 180, 252, 0.14);
 
-  /* single-series chart mark, validated vs --surface-1 (dark band L 0.48–0.67) */
+  /* chart bar color */
   --chart-1: #e8559b;
   --chart-grid: rgba(255, 228, 240, 0.08);
 
@@ -80,7 +80,7 @@
   color-scheme: dark;
 }
 
-/* ---------- Light ---------- */
+/* Light */
 [data-theme="light"] {
   --bg: #faf6f8;
   --bg-glow-1: rgba(214, 61, 132, 0.08);

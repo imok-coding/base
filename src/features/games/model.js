@@ -93,7 +93,7 @@ const SHORT = {
   "iOS / Android": "Mobile",
 };
 
-export const platformShort = (p) => SHORT[p] || p || "—";
+export const platformShort = (p) => SHORT[p] || p || "-";
 
 export function platformFamily(p = "") {
   if (/playstation|ps vita|psp/i.test(p)) return "playstation";
@@ -186,7 +186,7 @@ export function normalizeGame(raw) {
   };
 }
 
-/** Hours left from the sheet's own formula: max(estimated − played, 0). */
+/** Hours left, same formula as the spreadsheet: max(estimated - played, 0). */
 export function hoursRemaining(g) {
   if (g.hoursEstimated === "" || g.hoursPlayed === "") return "";
   return Math.max(Number(g.hoursEstimated) - Number(g.hoursPlayed), 0);

@@ -10,7 +10,7 @@ export function Field({ label, hint, missing, children, className = "", style })
   );
 }
 
-/** Labelled text/number/date input. `prefix` renders an adornment like "$". */
+// Text/number/date input with a label. `prefix` shows something like "$" inside it.
 export function TextField({ label, hint, missing, prefix, value, onChange, className, style, ...rest }) {
   const id = useId();
   const input = (

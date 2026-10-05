@@ -19,10 +19,7 @@ function hiddenSyncOps(seriesHidden, allVolumes, skipIds) {
   return ops;
 }
 
-/**
- * Add or update one or more entries.
- * @param {Array<{id?: string, list: "library"|"wishlist", form: object}>} entries
- */
+// Add or update entries. Each entry is { id (when editing), list, form }.
 export async function saveEntries(entries, { allVolumes, seriesInfo, user }) {
   const ops = [];
   const seriesHidden = new Map();
@@ -78,7 +75,7 @@ export async function patchVolume(v, data, { user, message }) {
 export function readPatch(v, read) {
   return read
     ? { read: true, dateRead: v.read && v.dateRead ? v.dateRead : todayISO(), rating: v.rating ?? "" }
-    : { read: false, dateRead: "" }; // keep the rating — it isn't tied to read state
+    : { read: false, dateRead: "" }; // keep the rating, it isn't tied to read state
 }
 
 export async function setReadState(volumes, read, { user }) {
