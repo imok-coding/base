@@ -1,9 +1,11 @@
-import { ChevronLeft, ChevronRight, Eye, EyeOff, MoreHorizontal, Pencil, Trash2, Trophy } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, MoreHorizontal, Pencil, Trash2, Trophy } from "lucide-react";
 import Sheet from "../../../components/ui/Sheet";
 import Menu from "../../../components/ui/Menu";
 import RatingRow from "../../../components/ui/RatingRow";
 import ReviewVideo from "../../../components/ui/ReviewVideo";
 import { formatDate, money } from "../../../lib/format";
+import { igdbImage } from "../../../lib/igdb";
 import { useSticky } from "../../manga/hooks";
 import { completionPct, hoursRemaining, platformShort } from "../model";
 import { FORMAT_ICON, GameCover } from "./GameTile";
@@ -19,6 +21,41 @@ function Detail({ label, value, wide }) {
 }
 
 const hours = (h) => (h === "" ? "" : `${Number(h).toLocaleString()} h`);
+
+function About({ text }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 320;
+  return (
+    <div className="game-about">
+      <p className={long && !open ? "is-clamped" : undefined}>{text}</p>
+      {long && (
+        <button type="button" className="card-link" onClick={() => setOpen(!open)}>
+          {open ? "Show less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Screenshots({ ids, title }) {
+  const [broken, setBroken] = useState(() => new Set());
+  const shown = ids.filter((id) => !broken.has(id));
+  if (!shown.length) return null;
+  return (
+    <div className="game-shots" aria-label="Screenshots">
+      {shown.map((id, i) => (
+        <a key={id} href={igdbImage(id, "1080p")} target="_blank" rel="noreferrer">
+          <img
+            src={igdbImage(id, "screenshot_med")}
+            alt={`${title} screenshot ${i + 1}`}
+            loading="lazy"
+            onError={() => setBroken((b) => new Set(b).add(id))}
+          />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpen, actions }) {
   const g = useSticky(game);
@@ -137,6 +174,9 @@ export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpe
           <dl className="details">
             <Detail label="Platform" value={g.platform} />
             <Detail label="Genre" value={g.genre} />
+            <Detail label="Developer" value={g.developer} />
+            <Detail label="Publisher" value={g.publisher} />
+            <Detail label="Critic score" value={g.criticScore !== "" ? `${g.criticScore} / 100` : ""} />
             <Detail label="Released" value={g.releaseYear} />
             <Detail label="Acquired" value={formatDate(g.acquired)} />
             {isAdmin && <Detail label="Paid" value={g.price !== "" ? money(g.price) : ""} />}
@@ -151,9 +191,16 @@ export default function GameSheet({ game, siblings = [], isAdmin, onClose, onOpe
             <Detail label="Completed" value={formatDate(g.completedDate)} />
             <Detail label="Worth revisiting" value={g.revisit === true ? "Yes" : g.revisit === false ? "No" : ""} />
           </dl>
+          {g.summary && <About text={g.summary} key={g.id} />}
           {g.notes && <p className="notes">{g.notes}</p>}
         </div>
       </div>
+      <Screenshots ids={g.screenshots} title={g.title} key={`shots-${g.id}`} />
+      {g.igdbUrl && (
+        <a className="game-source" href={g.igdbUrl} target="_blank" rel="noreferrer">
+          Game info from IGDB <ExternalLink />
+        </a>
+      )}
       <ReviewVideo url={g.reviewUrl} key={g.id} />
       {isAdmin && !g.reviewUrl && (
         <button type="button" className="card-link" style={{ marginTop: 14 }} onClick={() => actions.edit([g])}>

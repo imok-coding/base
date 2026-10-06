@@ -1,0 +1,6 @@
+name = "igdb-proxy"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://imok-coding.github.io,http://localhost:5173,http://localhost:4173"

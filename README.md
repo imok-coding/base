@@ -55,6 +55,31 @@ match /games/{gameId} {
 }
 ```
 
+### IGDB game info
+
+The game editor has a "Fill from IGDB" button, and Dashboard > Games can fill in every game at once. It adds a description, developer, publisher, critic score, screenshots and how long the game takes to beat. It only fills in blank fields, so anything typed in by hand stays. IGDB is also a last-resort source for covers.
+
+IGDB doesn't allow requests straight from a website, and the Twitch secret can't be in the site's code, so there's a small Cloudflare Worker in `igdb-proxy/` that sits in between. It only answers this site and localhost, and only read requests. The IGDB buttons stay hidden until it's set up.
+
+Setting it up:
+
+1. Make an app at https://dev.twitch.tv/console/apps (Twitch needs two-factor turned on first). Any name works, use `http://localhost` as the redirect URL, category "Website Integration", client type "Confidential". Copy the Client ID and make a new secret.
+2. Deploy the worker (free Cloudflare account):
+
+   ```bash
+   cd igdb-proxy
+   npx wrangler login
+   npx wrangler deploy
+   npx wrangler secret put TWITCH_CLIENT_ID
+   npx wrangler secret put TWITCH_CLIENT_SECRET
+   ```
+
+3. Put the worker's URL in a `.env` file in the project root and redeploy the site:
+
+   ```
+   VITE_IGDB_PROXY=https://igdb-proxy.<your-subdomain>.workers.dev
+   ```
+
 ### Other notes
 
 - `public/manga-library-wishlist.json` is a backup that gets used if Firestore can't be reached. You can download a fresh one from Dashboard > Settings > Backup.

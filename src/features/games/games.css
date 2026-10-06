@@ -165,6 +165,114 @@
   overflow-wrap: anywhere;
 }
 
+/* IGDB info in the game sheet */
+.game-about {
+  margin-top: 16px;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.game-about p {
+  margin: 0 0 6px;
+  white-space: pre-line;
+}
+
+.game-about p.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.game-shots {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding-bottom: 4px;
+}
+
+.game-shots a {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.game-shots img {
+  display: block;
+  width: 240px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.game-source {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.game-source svg {
+  width: 12px;
+  height: 12px;
+}
+
+.game-source:hover {
+  color: var(--text-1);
+}
+
+.editor-cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* IGDB match picker */
+.igdb-picks {
+  display: grid;
+  gap: 8px;
+}
+
+.igdb-pick {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  text-align: left;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+}
+
+.igdb-pick:hover {
+  border-color: var(--accent-line);
+}
+
+.igdb-pick-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.igdb-pick-text strong {
+  color: var(--text-1);
+  font-size: var(--text-sm);
+}
+
 /* cover picker */
 .cover-pick-group + .cover-pick-group {
   margin-top: 22px;

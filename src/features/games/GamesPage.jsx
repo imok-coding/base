@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Bookmark,
   CheckSquare,
+  Database,
   FileSpreadsheet,
   Gamepad2,
   ImagePlus,
@@ -20,12 +21,13 @@ import Menu from "../../components/ui/Menu";
 import Empty from "../../components/ui/Empty";
 import Sheet from "../../components/ui/Sheet";
 import { downloadCSV } from "../../lib/download";
+import { igdbReady } from "../../lib/igdb";
 import { useAuth } from "../auth/AuthContext";
 import { ChipGroup } from "../manga/components/FilterSheet";
 import { TileSkeletons } from "../manga/components/Tiles";
 import { useGames } from "./GamesData";
 import { GamesWorkspace, useGamesWorkspace } from "./GamesWorkspace";
-import { needsCover, OPTIONS, platformOrder, platformShort } from "./model";
+import { needsCover, needsInfo, OPTIONS, platformOrder, platformShort } from "./model";
 import { GameTile } from "./components/GameTile";
 import SetupNotice from "./SetupNotice";
 import "../manga/manga.css";
@@ -114,7 +116,8 @@ function GamesInner() {
     const terms = deferred.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const out = base.filter((g) => {
       if (terms.length) {
-        const hay = `${g.title} ${g.edition} ${g.platform} ${platformShort(g.platform)} ${g.genre}`.toLowerCase();
+        const hay =
+          `${g.title} ${g.edition} ${g.platform} ${platformShort(g.platform)} ${g.genre} ${g.developer} ${g.publisher}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       if (f.review === "yes" && !g.reviewUrl) return false;
@@ -152,6 +155,7 @@ function GamesInner() {
   const physical = owned.filter((g) => g.format !== "Digital").length;
   const digital = owned.filter((g) => g.format !== "Physical").length;
   const missingCovers = data.games.filter(needsCover).length;
+  const missingInfo = data.games.filter(needsInfo).length;
 
   const sortOptions = [
     { value: "title", label: "Title" },
@@ -240,6 +244,15 @@ function GamesInner() {
                   icon: ImagePlus,
                   onClick: ws.actions.findMissingCovers,
                   disabled: !!ws.coverJob || !missingCovers,
+                },
+                {
+                  label: ws.infoJob
+                    ? `Checking IGDB... ${ws.infoJob.done}/${ws.infoJob.total}`
+                    : `Fill game info from IGDB (${missingInfo})`,
+                  icon: Database,
+                  onClick: ws.actions.fillInfo,
+                  disabled: !!ws.infoJob || !missingInfo,
+                  hidden: !igdbReady,
                 },
                 { separator: true },
                 {

@@ -4,12 +4,13 @@ import { CheckSquare, Eye, EyeOff, MoreHorizontal, Pencil, Trash2, X } from "luc
 import Menu from "../../components/ui/Menu";
 import { useFeedback } from "../../components/ui/Feedback";
 import { coverKey, findCoversFor } from "../../lib/gameCovers";
+import { fillFromIgdb } from "../../lib/igdb";
 import { store } from "../../lib/store";
 import { todayISO } from "../../lib/format";
 import { useAuth } from "../auth/AuthContext";
 import { useGames } from "./GamesData";
-import { deleteGames, patchGames, rateGame, setGameCovers, setGamesHidden } from "./api";
-import { needsCover, toGameForm, toGamePayload } from "./model";
+import { deleteGames, patchGames, rateGame, setGameCovers, setGameInfo, setGamesHidden } from "./api";
+import { needsCover, needsInfo, toGameForm, toGamePayload } from "./model";
 import GameSheet from "./components/GameSheet";
 import GameEditor, { gameEditorConfig } from "./components/GameEditor";
 import GameBulkSheet from "./components/GameBulkSheet";
@@ -31,6 +32,7 @@ export function GamesWorkspace({ children }) {
   const [bulk, setBulk] = useState(null);
   const [importing, setImporting] = useState(false);
   const [coverJob, setCoverJob] = useState(null);
+  const [infoJob, setInfoJob] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const visible = useRef([]);
@@ -147,6 +149,23 @@ export function GamesWorkspace({ children }) {
           setCoverJob(null);
         }
       },
+      async fillInfo() {
+        const todo = games.filter(needsInfo);
+        if (!todo.length) return toast("Every game already has IGDB info", { type: "info" });
+        setInfoJob({ done: 0, total: todo.length });
+        try {
+          const pairs = await fillFromIgdb(todo, (done, total) => setInfoJob({ done, total }));
+          await setGameInfo(pairs, { user });
+          toast(
+            `Filled in ${plural(pairs.length, "game")} from IGDB${pairs.length < todo.length ? ` · ${todo.length - pairs.length} had no clear match` : ""}`
+          );
+        } catch (err) {
+          console.error(err);
+          toast("Couldn't reach IGDB, try again in a bit", { type: "error" });
+        } finally {
+          setInfoJob(null);
+        }
+      },
     }),
     [games, user, toast, confirm, gameId, closeGame, exitSelect]
   );
@@ -173,8 +192,9 @@ export function GamesWorkspace({ children }) {
         visible.current = ids;
       },
       coverJob,
+      infoJob,
     }),
-    [isAdmin, openGame, actions, selectMode, exitSelect, selected, toggle, coverJob]
+    [isAdmin, openGame, actions, selectMode, exitSelect, selected, toggle, coverJob, infoJob]
   );
 
   return (

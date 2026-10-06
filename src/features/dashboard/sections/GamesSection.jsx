@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarClock,
+  Database,
   DollarSign,
   Disc3,
   FileSpreadsheet,
@@ -12,9 +13,10 @@ import {
   Trophy,
 } from "lucide-react";
 import { money } from "../../../lib/format";
+import { igdbReady } from "../../../lib/igdb";
 import { useGames } from "../../games/GamesData";
 import { GamesWorkspace, useGamesWorkspace } from "../../games/GamesWorkspace";
-import { needsCover, OPTIONS, platformOrder, platformShort } from "../../games/model";
+import { needsCover, needsInfo, OPTIONS, platformOrder, platformShort } from "../../games/model";
 import SetupNotice from "../../games/SetupNotice";
 import { BarList, ColumnChart, Meter } from "../charts";
 
@@ -92,6 +94,7 @@ function GamesStats() {
       hidden: owned.filter((g) => g.hidden).length,
       coverBase: games.filter((g) => !g.hidden).length,
       missingCovers: games.filter(needsCover).length,
+      missingInfo: games.filter(needsInfo).length,
     };
   }, [owned, games]);
 
@@ -181,11 +184,27 @@ function GamesStats() {
                 ? `Finding covers... ${ws.coverJob.done}/${ws.coverJob.total}`
                 : `Find missing covers (${s.missingCovers})`}
             </button>
+            {igdbReady && (
+              <button
+                type="button"
+                className="btn"
+                onClick={ws.actions.fillInfo}
+                disabled={!!ws.infoJob || !s.missingInfo}
+              >
+                {ws.infoJob ? <span className="spinner" /> : <Database />}
+                {ws.infoJob
+                  ? `Checking IGDB... ${ws.infoJob.done}/${ws.infoJob.total}`
+                  : `Fill game info from IGDB (${s.missingInfo})`}
+              </button>
+            )}
           </div>
           <p className="subtle" style={{ fontSize: "var(--text-xs)", marginTop: 10 }}>
             You can re-import the tracker any time. Matching games get updated, new rows get added, and blank cells
             never erase what&apos;s already here. Covers come from the PlayStation Store and Wikipedia, and you can
-            pick a different one from any game&apos;s editor. Hidden games are skipped.
+            pick a different one from any game&apos;s editor. Hidden games are skipped.{" "}
+            {igdbReady
+              ? "IGDB adds descriptions, developers, critic scores, screenshots and how long a game takes to beat, and only fills in blanks."
+              : "IGDB game info isn't connected yet, see the IGDB section in the README."}
           </p>
         </section>
       </div>

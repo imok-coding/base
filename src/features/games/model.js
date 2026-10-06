@@ -151,6 +151,14 @@ export const EMPTY_GAME = Object.freeze({
   cover: "",
   reviewUrl: "",
   hidden: false,
+  // filled from IGDB
+  summary: "",
+  developer: "",
+  publisher: "",
+  criticScore: "",
+  screenshots: [],
+  igdbId: "",
+  igdbUrl: "",
 });
 
 export function normalizeGame(raw) {
@@ -183,6 +191,13 @@ export function normalizeGame(raw) {
     cover: str(raw.cover),
     reviewUrl: str(raw.reviewUrl),
     hidden: !!raw.hidden,
+    summary: str(raw.summary),
+    developer: str(raw.developer),
+    publisher: str(raw.publisher),
+    criticScore: num(raw.criticScore),
+    screenshots: Array.isArray(raw.screenshots) ? raw.screenshots.filter((x) => typeof x === "string") : [],
+    igdbId: num(raw.igdbId),
+    igdbUrl: str(raw.igdbUrl),
     importKey: str(raw.importKey),
     family: platformFamily(raw.platform),
   };
@@ -262,6 +277,13 @@ export function toGamePayload(form) {
     cover: str(form.cover),
     reviewUrl: str(form.reviewUrl),
     hidden: !!form.hidden,
+    summary: str(form.summary),
+    developer: str(form.developer),
+    publisher: str(form.publisher),
+    criticScore: formNum(form.criticScore, true),
+    screenshots: Array.isArray(form.screenshots) ? form.screenshots : [],
+    igdbId: formNum(form.igdbId, true),
+    igdbUrl: str(form.igdbUrl),
   };
   payload.importKey = gameKey(payload);
   return payload;
@@ -278,6 +300,9 @@ export const isOwned = (g) => g.status === "Owned" || g.status === "Borrowed";
 
 /** Games still waiting on cover art. Hidden ones don't count. */
 export const needsCover = (g) => !g.cover && !g.hidden;
+
+/** Games not linked to IGDB yet. Hidden ones are skipped too. */
+export const needsInfo = (g) => !g.igdbId && !g.hidden;
 
 export function gameMissing(g) {
   const m = [];

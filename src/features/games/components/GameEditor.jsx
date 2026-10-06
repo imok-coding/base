@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { ImageOff, Search } from "lucide-react";
+import { Database, ExternalLink, ImageOff, Search } from "lucide-react";
 import Sheet from "../../../components/ui/Sheet";
 import StarRating from "../../../components/ui/StarRating";
 import { SelectField, Switch, TextField } from "../../../components/ui/Fields";
 import { useFeedback } from "../../../components/ui/Feedback";
 import { searchGameCovers, searchPlayStationCovers } from "../../../lib/gameCovers";
+import { igdbPatch, igdbReady, searchIgdb, timesToBeat } from "../../../lib/igdb";
 import { todayISO } from "../../../lib/format";
 import { youtubeId, youtubeThumb } from "../../../lib/youtube";
 import { useAuth } from "../../auth/AuthContext";
@@ -36,21 +37,25 @@ function PickGrid({ title, results, onPick }) {
 }
 
 function CoverPicker({ query, platform, edition, open, onClose, onPick }) {
-  const [state, setState] = useState({ loading: false, ps: null, wiki: null, error: "" });
+  const [state, setState] = useState({ loading: false, ps: null, wiki: null, igdb: null, error: "" });
   const [text, setText] = useState(query);
 
   const run = async (q) => {
-    setState({ loading: true, ps: null, wiki: null, error: "" });
-    const [ps, wiki] = await Promise.allSettled([
+    setState({ loading: true, ps: null, wiki: null, igdb: null, error: "" });
+    const [ps, wiki, igdb] = await Promise.allSettled([
       searchPlayStationCovers(q, { platform, edition }),
       searchGameCovers(q, 12),
+      igdbReady ? searchIgdb(q, { platform }) : Promise.resolve([]),
     ]);
-    const failed = ps.status === "rejected" && wiki.status === "rejected";
+    const ok = (r) => (r.status === "fulfilled" ? r.value : []);
     setState({
       loading: false,
-      ps: ps.status === "fulfilled" ? ps.value : [],
-      wiki: wiki.status === "fulfilled" ? wiki.value : [],
-      error: failed ? "Search failed. Try again in a moment." : "",
+      ps: ok(ps),
+      wiki: ok(wiki),
+      igdb: ok(igdb)
+        .filter((g) => g.cover)
+        .map((g) => ({ article: g.name, description: [g.year, g.platforms.join(", ")].filter(Boolean).join(" · "), image: g.cover })),
+      error: [ps, wiki, igdb].every((r) => r.status === "rejected") ? "Search failed. Try again in a moment." : "",
     });
   };
 
@@ -65,14 +70,15 @@ function CoverPicker({ query, platform, edition, open, onClose, onPick }) {
     { key: "wiki", title: "Wikipedia", results: state.wiki },
   ];
   if (!isPlayStation(platform)) groups.reverse();
-  const empty = !state.loading && !state.error && state.ps && !state.ps.length && !state.wiki.length;
+  groups.push({ key: "igdb", title: "IGDB", results: state.igdb });
+  const empty = !state.loading && !state.error && state.ps && groups.every((g) => !g.results?.length);
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
       title="Pick cover art"
-      subtitle="Box art from the PlayStation Store and Wikipedia"
+      subtitle={`Box art from the PlayStation Store${igdbReady ? ", Wikipedia and IGDB" : " and Wikipedia"}`}
       width={680}
     >
       <form
@@ -106,12 +112,89 @@ function CoverPicker({ query, platform, edition, open, onClose, onPick }) {
   );
 }
 
+function IgdbPicker({ query, platform, open, onClose, onPick }) {
+  const [state, setState] = useState({ loading: false, results: null, error: "" });
+  const [text, setText] = useState(query);
+
+  const run = async (q) => {
+    setState({ loading: true, results: null, error: "" });
+    try {
+      setState({ loading: false, results: await searchIgdb(q, { platform }), error: "" });
+    } catch {
+      setState({ loading: false, results: [], error: "Couldn't reach IGDB. Try again in a moment." });
+    }
+  };
+
+  useEffect(() => {
+    if (open && query) run(query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Fill from IGDB" subtitle="Pick the matching game" width={600}>
+      <form
+        className="input-wrap"
+        style={{ marginBottom: 16 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim()) run(text.trim());
+        }}
+      >
+        <Search />
+        <input
+          className="input"
+          type="search"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          aria-label="Search IGDB"
+        />
+      </form>
+      {state.loading && <div className="skeleton" style={{ height: 180 }} />}
+      {state.error && <p style={{ color: "var(--danger)" }}>{state.error}</p>}
+      {state.results && !state.results.length && !state.error && (
+        <p className="subtle" style={{ textAlign: "center", padding: 24 }}>
+          Nothing on IGDB by that name. Try a shorter title.
+        </p>
+      )}
+      <div className="igdb-picks">
+        {state.results?.map((g) => (
+          <button type="button" key={g.igdbId} className="igdb-pick" onClick={() => onPick(g)}>
+            <GameCover game={{ title: "", cover: g.cover }} size={160} />
+            <span className="igdb-pick-text">
+              <strong>
+                {g.name} {g.year && <span className="subtle">({g.year})</span>}
+              </strong>
+              <span className="clamp-1">{g.platforms.join(", ") || "No platforms listed"}</span>
+              {g.developer && <span className="clamp-1">{g.developer}</span>}
+            </span>
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
 function EditorInner({ cfg, open, onClose }) {
   const { user } = useAuth();
   const { toast } = useFeedback();
   const [form, setForm] = useState(cfg.form);
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+
+  const applyIgdb = async (info) => {
+    setLookingUp(false);
+    let hours;
+    try {
+      hours = (await timesToBeat([info.igdbId])).get(info.igdbId);
+    } catch {
+      /* time to beat is a bonus, the rest still fills in */
+    }
+    const patch = igdbPatch(form, info, hours);
+    setForm((f) => ({ ...f, ...Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, typeof v === "number" ? String(v) : v])) }));
+    const filled = Object.keys(patch).filter((k) => !["igdbId", "igdbUrl", "criticScore", "screenshots"].includes(k));
+    toast(filled.length ? `Filled in ${filled.length} field${filled.length === 1 ? "" : "s"} from IGDB` : "Linked to IGDB");
+  };
   const set = (field) => (value) =>
     setForm((f) => {
       const next = { ...f, [field]: value };
@@ -167,14 +250,26 @@ function EditorInner({ cfg, open, onClose }) {
       <div className="editor-layout">
         <div className="editor-cover">
           <GameCover game={preview} size={500} eager key={form.cover} />
-          <button
-            type="button"
-            className="btn btn--soft btn--sm"
-            onClick={() => setPicking(true)}
-            disabled={!form.title.trim()}
-          >
-            <Search /> Find cover
-          </button>
+          <div className="editor-cover-actions">
+            <button
+              type="button"
+              className="btn btn--soft btn--sm"
+              onClick={() => setPicking(true)}
+              disabled={!form.title.trim()}
+            >
+              <Search /> Find cover
+            </button>
+            {igdbReady && (
+              <button
+                type="button"
+                className="btn btn--soft btn--sm"
+                onClick={() => setLookingUp(true)}
+                disabled={!form.title.trim()}
+              >
+                <Database /> Fill from IGDB
+              </button>
+            )}
+          </div>
         </div>
         <div>
           <div className="form-section">
@@ -205,6 +300,33 @@ function EditorInner({ cfg, open, onClose }) {
                 options={withCurrent(OPTIONS.genre, form.genre)}
               />
             </div>
+          </div>
+
+          <div className="form-section">
+            <div className="form-section-title">Game info</div>
+            <div className="form-grid form-grid--2">
+              <TextField label="Developer" value={form.developer} onChange={set("developer")} />
+              <TextField label="Publisher" value={form.publisher} onChange={set("publisher")} />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="game-summary">
+                About
+              </label>
+              <textarea
+                id="game-summary"
+                className="textarea"
+                value={form.summary}
+                onChange={(e) => set("summary")(e.target.value)}
+              />
+            </div>
+            {form.igdbUrl && (
+              <span className="field-hint">
+                Linked to{" "}
+                <a href={form.igdbUrl} target="_blank" rel="noreferrer">
+                  this game on IGDB <ExternalLink size={12} style={{ verticalAlign: "-1px" }} />
+                </a>
+              </span>
+            )}
           </div>
 
           <div className="form-section">
@@ -371,8 +493,18 @@ function EditorInner({ cfg, open, onClose }) {
           </div>
         </div>
       </div>
+      {igdbReady && (
+        <IgdbPicker
+          key={lookingUp ? `igdb-${form.title}` : "igdb-closed"}
+          query={form.title}
+          platform={form.platform}
+          open={lookingUp}
+          onClose={() => setLookingUp(false)}
+          onPick={applyIgdb}
+        />
+      )}
       <CoverPicker
-        key={picking ? form.title : "closed"}
+        key={picking ? `cover-${form.title}` : "cover-closed"}
         query={form.title}
         platform={form.platform}
         edition={form.edition}

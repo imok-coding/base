@@ -1,48 +1,14 @@
-// Box art lookups. Both sources work straight from the browser:
+// Box art lookups:
 // - PlayStation Store: the old store search API still allows any origin
 // - Wikipedia (origin=*). Most game articles lead with the cover, which is a
 //   non-free image, so pilicense=any is needed.
+// - IGDB as a last try, when its proxy is set up (see igdb.js)
+import { bestIgdbMatch, igdbReady } from "./igdb";
+import { matchQuality, RANK } from "./titles";
 
 const API = "https://en.wikipedia.org/w/api.php";
 const PS_API = "https://store.playstation.com/store/api/chihiro/00_09_000/tumbler/US/en/999/";
 
-// words that may trail a title without changing which game it is
-const EDITION_WORDS = new Set(
-  "edition collection remastered remaster deluxe goty game of the year definitive complete ultimate hd bundle gold premium standard digital enhanced directors cut special anniversary royal legendary platinum hits greatest for nintendo switch ps4 ps5 pack and remake".split(
-    " "
-  )
-);
-
-// sequels get written both ways ("Red Dead Redemption II" / "2")
-const ROMAN = { ii: "2", iii: "3", iiii: "4", iv: "4" };
-
-export function normTitle(s) {
-  return String(s || "")
-    .replace(/[\u2122\u00ae\u00a9\u2120]/g, "")
-    .replace(/['\u2019`]/g, "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\(.*?\)/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\b(ii|iii|iiii|iv)\b/g, (m) => ROMAN[m])
-    .trim();
-}
-
-// "exact", "edition" (query = article + edition words), "longer" (article =
-// query + edition words) or null
-export function matchQuality(query, article) {
-  const q = normTitle(query).split(" ");
-  const a = normTitle(article).split(" ");
-  if (q.join(" ") === a.join(" ")) return "exact";
-  const extraQ = q.filter((w) => !a.includes(w));
-  const extraA = a.filter((w) => !q.includes(w));
-  if (!extraA.length && extraQ.length && extraQ.every((w) => EDITION_WORDS.has(w))) return "edition";
-  if (!extraQ.length && extraA.length && extraA.every((w) => EDITION_WORDS.has(w))) return "longer";
-  return null;
-}
-
-const RANK = { exact: 0, edition: 1, longer: 2 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Wikipedia
@@ -179,6 +145,10 @@ async function wikiCover(title) {
   return candidates[0]?.image || "";
 }
 
+async function igdbCover(game) {
+  return (await bestIgdbMatch(game))?.cover || "";
+}
+
 async function psCover(game) {
   const best = (await searchPlayStationCovers(game.title, game)).find((c) => c.hires && RANK[c.quality] <= 2);
   return best?.image || "";
@@ -186,12 +156,14 @@ async function psCover(game) {
 
 /**
  * Confident automatic match, or "" (better no cover than the wrong one).
- * PlayStation games try the store first, then Wikipedia. Other platforms only
- * use Wikipedia, since a store listing with the same name is often a different game.
+ * PlayStation games try the store first, then Wikipedia. Other platforms skip
+ * the store, since a listing with the same name is often a different game.
+ * IGDB goes last when it's set up.
  */
 export async function findGameCover(game) {
   const g = typeof game === "string" ? { title: game } : game;
   const order = isPlayStation(g.platform) ? [() => psCover(g), () => wikiCover(g.title)] : [() => wikiCover(g.title)];
+  if (igdbReady) order.push(() => igdbCover(g));
   for (const source of order) {
     try {
       const found = await source();

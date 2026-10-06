@@ -85,6 +85,17 @@ export async function applyImport(plan, { user, covers = new Map() }) {
   });
 }
 
+/** Save IGDB info from fillFromIgdb(): [{ id, patch }] */
+export async function setGameInfo(pairs, { user }) {
+  if (!pairs.length) return;
+  await store.batch(pairs.map(({ id, patch }) => ({ type: "update", col: "games", id, data: patch })));
+  recordActivity(`Filled in game info for ${s(pairs.length, "game")} from IGDB`, {
+    user,
+    context: "Games",
+    action: "igdb",
+  });
+}
+
 export async function setGameCovers(pairs, { user }) {
   if (!pairs.length) return;
   await store.batch(pairs.map(({ id, cover }) => ({ type: "update", col: "games", id, data: { cover } })));
