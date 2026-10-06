@@ -13,6 +13,8 @@ const ROMAN = { ii: "2", iii: "3", iiii: "4", iv: "4" };
 export function normTitle(s) {
   return String(s || "")
     .replace(/[\u2122\u00ae\u00a9\u2120]/g, "")
+    // "Marvel's" and "Marvel:" are the same game, so drop possessives
+    .replace(/['\u2019`]s\b/gi, "")
     .replace(/['\u2019`]/g, "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -33,8 +35,12 @@ export function matchQuality(query, article) {
   const extraA = a.filter((w) => !q.includes(w));
   if (!extraA.length && extraQ.length && extraQ.every((w) => EDITION_WORDS.has(w))) return "edition";
   if (!extraQ.length && extraA.length && extraA.every((w) => EDITION_WORDS.has(w))) return "longer";
+  // "Resident Evil 7" vs "Resident Evil 7: Biohazard"
+  const parts = String(article || "").split(/\s*(?::|\s[-\u2013\u2014]\s)\s*/);
+  for (let i = 1; i < parts.length; i++)
+    if (normTitle(parts.slice(0, i).join(" ")) === q.join(" ")) return "subtitle";
   return null;
 }
 
 // best first
-export const RANK = { exact: 0, edition: 1, longer: 2 };
+export const RANK = { exact: 0, edition: 1, longer: 2, subtitle: 3.5 };

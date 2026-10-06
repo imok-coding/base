@@ -30,8 +30,8 @@ const PLATFORMS = {
   "Wii U": ["Wii U"],
   Wii: ["Wii"],
   GameCube: ["Nintendo GameCube"],
-  "PlayStation 5": ["PlayStation 5"],
-  "PlayStation 4": ["PlayStation 4"],
+  "PlayStation 5": ["PlayStation 5", "PlayStation VR2"],
+  "PlayStation 4": ["PlayStation 4", "PlayStation VR"],
   "PlayStation 3": ["PlayStation 3"],
   "PlayStation 2": ["PlayStation 2"],
   "PS Vita": ["PlayStation Vita"],
@@ -90,7 +90,11 @@ const FIELDS = [
   "cover.image_id",
   "screenshots.image_id",
   "version_parent",
+  "game_type",
 ].join(",");
+
+// DLC, expansions, mods, episodes, seasons, packs and updates
+const ADD_ONS = new Set([1, 2, 5, 6, 7, 13, 14]);
 
 function companies(row, role) {
   const names = (row.involved_companies || []).filter((c) => c[role] && c.company?.name).map((c) => c.company.name);
@@ -115,18 +119,29 @@ function toInfo(row, title, platform) {
     cover: igdbImage(row.cover?.image_id),
     screenshots: (row.screenshots || []).slice(0, 6).map((s) => s.image_id),
     isVersion: !!row.version_parent,
+    isAddOn: ADD_ONS.has(row.game_type),
+    isPort: row.game_type === 11,
     samePlatform: wanted.some((p) => platforms.includes(p)),
     quality: matchQuality(title, row.name || ""),
   };
 }
 
-const score = (c) => (RANK[c.quality] ?? 5) * 4 + (c.samePlatform ? 0 : 2) + (c.isVersion ? 1 : 0);
+// A version made for your platform beats the same name on another one. Ports
+// rank under the main entry, so "Resident Evil 2" on PS4 is the 2019 remake
+// and not the port of the 1998 game.
+const score = (c) =>
+  (RANK[c.quality] ?? 9) +
+  (c.samePlatform ? 0 : 3) +
+  (c.isVersion ? 0.5 : 0) +
+  (c.isPort ? 0.75 : 0) +
+  (c.isAddOn ? 2 : 0);
 
 /** IGDB games for a title, best match first. */
 export async function searchIgdb(title, { platform = "" } = {}) {
   const q = String(title).replace(/["\\]/g, " ").trim();
   if (!q) return [];
-  const rows = await query("games", `search "${q}"; fields ${FIELDS}; limit 12;`);
+  // IGDB's search puts a lot of DLC and bundles first, so ask for plenty
+  const rows = await query("games", `search "${q}"; fields ${FIELDS}; limit 50;`);
   return rows
     .map((row, i) => ({ c: toInfo(row, title, platform), i }))
     .sort((a, b) => score(a.c) - score(b.c) || a.i - b.i)
@@ -138,8 +153,10 @@ export async function bestIgdbMatch(game) {
   const list = await searchIgdb(game.title, game);
   const best = list[0];
   if (!best || !best.quality) return null;
-  // a longer name ("X Remastered") is only trusted on the right platform
-  if (best.quality === "longer" && !best.samePlatform) return null;
+  // DLC only counts when the name is exactly what's in the library
+  if (best.isAddOn && best.quality !== "exact") return null;
+  // a longer name ("X Remastered", "X: Subtitle") is only trusted on the right platform
+  if ((best.quality === "longer" || best.quality === "subtitle") && !best.samePlatform) return null;
   return best;
 }
 

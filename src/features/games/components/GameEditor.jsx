@@ -54,6 +54,7 @@ function CoverPicker({ query, platform, edition, open, onClose, onPick }) {
       wiki: ok(wiki),
       igdb: ok(igdb)
         .filter((g) => g.cover)
+        .slice(0, 12)
         .map((g) => ({ article: g.name, description: [g.year, g.platforms.join(", ")].filter(Boolean).join(" · "), image: g.cover })),
       error: [ps, wiki, igdb].every((r) => r.status === "rejected") ? "Search failed. Try again in a moment." : "",
     });
@@ -119,7 +120,8 @@ function IgdbPicker({ query, platform, open, onClose, onPick }) {
   const run = async (q) => {
     setState({ loading: true, results: null, error: "" });
     try {
-      setState({ loading: false, results: await searchIgdb(q, { platform }), error: "" });
+      // the best 15 is plenty to pick from
+      setState({ loading: false, results: (await searchIgdb(q, { platform })).slice(0, 15), error: "" });
     } catch {
       setState({ loading: false, results: [], error: "Couldn't reach IGDB. Try again in a moment." });
     }
