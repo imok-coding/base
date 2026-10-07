@@ -140,6 +140,21 @@ export function hiddenSeriesKeys(library, wishlist) {
   return keys;
 }
 
+/**
+ * The cover a series shows: the first volume in the library that hasn't been
+ * read yet, or the newest one once they're all read (until the next volume is
+ * added). Series with nothing in the library use their first cover.
+ */
+export function seriesCover(items) {
+  const withCover = items.filter((v) => v.cover);
+  const owned = withCover.filter((v) => v.kind === "library");
+  if (!owned.length) return withCover[0]?.cover || "";
+  // numbered volumes only, so a box set or artbook doesn't take over
+  const numbered = owned.filter((v) => v.vol > 0);
+  const list = (numbered.length ? numbered : owned).slice().sort((a, b) => a.vol - b.vol);
+  return (list.find((v) => !v.read) || list.at(-1)).cover;
+}
+
 /** Group volumes into series summaries (input should already be sorted). */
 export function groupSeries(volumes) {
   const map = new Map();
@@ -172,7 +187,6 @@ export function groupSeries(volumes) {
     s.count += 1;
     if (v.read) s.readCount += 1;
     s.volNumbers.push(...v.volumes);
-    if (!s.cover && v.cover) s.cover = v.cover;
     if (!s.authors && v.authors) s.authors = v.authors;
     if (!s.publisher && v.publisher) s.publisher = v.publisher;
     if (!s.demographic && v.demographic) s.demographic = v.demographic;
@@ -193,6 +207,7 @@ export function groupSeries(volumes) {
       if (v.date && v.date >= today && (!s.nextRelease || v.date < s.nextRelease)) s.nextRelease = v.date;
     }
     s.avgRating = s.ratingCount ? s.ratingSum / s.ratingCount : 0;
+    s.cover = seriesCover(s.items);
   }
   return [...map.values()];
 }
