@@ -175,6 +175,12 @@
   flex-wrap: wrap;
 }
 
+/* left side stacks, so the release icon sits under "Read" */
+.tile-badges > div:first-child {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -201,9 +207,35 @@
   background: color-mix(in srgb, #0f766e 88%, transparent);
 }
 
-/* coming out in the next two weeks */
+/* coming out in the next two weeks: a round icon, the date slides out on hover or tap */
 .badge--soon {
-  background: color-mix(in srgb, #15803d 92%, transparent);
+  gap: 0;
+  min-width: 22px;
+  padding: 0 5px;
+  border: 0;
+  font-family: inherit;
+  background: color-mix(in srgb, #15803d 94%, transparent);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.18);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.badge--soon .badge-reveal {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-width var(--dur-2) var(--ease-out),
+    opacity var(--dur-2) var(--ease-out),
+    margin var(--dur-2) var(--ease-out);
+}
+
+.badge--soon:hover .badge-reveal,
+.badge--soon:focus-visible .badge-reveal,
+.badge--soon.is-open .badge-reveal {
+  max-width: 120px;
+  margin-left: 4px;
+  opacity: 1;
 }
 
 .badge--warn {

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { CalendarClock, Check, EyeOff, Gem, Sparkles } from "lucide-react";
 import Cover from "../../../components/ui/Cover";
 import TileStars from "../../../components/ui/TileStars";
@@ -23,21 +23,40 @@ function SpecialBadge({ v }) {
   return null;
 }
 
-// green "coming out soon" badge, for releases in the next two weeks
+// Green calendar icon for releases in the next two weeks. Hovering (or tapping
+// it on a phone) slides out the date. Tapping it doesn't open the card.
 function SoonBadge({ v }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return undefined;
+    const t = setTimeout(() => setOpen(false), 3000);
+    return () => clearTimeout(t);
+  }, [open]);
+
   const now = new Date();
   const tomorrow = toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
   const when =
     v.date === toISODate(now)
-      ? "Today"
+      ? "Out today"
       : v.date === tomorrow
-        ? "Tomorrow"
-        : formatDate(v.date, { month: "short", day: "numeric" });
+        ? "Out tomorrow"
+        : `Out ${formatDate(v.date, { month: "short", day: "numeric" })}`;
   const label = v.vol ? `Vol. ${v.vol}` : v.title;
   return (
-    <span className="badge badge--soon" title={`${label} comes out ${formatDate(v.date)}`}>
-      <CalendarClock /> {when}
-    </span>
+    <button
+      type="button"
+      className={`badge badge--soon ${open ? "is-open" : ""}`}
+      aria-label={`${label} comes out ${formatDate(v.date)}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen((o) => !o);
+      }}
+    >
+      <CalendarClock aria-hidden="true" />
+      <span className="badge-reveal" aria-hidden="true">
+        {when}
+      </span>
+    </button>
   );
 }
 
@@ -66,13 +85,13 @@ export const VolumeTile = memo(function VolumeTile({
       <Cover src={v.cover} alt={v.title} size={420}>
         <div className="tile-badges">
           <div>
-            {releasesSoon(v.date) && <SoonBadge v={v} />}
             {v.read && (
               <span className="badge badge--read">
                 <Check /> Read
               </span>
             )}
             <SpecialBadge v={v} />
+            {releasesSoon(v.date) && <SoonBadge v={v} />}
           </div>
           <div>
             {isAdmin && v.hidden && (
@@ -132,7 +151,6 @@ export const SeriesTile = memo(function SeriesTile({
       <Cover src={s.cover} alt={s.title} size={480}>
         <div className="tile-badges">
           <div>
-            {soon && <SoonBadge v={soon} />}
             {list === "library" && complete && (
               <span className="badge badge--read">
                 <Check /> Read
@@ -143,6 +161,7 @@ export const SeriesTile = memo(function SeriesTile({
                 {s.readCount}/{s.count}
               </span>
             )}
+            {soon && <SoonBadge v={soon} />}
           </div>
           <div>
             {isAdmin && s.hidden && (
