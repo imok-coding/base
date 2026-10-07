@@ -8,7 +8,7 @@ import { useGames } from "../features/games/GamesData";
 import { GameCover } from "../features/games/components/GameTile";
 import "../features/games/games.css";
 import { MangaWorkspace, useWorkspace } from "../features/manga/Workspace";
-import { groupSeries, seriesCovers, seriesSlug } from "../features/manga/model";
+import { groupSeries, seriesSlug } from "../features/manga/model";
 import "../features/manga/manga.css";
 import "./home.css";
 
@@ -97,24 +97,9 @@ function HomeInner() {
         .slice(0, 6),
     [publicWishlist, publicLibrary, today]
   );
-  // the header fan: the latest volumes added to the library, newest in front
+  // the latest volumes added to the library, newest first (header fan and the Manga card)
   const fan = useMemo(() => recentlyAdded.filter((v) => v.cover).slice(0, 5), [recentlyAdded]);
 
-  // series covers for the most recently bought series
-  const mosaic = useMemo(() => {
-    const covers = seriesCovers(publicLibrary);
-    const byPurchase = [...publicLibrary].sort((a, b) => (b.datePurchased || "").localeCompare(a.datePurchased || ""));
-    const seen = new Set();
-    const out = [];
-    for (const v of byPurchase) {
-      const cover = covers.get(v.seriesKey);
-      if (!cover || seen.has(v.seriesKey)) continue;
-      seen.add(v.seriesKey);
-      out.push({ id: v.seriesKey, cover });
-      if (out.length === 5) break;
-    }
-    return out;
-  }, [publicLibrary]);
 
   return (
     <div className="page home">
@@ -171,7 +156,7 @@ function HomeInner() {
         <div className={`home-collections ${games.length ? "home-collections--even" : ""}`}>
           <Link to="/manga" className="collection-card card card--interactive">
             <div className="collection-mosaic" aria-hidden="true">
-              {mosaic.slice(0, 4).map((v) => (
+              {fan.slice(0, 4).map((v) => (
                 <Cover key={v.id} src={v.cover} alt="" size={300} />
               ))}
             </div>
