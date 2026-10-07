@@ -1,6 +1,6 @@
 // Manga model: normalizing Firestore docs, parsing series/volume
 // numbers out of titles, grouping volumes into series and data-health checks.
-import { isBlank, normalizeDate, parseDate, toNumber } from "../../lib/format";
+import { isBlank, normalizeDate, parseDate, toISODate, toNumber } from "../../lib/format";
 
 export const LISTS = ["library", "wishlist"];
 export const LIST_LABEL = { library: "Library", wishlist: "Wishlist" };
@@ -153,6 +153,28 @@ export function seriesCover(items) {
   const numbered = owned.filter((v) => v.vol > 0);
   const list = (numbered.length ? numbered : owned).slice().sort((a, b) => a.vol - b.vol);
   return (list.find((v) => !v.read) || list.at(-1)).cover;
+}
+
+// how far ahead the "coming soon" badge looks
+export const SOON_DAYS = 14;
+
+/** True when a release date falls between today and SOON_DAYS from now. */
+export function releasesSoon(date, days = SOON_DAYS) {
+  if (!date) return false;
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+  return date >= toISODate(now) && date <= toISODate(end);
+}
+
+/** The soonest volume coming out in the next two weeks for each series. */
+export function soonBySeries(volumes) {
+  const map = new Map();
+  for (const v of volumes) {
+    if (!releasesSoon(v.date)) continue;
+    const prev = map.get(v.seriesKey);
+    if (!prev || v.date < prev.date) map.set(v.seriesKey, v);
+  }
+  return map;
 }
 
 /** Group volumes into series summaries (input should already be sorted). */

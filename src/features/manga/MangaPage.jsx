@@ -25,7 +25,7 @@ import { downloadCoversZip, downloadCSV, downloadJSON } from "../../lib/download
 import { useAuth } from "../auth/AuthContext";
 import { useManga } from "./MangaData";
 import { MangaWorkspace, useWorkspace } from "./Workspace";
-import { compareVolumes, groupSeries, LIST_LABEL, missingFields, seriesSlug } from "./model";
+import { compareVolumes, groupSeries, LIST_LABEL, missingFields, seriesSlug, soonBySeries } from "./model";
 import { SeriesTile, TileSkeletons, VolumeTile } from "./components/Tiles";
 import FilterSheet from "./components/FilterSheet";
 import "./manga.css";
@@ -167,6 +167,12 @@ function MangaPageInner() {
   }, []);
 
   const allSeries = useMemo(() => groupSeries(base), [base]);
+  // a series card counts releases from both lists, so the next volume on the
+  // wishlist shows up on the series you already own
+  const soon = useMemo(
+    () => soonBySeries([...data.publicLibrary, ...data.publicWishlist]),
+    [data.publicLibrary, data.publicWishlist]
+  );
 
   const filteredVolumes = useMemo(() => {
     const terms = deferredQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -548,6 +554,7 @@ function MangaPageInner() {
                   key={s.key}
                   s={s}
                   list={list}
+                  soon={soon.get(s.key)}
                   isAdmin={isAdmin}
                   selectMode={ws.selectMode}
                   selected={ws.selectMode && s.items.every((v) => ws.selected.has(v.id))}

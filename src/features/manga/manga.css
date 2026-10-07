@@ -201,6 +201,11 @@
   background: color-mix(in srgb, #0f766e 88%, transparent);
 }
 
+/* coming out in the next two weeks */
+.badge--soon {
+  background: color-mix(in srgb, #15803d 92%, transparent);
+}
+
 .badge--warn {
   background: color-mix(in srgb, #b45309 90%, transparent);
 }

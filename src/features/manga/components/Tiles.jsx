@@ -1,9 +1,9 @@
 import { memo } from "react";
-import { Check, EyeOff, Gem, Sparkles } from "lucide-react";
+import { CalendarClock, Check, EyeOff, Gem, Sparkles } from "lucide-react";
 import Cover from "../../../components/ui/Cover";
 import TileStars from "../../../components/ui/TileStars";
-import { formatDate } from "../../../lib/format";
-import { formatVolumeRange, isCollectible, isSpecialEdition, missingFields } from "../model";
+import { formatDate, toISODate } from "../../../lib/format";
+import { formatVolumeRange, isCollectible, isSpecialEdition, missingFields, releasesSoon } from "../model";
 
 function SpecialBadge({ v }) {
   if (isCollectible(v)) {
@@ -21,6 +21,24 @@ function SpecialBadge({ v }) {
     );
   }
   return null;
+}
+
+// green "coming out soon" badge, for releases in the next two weeks
+function SoonBadge({ v }) {
+  const now = new Date();
+  const tomorrow = toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  const when =
+    v.date === toISODate(now)
+      ? "Today"
+      : v.date === tomorrow
+        ? "Tomorrow"
+        : formatDate(v.date, { month: "short", day: "numeric" });
+  const label = v.vol ? `Vol. ${v.vol}` : v.title;
+  return (
+    <span className="badge badge--soon" title={`${label} comes out ${formatDate(v.date)}`}>
+      <CalendarClock /> {when}
+    </span>
+  );
 }
 
 export const VolumeTile = memo(function VolumeTile({
@@ -48,6 +66,7 @@ export const VolumeTile = memo(function VolumeTile({
       <Cover src={v.cover} alt={v.title} size={420}>
         <div className="tile-badges">
           <div>
+            {releasesSoon(v.date) && <SoonBadge v={v} />}
             {v.read && (
               <span className="badge badge--read">
                 <Check /> Read
@@ -84,7 +103,16 @@ export const VolumeTile = memo(function VolumeTile({
   );
 });
 
-export const SeriesTile = memo(function SeriesTile({ s, list, isAdmin, selectMode, selected, onOpen, onToggle }) {
+export const SeriesTile = memo(function SeriesTile({
+  s,
+  list,
+  soon,
+  isAdmin,
+  selectMode,
+  selected,
+  onOpen,
+  onToggle,
+}) {
   const pct = s.count ? Math.round((s.readCount / s.count) * 100) : 0;
   const complete = s.count > 0 && s.readCount === s.count;
   const range = formatVolumeRange(s.volNumbers);
@@ -104,6 +132,7 @@ export const SeriesTile = memo(function SeriesTile({ s, list, isAdmin, selectMod
       <Cover src={s.cover} alt={s.title} size={480}>
         <div className="tile-badges">
           <div>
+            {soon && <SoonBadge v={soon} />}
             {list === "library" && complete && (
               <span className="badge badge--read">
                 <Check /> Read
