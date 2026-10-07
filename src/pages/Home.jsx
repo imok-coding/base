@@ -97,6 +97,9 @@ function HomeInner() {
         .slice(0, 6),
     [publicWishlist, publicLibrary, today]
   );
+  // the header fan: the latest volumes added to the library, newest in front
+  const fan = useMemo(() => recentlyAdded.filter((v) => v.cover).slice(0, 5), [recentlyAdded]);
+
   // series covers for the most recently bought series
   const mosaic = useMemo(() => {
     const covers = seriesCovers(publicLibrary);
@@ -146,8 +149,8 @@ function HomeInner() {
           </div>
         </div>
         <div className="home-fan" aria-hidden="true">
-          {mosaic.map((v, i) => (
-            <div className="home-fan-card" style={{ "--i": i, "--n": mosaic.length }} key={v.id}>
+          {fan.map((v, i) => (
+            <div className="home-fan-card" style={{ "--i": i, "--n": fan.length }} key={v.id}>
               <Cover src={v.cover} alt="" size={420} eager />
             </div>
           ))}
