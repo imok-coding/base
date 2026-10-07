@@ -25,7 +25,15 @@ import { downloadCoversZip, downloadCSV, downloadJSON } from "../../lib/download
 import { useAuth } from "../auth/AuthContext";
 import { useManga } from "./MangaData";
 import { MangaWorkspace, useWorkspace } from "./Workspace";
-import { compareVolumes, groupSeries, LIST_LABEL, missingFields, seriesSlug, soonBySeries } from "./model";
+import {
+  compareVolumes,
+  groupSeries,
+  LIST_LABEL,
+  missingFields,
+  seriesCovers,
+  seriesSlug,
+  soonBySeries,
+} from "./model";
 import { SeriesTile, TileSkeletons, VolumeTile } from "./components/Tiles";
 import FilterSheet from "./components/FilterSheet";
 import "./manga.css";
@@ -166,7 +174,15 @@ function MangaPageInner() {
     return () => io.disconnect();
   }, []);
 
-  const allSeries = useMemo(() => groupSeries(base), [base]);
+  // one cover per series everywhere, so the wishlist tab matches the library
+  const covers = useMemo(
+    () => seriesCovers([...data.publicLibrary, ...data.publicWishlist]),
+    [data.publicLibrary, data.publicWishlist]
+  );
+  const allSeries = useMemo(
+    () => groupSeries(base).map((s) => ({ ...s, cover: covers.get(s.key) || s.cover })),
+    [base, covers]
+  );
   // a series card counts releases from both lists, so the next volume on the
   // wishlist shows up on the series you already own
   const soon = useMemo(

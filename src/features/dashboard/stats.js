@@ -1,6 +1,7 @@
 // Dashboard stats. Works on the normalized volumes from MangaData
 // (fields: seriesKey, series, vol, read, dateRead, datePurchased, date, etc).
 import { parseDate, toNumber } from "../../lib/format";
+import { seriesCovers } from "../manga/model";
 
 const MS_DAY = 86400000;
 
@@ -226,7 +227,7 @@ export function seriesProgress(library, wishlist) {
       e = {
         key: v.seriesKey,
         title: v.series,
-        cover: v.cover,
+        cover: "",
         highestOwnedVolume: 0,
         lastReadVolume: 0,
         unreadCount: 0,
@@ -259,8 +260,9 @@ export function seriesProgress(library, wishlist) {
     }
     const dp = parseDate(v.datePurchased);
     if (dp && dp.getTime() > e.latestPurchaseTs) e.latestPurchaseTs = dp.getTime();
-    if (!e.cover && v.cover) e.cover = v.cover;
   }
+  const covers = seriesCovers(library);
+  for (const e of map.values()) e.cover = covers.get(e.key) || "";
   for (const v of wishlist) {
     const e = map.get(v.seriesKey);
     if (e) e.wishlistCount += 1;

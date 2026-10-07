@@ -155,6 +155,16 @@ export function seriesCover(items) {
   return (list.find((v) => !v.read) || list.at(-1)).cover;
 }
 
+/** seriesCover() for every series in a list of volumes, keyed by series. */
+export function seriesCovers(volumes) {
+  const bySeries = new Map();
+  for (const v of volumes) {
+    if (!bySeries.has(v.seriesKey)) bySeries.set(v.seriesKey, []);
+    bySeries.get(v.seriesKey).push(v);
+  }
+  return new Map([...bySeries].map(([key, items]) => [key, seriesCover(items)]));
+}
+
 // how far ahead the "coming soon" badge looks
 export const SOON_DAYS = 14;
 

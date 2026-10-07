@@ -186,7 +186,7 @@ export default function Overview({ stats }) {
             <>
               <div className="pick">
                 <Link to={`/manga/series/${seriesSlug(pick.key)}`} aria-label={pick.title}>
-                  <Cover src={pick.firstUnread?.cover || pick.cover} alt={pick.title} size={300} />
+                  <Cover src={pick.cover} alt={pick.title} size={300} />
                 </Link>
                 <div style={{ minWidth: 0 }}>
                   <div className="pick-title">{pick.title}</div>

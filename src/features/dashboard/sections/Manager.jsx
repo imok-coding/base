@@ -4,7 +4,7 @@ import Cover from "../../../components/ui/Cover";
 import Empty from "../../../components/ui/Empty";
 import { useManga } from "../../manga/MangaData";
 import { useWorkspace } from "../../manga/Workspace";
-import { FIELD_LABELS, LIST_LABEL, missingFields } from "../../manga/model";
+import { FIELD_LABELS, LIST_LABEL, missingFields, seriesCovers } from "../../manga/model";
 
 export default function Manager() {
   const { library, wishlist } = useManga();
@@ -18,6 +18,7 @@ export default function Manager() {
   const volumes = list === "library" ? library : wishlist;
 
   const annotated = useMemo(() => volumes.map((v) => ({ v, missing: missingFields(v) })), [volumes]);
+  const covers = useMemo(() => seriesCovers([...library, ...wishlist]), [library, wishlist]);
   const incomplete = annotated.filter((a) => a.missing.length).length;
   const healthPct = annotated.length ? Math.round(((annotated.length - incomplete) / annotated.length) * 100) : 100;
 
@@ -34,10 +35,9 @@ export default function Manager() {
       if (q && !`${a.v.title} ${a.v.publisher} ${a.v.isbn}`.toLowerCase().includes(q)) continue;
       let g = map.get(a.v.seriesKey);
       if (!g) {
-        g = { key: a.v.seriesKey, title: a.v.series, cover: "", rows: [], missing: 0 };
+        g = { key: a.v.seriesKey, title: a.v.series, cover: covers.get(a.v.seriesKey) || "", rows: [], missing: 0 };
         map.set(a.v.seriesKey, g);
       }
-      if (!g.cover && a.v.cover) g.cover = a.v.cover;
       g.rows.push(a);
       if (a.missing.length) g.missing += 1;
     }
@@ -45,7 +45,7 @@ export default function Manager() {
     if (field) out = out.filter((g) => g.rows.some((r) => r.missing.includes(field)));
     else if (onlyMissing) out = out.filter((g) => g.missing > 0);
     return out.sort((a, b) => b.missing - a.missing || a.title.localeCompare(b.title));
-  }, [annotated, query, field, onlyMissing]);
+  }, [annotated, covers, query, field, onlyMissing]);
 
   const toggleOpen = (key) =>
     setOpen((prev) => {
