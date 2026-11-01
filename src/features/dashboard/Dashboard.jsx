@@ -19,6 +19,7 @@ import { useDashboardWebhooks } from "./useDashboardWebhooks";
 import { useSuggestions } from "./useSuggestions";
 import Overview from "./sections/Overview";
 import CalendarView from "./sections/CalendarView";
+import { useNewVolumes } from "./useNewVolumes";
 import Manager from "./sections/Manager";
 import Inbox from "./sections/Inbox";
 import Settings from "./sections/Settings";
@@ -31,6 +32,7 @@ function DashboardInner() {
   const stats = useMemo(() => computeStats(library, wishlist), [library, wishlist]);
   const suggestions = useSuggestions();
   const needsInfo = useMemo(() => library.filter((v) => missingFields(v).length).length, [library]);
+  const newVolumes = useNewVolumes();
   useDashboardWebhooks(stats, !loading);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ function DashboardInner() {
 
   const tabs = [
     { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
-    { to: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
+    { to: "/dashboard/calendar", label: "Calendar", icon: CalendarDays, badge: newVolumes.items.length },
     { to: "/dashboard/manager", label: "Manager", icon: Wrench, badge: needsInfo },
     { to: "/dashboard/games", label: "Games", icon: Gamepad2 },
     { to: "/dashboard/inbox", label: "Inbox", icon: InboxIcon, badge: suggestions.items.length },
@@ -77,7 +79,7 @@ function DashboardInner() {
       ) : (
         <Routes>
           <Route index element={<Overview stats={stats} />} />
-          <Route path="calendar" element={<CalendarView stats={stats} />} />
+          <Route path="calendar" element={<CalendarView stats={stats} newVolumes={newVolumes} />} />
           <Route path="manager" element={<Manager />} />
           <Route path="games" element={<GamesSection />} />
           <Route path="inbox" element={<Inbox suggestions={suggestions} />} />

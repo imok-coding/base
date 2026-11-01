@@ -1039,3 +1039,135 @@ button.cal-day:hover {
     background: var(--bg);
   }
 }
+
+/* New volumes found on Wikipedia */
+.newvol {
+  margin-bottom: 20px;
+}
+
+.newvol-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.newvol-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.newvol-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.newvol-cover.cover {
+  width: 40px;
+  box-shadow: none;
+}
+
+.newvol-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.newvol-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.newvol-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-3);
+}
+
+.newvol-meta a:hover {
+  color: var(--text-1);
+}
+
+.newvol-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.newvol-more {
+  margin-top: 10px;
+  align-self: flex-start;
+}
+
+.newvol-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.newvol-unmatched {
+  margin-top: 12px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.newvol-unmatched summary {
+  cursor: pointer;
+}
+
+.newvol-unmatched p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .newvol-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .newvol-actions {
+    grid-column: 2;
+  }
+
+  .card-head:has(.newvol-head-actions) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* games stats split by format */
+.games-format {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 520px) {
+  /* four equal buttons that fit a phone, the icons drop out */
+  .games-format .segmented {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .games-format .segmented button {
+    gap: 5px;
+    padding: 0 6px;
+  }
+
+  .games-format .segmented button svg {
+    display: none;
+  }
+}
